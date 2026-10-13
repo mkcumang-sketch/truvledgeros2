@@ -55,6 +55,8 @@ const ChatMessageSchema = z.object({
     .transform(sanitizeStringInput),
 });
 
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Mandatory Tenant Authentication

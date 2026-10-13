@@ -6,6 +6,8 @@ import {
 } from "@/lib/server/actions/automation-actions";
 import { AutomationsClient } from "./AutomationsClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "5-Suite Automations & n8n Engine — TRUV LedgerOS",
   description: "Enterprise workflow automation, transactional outbox ledger, and compliance scheduling.",

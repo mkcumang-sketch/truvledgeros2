@@ -4,6 +4,7 @@ const nextConfig = {
   poweredByHeader: false,
   experimental: {
     cpus: 1,
+    serverComponentsExternalPackages: ["ioredis"],
   },
   images: {
     // Disable external SVG execution and remote unconstrained domains

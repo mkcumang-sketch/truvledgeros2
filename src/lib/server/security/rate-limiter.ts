@@ -1,129 +1,20 @@
-import { NextResponse } from "next/server";
-import Redis from "ioredis";
+import type Redis from "ioredis";
+import {
+  RateLimitConfig,
+  RateLimitStatus,
+  RATE_LIMIT_TIERS,
+  InMemorySlidingWindowStore,
+  getClientIp,
+  createRateLimitResponse,
+} from "./rate-limiter-shared";
 
-export interface RateLimitConfig {
-  limit: number;
-  windowSeconds: number;
-  lockoutSeconds?: number;
-  failClosed?: boolean;
-}
-
-export interface RateLimitStatus {
-  allowed: boolean;
-  limit: number;
-  remaining: number;
-  resetTime: number; // unix timestamp in seconds
-  retryAfterSeconds: number;
-  backend: "redis" | "in-memory";
-  error?: string;
-}
-
-export const RATE_LIMIT_TIERS = {
-  AUTH: { limit: 5, windowSeconds: 15 * 60, lockoutSeconds: 15 * 60, failClosed: true } as RateLimitConfig,
-  EMAIL_SMS: { limit: 3, windowSeconds: 60 * 60, lockoutSeconds: 60 * 60, failClosed: true } as RateLimitConfig,
-  SEARCH_LIST: { limit: 60, windowSeconds: 60, failClosed: false } as RateLimitConfig,
-  GENERAL_API: { limit: 100, windowSeconds: 60, failClosed: false } as RateLimitConfig,
-  AI_API: { limit: 20, windowSeconds: 60, lockoutSeconds: 5 * 60, failClosed: true } as RateLimitConfig,
+export {
+  RATE_LIMIT_TIERS,
+  getClientIp,
+  createRateLimitResponse,
+  InMemorySlidingWindowStore,
 };
-
-interface WindowEntry {
-  count: number;
-  windowStart: number;
-  lockedUntil?: number;
-}
-
-/**
- * In-memory sliding window bucket store with automated garbage collection.
- * Used for development environments or unit tests when REDIS_URL is unconfigured.
- */
-class InMemorySlidingWindowStore {
-  private store: Map<string, WindowEntry> = new Map();
-  private lastCleanup: number = Date.now();
-
-  public check(key: string, config: RateLimitConfig): RateLimitStatus {
-    this.evictStale();
-    const now = Date.now();
-    const windowMs = config.windowSeconds * 1000;
-    const lockoutMs = (config.lockoutSeconds || config.windowSeconds) * 1000;
-
-    let entry = this.store.get(key);
-
-    // If locked out
-    if (entry?.lockedUntil && now < entry.lockedUntil) {
-      const retryAfterSeconds = Math.ceil((entry.lockedUntil - now) / 1000);
-      return {
-        allowed: false,
-        limit: config.limit,
-        remaining: 0,
-        resetTime: Math.ceil(entry.lockedUntil / 1000),
-        retryAfterSeconds: Math.max(1, retryAfterSeconds),
-        backend: "in-memory",
-      };
-    }
-
-    // New window or expired window
-    if (!entry || now - entry.windowStart >= windowMs) {
-      entry = { count: 1, windowStart: now };
-      this.store.set(key, entry);
-      return {
-        allowed: true,
-        limit: config.limit,
-        remaining: config.limit - 1,
-        resetTime: Math.ceil((now + windowMs) / 1000),
-        retryAfterSeconds: 0,
-        backend: "in-memory",
-      };
-    }
-
-    // Within current window
-    entry.count += 1;
-
-    if (entry.count > config.limit) {
-      entry.lockedUntil = now + lockoutMs;
-      const retryAfterSeconds = Math.ceil(lockoutMs / 1000);
-      return {
-        allowed: false,
-        limit: config.limit,
-        remaining: 0,
-        resetTime: Math.ceil(entry.lockedUntil / 1000),
-        retryAfterSeconds: Math.max(1, retryAfterSeconds),
-        backend: "in-memory",
-      };
-    }
-
-    const remaining = Math.max(0, config.limit - entry.count);
-    const resetTime = Math.ceil((entry.windowStart + windowMs) / 1000);
-
-    return {
-      allowed: true,
-      limit: config.limit,
-      remaining,
-      resetTime,
-      retryAfterSeconds: 0,
-      backend: "in-memory",
-    };
-  }
-
-  public reset(key: string): void {
-    this.store.delete(key);
-  }
-
-  public clear(): void {
-    this.store.clear();
-  }
-
-  private evictStale(): void {
-    const now = Date.now();
-    if (now - this.lastCleanup < 60000) return;
-    this.lastCleanup = now;
-
-    for (const [k, v] of this.store.entries()) {
-      if (now - v.windowStart > 3600000 && (!v.lockedUntil || now > v.lockedUntil)) {
-        this.store.delete(k);
-      }
-    }
-  }
-}
+export type { RateLimitConfig, RateLimitStatus };
 
 /**
  * Concurrency-safe Redis Lua script executing atomic sliding window counter updates.
@@ -161,6 +52,7 @@ end
 /**
  * Enterprise Distributed Rate Limiter
  * - Connected via Redis (REDIS_URL) with atomic Lua script execution.
+ * - Exclusively executed in server-side Node.js runtime code.
  * - Enforces fail-closed security on sensitive auth endpoints if Redis is unavailable.
  * - Falls back to in-memory store in non-production development environments.
  */
@@ -177,6 +69,7 @@ export class DistributedRateLimiter {
 
   /**
    * Initializes or returns the singleton Redis client.
+   * Loads ioredis strictly in server-side Node.js runtime.
    */
   private getRedisClient(): Redis | null {
     if (this.redisClient) return this.redisClient;
@@ -196,7 +89,12 @@ export class DistributedRateLimiter {
 
     try {
       this.isConnecting = true;
-      this.redisClient = new Redis(redisUrl, {
+
+      // Ensure ioredis is loaded dynamically only in Node.js runtime
+      const ioredisModule = require("ioredis");
+      const RedisClass = ioredisModule.default || ioredisModule;
+
+      const client = new RedisClass(redisUrl, {
         connectTimeout: 2000,
         commandTimeout: this.commandTimeoutMs,
         maxRetriesPerRequest: 1,
@@ -204,16 +102,17 @@ export class DistributedRateLimiter {
         enableOfflineQueue: false,
       });
 
-      this.redisClient.on("error", (err) => {
+      client.on("error", (err: any) => {
         if (!this.connectionErrorLogged) {
           console.error("[REDIS_RATE_LIMITER_ERROR] Redis connection error:", err.message);
           this.connectionErrorLogged = true;
         }
       });
 
-      this.redisClient.connect().catch(() => null);
+      client.connect().catch(() => null);
+      this.redisClient = client;
     } catch (err: any) {
-      console.error("[REDIS_RATE_LIMITER_INIT_ERROR]", err.message);
+      console.error("[REDIS_RATE_LIMITER_INIT_ERROR]", err?.message || err);
       this.redisClient = null;
     } finally {
       this.isConnecting = false;
@@ -349,86 +248,3 @@ export class DistributedRateLimiter {
 }
 
 export const rateLimiter = new DistributedRateLimiter();
-
-/**
- * Extracts sanitized client IP address from request headers.
- * Resolves trustworthy identity by inspecting Cloudflare / reverse proxy headers
- * according to configured proxy depth, avoiding spoofable client-supplied IPs.
- */
-export function getClientIp(req: Request): string {
-  // 1. Cloudflare CF-Connecting-IP (cannot be forged if edge origin is restricted)
-  const cfIp = req.headers.get("cf-connecting-ip");
-  if (cfIp && cfIp.trim()) {
-    return sanitizeIp(cfIp.trim());
-  }
-
-  // 2. Real-IP header from trusted reverse proxy
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp && realIp.trim()) {
-    return sanitizeIp(realIp.trim());
-  }
-
-  // 3. X-Forwarded-For: trust rightmost IP based on TRUSTED_PROXY_DEPTH
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) {
-    const parts = xff
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length > 0) {
-      const depth = Math.max(1, parseInt(process.env.TRUSTED_PROXY_DEPTH || "1", 10));
-      const targetIndex = Math.max(0, parts.length - depth);
-      return sanitizeIp(parts[targetIndex] || parts[parts.length - 1]);
-    }
-  }
-
-  return "127.0.0.1";
-}
-
-function sanitizeIp(ip: string): string {
-  return ip
-    .replace(/^\[/, "")
-    .replace(/\](:\d+)?$/, "")
-    .replace(/:\d+$/, "")
-    .trim();
-}
-
-/**
- * Creates standard HTTP 429 Too Many Requests response with Retry-After header,
- * or HTTP 503 if the rate limiter backend failed closed.
- */
-export function createRateLimitResponse(status: RateLimitStatus): NextResponse {
-  if (status.error === "REDIS_UNAVAILABLE" || status.error === "REDIS_REQUIRED_IN_PRODUCTION") {
-    return NextResponse.json(
-      {
-        error: "Service Temporarily Unavailable",
-        message: "Rate limiting infrastructure is temporarily unavailable. Request failed closed under security policy.",
-        code: "RATE_LIMIT_DEGRADED",
-        retryAfterSeconds: status.retryAfterSeconds,
-      },
-      {
-        status: 503,
-        headers: {
-          "Retry-After": status.retryAfterSeconds.toString(),
-        },
-      }
-    );
-  }
-
-  return NextResponse.json(
-    {
-      error: "Too Many Requests",
-      message: `Rate limit exceeded. Please try again after ${status.retryAfterSeconds} seconds.`,
-      retryAfterSeconds: status.retryAfterSeconds,
-    },
-    {
-      status: 429,
-      headers: {
-        "Retry-After": status.retryAfterSeconds.toString(),
-        "X-RateLimit-Limit": status.limit.toString(),
-        "X-RateLimit-Remaining": Math.max(0, status.remaining).toString(),
-        "X-RateLimit-Reset": status.resetTime.toString(),
-      },
-    }
-  );
-}

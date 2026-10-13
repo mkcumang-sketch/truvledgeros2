@@ -15,6 +15,8 @@ import {
   withTimeout,
 } from "@/lib/server/security/request-validator";
 
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   const context = await getSessionContext();
   if (!context?.membership) {

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
-  rateLimiter,
+  edgeRateLimiter,
   getClientIp,
   createRateLimitResponse,
   RATE_LIMIT_TIERS,
-} from "@/lib/server/security/rate-limiter";
+} from "@/lib/server/security/edge-rate-limiter";
 import {
   MAX_BODY_SIZE_BYTES,
   MAX_UPLOAD_SIZE_BYTES,
@@ -111,7 +111,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/reset-password" ||
     pathname.startsWith("/api/auth/login")
   ) {
-    const rateStatus = await rateLimiter.check(`ip:auth:${clientIp}`, RATE_LIMIT_TIERS.AUTH);
+    const rateStatus = await edgeRateLimiter.check(`ip:auth:${clientIp}`, RATE_LIMIT_TIERS.AUTH);
     if (!rateStatus.allowed) {
       const res = createRateLimitResponse(rateStatus);
       applySecurityHeaders(res);
@@ -122,7 +122,7 @@ export async function middleware(request: NextRequest) {
   // Tier B: General API Endpoints (100 per min per IP/User)
   if (isApiRoute) {
     const rateKey = sessionToken ? `user:api:${sessionToken}` : `ip:api:${clientIp}`;
-    const rateStatus = await rateLimiter.check(rateKey, RATE_LIMIT_TIERS.GENERAL_API);
+    const rateStatus = await edgeRateLimiter.check(rateKey, RATE_LIMIT_TIERS.GENERAL_API);
     if (!rateStatus.allowed) {
       const res = createRateLimitResponse(rateStatus);
       applySecurityHeaders(res);

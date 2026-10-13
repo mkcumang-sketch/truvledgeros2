@@ -9,6 +9,8 @@ import {
 } from "@/lib/server/security/rate-limiter";
 import { withTimeout } from "@/lib/server/security/request-validator";
 
+export const runtime = "nodejs";
+
 /**
  * Scheduled Cron Endpoint to drain the transactional outbox queue.
  * Strictly protected by CRON_SECRET or N8N_WEBHOOK_SECRET via constant-time verification.

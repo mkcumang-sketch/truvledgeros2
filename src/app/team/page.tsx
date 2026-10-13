@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Practice Team — TRUV LedgerOS",
   description: "Manage practice partners, managers, and executive staff memberships.",
