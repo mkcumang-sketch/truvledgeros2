@@ -24,6 +24,8 @@ const InboundWebhookSchema = z.object({
   payload: z.record(z.any()),
 });
 
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();

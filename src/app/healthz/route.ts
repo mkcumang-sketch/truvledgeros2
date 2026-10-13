@@ -6,6 +6,8 @@ const bootTime = Date.now();
  * Liveness Probe (/healthz)
  * Informs load balancers and container orchestrators that the application process is running.
  */
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const uptimeSeconds = Math.floor((Date.now() - bootTime) / 1000);
   return NextResponse.json(

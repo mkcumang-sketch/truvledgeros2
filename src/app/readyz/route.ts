@@ -7,6 +7,9 @@ import { withTimeout } from "@/lib/server/security/request-validator";
  * Tests dependent systems (database connection pool, caches) before accepting user traffic.
  * If unhealthy, returns 503 so traffic is immediately rerouted by the load balancer.
  */
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET() {
   try {
     // Test DB connection with a strict 3-second timeout

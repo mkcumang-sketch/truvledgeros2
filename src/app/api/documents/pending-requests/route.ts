@@ -4,6 +4,9 @@ import * as authSession from "@/lib/auth/session";
 import { Prisma } from "@prisma/client";
 import { authorizeM2MRequest } from "@/lib/server/m2m-auth";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   try {
     const m2mAuth = await authorizeM2MRequest(req);

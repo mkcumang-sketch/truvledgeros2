@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: "Global tenant orchestration and super-admin controls",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function GodmodePage() {
   const context = await getSessionContext();
 
