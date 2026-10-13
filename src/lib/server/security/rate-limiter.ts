@@ -59,6 +59,7 @@ end
 export class DistributedRateLimiter {
   private inMemoryStore: InMemorySlidingWindowStore = new InMemorySlidingWindowStore();
   private redisClient: Redis | null = null;
+  private connectionPromise: Promise<any> | null = null;
   private isConnecting: boolean = false;
   private connectionErrorLogged: boolean = false;
   private commandTimeoutMs: number = 1000;
@@ -68,24 +69,28 @@ export class DistributedRateLimiter {
   }
 
   /**
-   * Initializes or returns the singleton Redis client.
+   * Initializes or returns the singleton Redis client with proper connection awaiting.
    * Loads ioredis strictly in server-side Node.js runtime.
    */
-  private getRedisClient(): Redis | null {
-    if (this.redisClient) return this.redisClient;
+  private async getRedisClient(): Promise<Redis | null> {
+    if (this.redisClient) {
+      if (this.connectionPromise) {
+        await this.connectionPromise.catch(() => null);
+      }
+      return this.redisClient;
+    }
 
     const redisUrl = process.env.REDIS_URL?.trim();
     if (!redisUrl) {
-      if (process.env.NODE_ENV === "production" && !this.connectionErrorLogged) {
-        console.warn(
-          "[SECURITY WARNING] REDIS_URL is not configured in production! Multi-instance distributed rate limiting is disabled."
-        );
-        this.connectionErrorLogged = true;
-      }
       return null;
     }
 
-    if (this.isConnecting) return null;
+    if (this.isConnecting) {
+      if (this.connectionPromise) {
+        await this.connectionPromise.catch(() => null);
+      }
+      return this.redisClient;
+    }
 
     try {
       this.isConnecting = true;
@@ -109,7 +114,15 @@ export class DistributedRateLimiter {
         }
       });
 
-      client.connect().catch(() => null);
+      const connPromise = client.connect();
+      this.connectionPromise = connPromise;
+      await connPromise.catch((connErr: any) => {
+        if (!this.connectionErrorLogged) {
+          console.error("[REDIS_RATE_LIMITER_CONNECT_ERROR] Failed to establish TCP connection:", connErr?.message || connErr);
+          this.connectionErrorLogged = true;
+        }
+      });
+
       this.redisClient = client;
     } catch (err: any) {
       console.error("[REDIS_RATE_LIMITER_INIT_ERROR]", err?.message || err);
@@ -126,30 +139,111 @@ export class DistributedRateLimiter {
    */
   public setRedisClient(client: Redis | null): void {
     this.redisClient = client;
+    this.connectionPromise = null;
     this.connectionErrorLogged = false;
   }
 
   /**
    * Returns current active storage backend.
    */
-  public getBackendType(): "redis" | "in-memory" {
-    return this.redisClient || process.env.REDIS_URL ? "redis" : "in-memory";
+  public getBackendType(): "redis" | "in-memory" | "edge-redis" {
+    if (this.redisClient || process.env.REDIS_URL) return "redis";
+    if (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) return "edge-redis";
+    return "in-memory";
   }
 
   /**
-   * Asynchronous rate check with atomic Redis Lua script execution and fail-closed handling.
+   * Asynchronous rate check with atomic Redis Lua / Upstash REST script execution and fail-closed handling.
    */
   public async check(key: string, config: RateLimitConfig): Promise<RateLimitStatus> {
-    const client = this.getRedisClient();
+    const fullKey = `ratelimit:${key}`;
+    const windowSec = config.windowSeconds;
+    const limit = config.limit;
+    const lockoutSec = config.lockoutSeconds || windowSec;
 
-    // 1. If Redis client is active, execute atomic Lua rate check
+    // 1. If Upstash REST is configured and no mock Redis client was injected, prefer HTTP REST
+    const restUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL)?.trim();
+    const restToken = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN)?.trim();
+
+    if (!this.redisClient && restUrl && restToken) {
+      try {
+        const response = await fetch(`${restUrl}/pipeline`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${restToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify([
+            ["INCR", fullKey],
+            ["TTL", fullKey],
+          ]),
+          signal: AbortSignal.timeout(this.commandTimeoutMs),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upstash REST responded with HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const currentCount = Number(data[0]?.result || 1);
+        let ttl = Number(data[1]?.result || -1);
+
+        if (ttl === -1 || currentCount === 1) {
+          ttl = windowSec;
+          await fetch(`${restUrl}/expire/${encodeURIComponent(fullKey)}/${windowSec}`, {
+            headers: { Authorization: `Bearer ${restToken}` },
+          }).catch(() => null);
+        }
+
+        if (currentCount > limit) {
+          if (lockoutSec > ttl) {
+            await fetch(`${restUrl}/expire/${encodeURIComponent(fullKey)}/${lockoutSec}`, {
+              headers: { Authorization: `Bearer ${restToken}` },
+            }).catch(() => null);
+            ttl = lockoutSec;
+          }
+          return {
+            allowed: false,
+            limit,
+            remaining: 0,
+            resetTime: Math.ceil(Date.now() / 1000) + ttl,
+            retryAfterSeconds: Math.max(1, ttl),
+            backend: "edge-redis",
+          };
+        }
+
+        return {
+          allowed: true,
+          limit,
+          remaining: Math.max(0, limit - currentCount),
+          resetTime: Math.ceil(Date.now() / 1000) + ttl,
+          retryAfterSeconds: 0,
+          backend: "edge-redis",
+        };
+      } catch (restErr: any) {
+        console.error(`[RATE_LIMIT_REST_ERROR] Key: ${key}, Error: ${restErr.message}`);
+        const failClosed = config.failClosed ?? (config === RATE_LIMIT_TIERS.AUTH);
+        if (failClosed || process.env.NODE_ENV === "production") {
+          console.error("[AUTH_SECURITY_ALERT] Distributed REST rate limiter unavailable. Fail-closed defense engaged.");
+          return {
+            allowed: false,
+            limit: config.limit,
+            remaining: 0,
+            resetTime: Math.ceil(Date.now() / 1000) + 30,
+            retryAfterSeconds: 30,
+            backend: "edge-redis",
+            error: "REDIS_UNAVAILABLE",
+          };
+        }
+        return this.inMemoryStore.check(key, config);
+      }
+    }
+
+    // 2. TCP Redis (ioredis) execution
+    const client = await this.getRedisClient();
+
     if (client) {
       try {
-        const fullKey = `ratelimit:${key}`;
-        const windowSec = config.windowSeconds;
-        const limit = config.limit;
-        const lockoutSec = config.lockoutSeconds || windowSec;
-
         // Wrap Redis execution in timeout protection
         const resultPromise = client.eval(
           REDIS_RATE_LIMIT_LUA,
@@ -183,6 +277,7 @@ export class DistributedRateLimiter {
         // Fail-Closed policy on sensitive endpoints
         const failClosed = config.failClosed ?? (config === RATE_LIMIT_TIERS.AUTH);
         if (failClosed || process.env.NODE_ENV === "production") {
+          console.error("[AUTH_SECURITY_ALERT] Distributed TCP rate limiter unavailable. Fail-closed defense engaged.");
           return {
             allowed: false,
             limit: config.limit,
@@ -199,9 +294,9 @@ export class DistributedRateLimiter {
       }
     }
 
-    // 2. Fallback to in-memory store if Redis is not configured
+    // 3. Fallback if Redis is completely unconfigured
     if (process.env.NODE_ENV === "production" && config.failClosed) {
-      // In production without Redis, fail closed on sensitive auth operations
+      console.error("[AUTH_SECURITY_ALERT] Distributed rate limiter unconfigured in production. Fail-closed defense engaged.");
       return {
         allowed: false,
         limit: config.limit,

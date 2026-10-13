@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --background: #F7F6F1;
-  --foreground: #171A19;
+  --background: #F5F4EF;
+  --foreground: #202522;
   
   --surface: #FFFFFF;
-  --surface-muted: #FAF9F5;
-  --surface-active: #EFECE3;
+  --surface-muted: #FAFAF7;
+  --surface-active: #EDEBE3;
   
-  --border: #E2E0D8;
-  --border-subtle: #EBE9E1;
+  --border: #E8ECE8;
+  --border-subtle: #F0F2F0;
   --border-focus: #087F5B;
   
   --primary: #087F5B;
@@ -19,11 +19,11 @@
   --primary-foreground: #FFFFFF;
   --primary-tint: #EDF8F4;
   
-  --muted: #5F6662;
-  --muted-light: #8B938E;
+  --muted: #5B6660;
+  --muted-light: #929F98;
   
-  --gold-accent: #C89B3C;
-  --gold-tint: #FBF7ED;
+  --gold-accent: #D4A64A;
+  --gold-tint: #FDFBF7;
   
   --success: #087F5B;
   --success-bg: #EDF8F4;
@@ -43,6 +43,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Enforce tabular numerals on all data/numbers */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Custom professional scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
@@ -54,16 +59,26 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D3D7D4;
+  background: #D3DBD6;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #929A95;
+  background: #929F98;
 }
 
 /* Accessible focus ring */
 :focus-visible {
   outline: 2px solid #087F5B;
   outline-offset: 2px;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

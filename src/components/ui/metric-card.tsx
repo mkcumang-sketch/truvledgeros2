@@ -31,7 +31,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "bg-white border border-[#E2E0D8] rounded-xl p-5 shadow-card hover:shadow-card-hover transition-shadow flex flex-col justify-between",
+        "bg-white border border-[#E8ECE8] rounded-xl p-5 shadow-card hover:shadow-card-hover transition-shadow duration-150 motion-reduce:transition-none flex flex-col justify-between",
         className
       )}
     >
@@ -43,7 +43,7 @@ export function MetricCard({
       </div>
 
       <div className="mt-3 flex items-baseline justify-between gap-2">
-        <span className="text-2xl font-bold tracking-tight text-graphite-900">
+        <span className="text-2xl font-bold tracking-tight text-graphite-900 tabular-nums">
           {value}
         </span>
         {badge && (

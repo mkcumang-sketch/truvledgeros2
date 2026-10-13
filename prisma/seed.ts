@@ -1,19 +1,23 @@
 import { PrismaClient, Role, InvoiceStatus, PaymentRecoveryStage, GstReturnType, GstReturnStatus, DocumentStatus, CommunicationChannel, CommunicationDirection, TaskType, TaskStatus, SubscriptionTier, EventStatus } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 declare const process: any;
 async function main() {
   console.log("🌱 Seeding TRUV LedgerOS Multi-Tenant Production Foundation...");
-  
+
+  const defaultSeedPassword = process.env.SEED_DEFAULT_PASSWORD || "Password123!";
+  const seedPasswordHash = await bcrypt.hash(defaultSeedPassword, 12);
 
   // 1. GODMODE PLATFORM SUPERADMIN
   const godmodeUser = await prisma.user.upsert({
     where: { email: "godmode@truvtech.com" },
-    update: {},
+    update: {}, // Never overwrite existing credentials in production
     create: {
       name: "TRUVTECH Platform Admin",
       email: "godmode@truvtech.com",
       phone: "+919999900000",
+      passwordHash: seedPasswordHash,
       isSuperAdmin: true,
       active: true,
     },
@@ -86,11 +90,12 @@ async function main() {
   for (const u of usersData) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: {},
+      update: {}, // Never overwrite existing credentials in production
       create: {
         name: u.name,
         email: u.email,
         phone: u.phone,
+        passwordHash: seedPasswordHash,
         active: true,
       },
     });

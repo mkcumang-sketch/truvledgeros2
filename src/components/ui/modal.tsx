@@ -63,12 +63,12 @@ export function Modal({
       {/* Modal Dialog Body */}
       <div
         className={cn(
-          "relative w-full bg-white rounded-2xl shadow-popover border border-[#E2E0D8] z-10 max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150",
+          "relative w-full bg-white rounded-2xl shadow-popover border border-[#E8ECE8] z-10 max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none",
           maxWidthStyles[maxWidth]
         )}
       >
         {/* Header */}
-        <div className="px-6 py-4.5 border-b border-[#EBE9E1] flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-4.5 border-b border-[#E8ECE8] flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-base font-bold text-graphite-900 leading-tight">
               {title}
@@ -79,7 +79,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-graphite-400 hover:text-graphite-700 hover:bg-[#FAF9F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            className="p-1.5 rounded-lg text-graphite-400 hover:text-graphite-700 hover:bg-[#FAFAF7] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" />

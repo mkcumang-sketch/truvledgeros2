@@ -1,19 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loginAction } from "@/lib/auth/actions";
 import Link from "next/link";
-import { Sparkles, ArrowRight, ShieldCheck, Lock, Mail } from "lucide-react";
+import { Sparkles, ArrowRight, Lock, Mail, Clock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
+
+  // Active lockout countdown timer
+  useEffect(() => {
+    if (lockoutSeconds === null || lockoutSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev === null || prev <= 1) {
+          setError(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (lockoutSeconds && lockoutSeconds > 0) return;
+
     setError(null);
     setLoading(true);
 
@@ -23,6 +44,9 @@ export default function LoginPage() {
     if (res?.error) {
       setError(res.error);
       setLoading(false);
+      if (res.retryAfter && typeof res.retryAfter === "number") {
+        setLockoutSeconds(res.retryAfter);
+      }
     }
   }
 
@@ -32,54 +56,79 @@ export default function LoginPage() {
     setError(null);
   }
 
+  const isLockedOut = lockoutSeconds !== null && lockoutSeconds > 0;
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-ivory p-4 sm:p-6">
-      <div className="w-full max-w-md bg-white border border-[#E2E0D8] rounded-2xl p-6 sm:p-8 shadow-card">
+      <div className="w-full max-w-md bg-white border border-[#E8ECE8] rounded-xl p-6 sm:p-8 shadow-card">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center mx-auto mb-3 shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center mx-auto mb-3 shadow-xs">
             <Sparkles className="w-5 h-5 text-emerald-100" />
           </div>
           <div className="flex items-center justify-center gap-1.5">
-            <span className="font-extrabold text-graphite-900 text-xl tracking-tight">TRUV</span>
-            <span className="text-emerald-700 font-bold text-xs uppercase px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded">
+            <span className="font-bold text-graphite-900 text-xl tracking-tight">TRUV</span>
+            <span className="text-emerald-700 font-semibold text-xs uppercase px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded">
               LedgerOS
             </span>
           </div>
-          <p className="text-xs text-graphite-500 mt-1.5">
+          <p className="text-xs text-graphite-500 mt-1">
             Indian CA Practice Operating System
           </p>
         </div>
 
-        {error && (
-          <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium text-center">
-            {error}
+        {/* Lockout / Error Feedback */}
+        {isLockedOut ? (
+          <div className="mb-5">
+            <Alert
+              variant="warning"
+              icon={<Clock className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />}
+              title="Authentication Rate Limit Active"
+            >
+              Too many attempts. Please wait{" "}
+              <span className="font-bold tabular-nums text-graphite-900">{lockoutSeconds}s</span> before retrying.
+            </Alert>
           </div>
-        )}
+        ) : error ? (
+          <div className="mb-5">
+            <Alert variant="danger">
+              {error}
+            </Alert>
+          </div>
+        ) : null}
 
+        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-graphite-700 mb-1.5">
+            <label
+              htmlFor="email"
+              className="block text-xs font-semibold text-graphite-700 mb-1.5"
+            >
               Practice Email
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-graphite-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
+                id="email"
                 name="email"
                 type="email"
                 required
+                disabled={loading || isLockedOut}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#E2E0D8] rounded-lg text-graphite-900 placeholder:text-graphite-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-colors"
-                placeholder="priya.kulkarni@truvdemo.in"
+                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#E8ECE8] rounded-lg text-graphite-900 placeholder:text-graphite-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-colors disabled:opacity-60 disabled:bg-[#FAFAF7]"
+                placeholder="practitioner@firm.in"
               />
             </div>
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <label className="block text-xs font-semibold text-graphite-700">
+              <label
+                htmlFor="password"
+                className="block text-xs font-semibold text-graphite-700"
+              >
                 Password
               </label>
               <Link
@@ -92,13 +141,15 @@ export default function LoginPage() {
             <div className="relative">
               <Lock className="w-4 h-4 text-graphite-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
+                id="password"
                 name="password"
                 type="password"
                 required
+                disabled={loading || isLockedOut}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#E2E0D8] rounded-lg text-graphite-900 placeholder:text-graphite-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-colors"
+                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#E8ECE8] rounded-lg text-graphite-900 placeholder:text-graphite-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-colors disabled:opacity-60 disabled:bg-[#FAFAF7]"
                 placeholder="••••••••••••"
               />
             </div>
@@ -109,38 +160,44 @@ export default function LoginPage() {
             variant="primary"
             size="lg"
             isLoading={loading}
+            disabled={isLockedOut}
             className="w-full mt-2"
           >
-            Sign In to Practice
-            <ArrowRight className="w-4 h-4 ml-1" />
+            {isLockedOut ? `Locked (${lockoutSeconds}s)` : "Sign In to Practice"}
+            {!isLockedOut && <ArrowRight className="w-4 h-4 ml-1" />}
           </Button>
         </form>
 
         {/* Demo Fast-Login Assist */}
-        <div className="mt-6 pt-5 border-t border-[#EBE9E1]">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-graphite-400 text-center mb-2.5">
-            Quick Practice Login
-          </p>
+        <div className="mt-6 pt-5 border-t border-[#E8ECE8]">
+          <div className="flex items-center justify-center gap-1.5 text-graphite-400 mb-3">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">
+              Quick Practice Login (Development)
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
+              disabled={isLockedOut}
               onClick={() => fillDemoAccount("priya.kulkarni@truvdemo.in")}
-              className="p-2 rounded-lg border border-[#E2E0D8] bg-[#FAF9F5] hover:bg-emerald-50 hover:border-emerald-200 text-left transition-colors"
+              className="p-2.5 rounded-lg border border-[#E8ECE8] bg-[#FAFAF7] hover:bg-emerald-50 hover:border-emerald-200 text-left transition-colors disabled:opacity-50"
             >
               <p className="text-xs font-bold text-graphite-800">CA Priya Kulkarni</p>
-              <p className="text-[10px] text-graphite-500">Firm Owner</p>
+              <p className="text-[10px] text-graphite-500">Firm Owner (truv-demo-ca)</p>
             </button>
             <button
               type="button"
+              disabled={isLockedOut}
               onClick={() => fillDemoAccount("us7081569@gmail.com")}
-              className="p-2 rounded-lg border border-[#E2E0D8] bg-[#FAF9F5] hover:bg-emerald-50 hover:border-emerald-200 text-left transition-colors"
+              className="p-2.5 rounded-lg border border-[#E8ECE8] bg-[#FAFAF7] hover:bg-emerald-50 hover:border-emerald-200 text-left transition-colors disabled:opacity-50"
             >
               <p className="text-xs font-bold text-graphite-800">Umang Sharma</p>
-              <p className="text-[10px] text-graphite-500">Superadmin</p>
+              <p className="text-[10px] text-graphite-500">Superadmin (demo-firm)</p>
             </button>
           </div>
-          <p className="text-[10px] text-graphite-400 text-center mt-2">
-            Password: <span className="font-mono text-graphite-600">Password123!</span>
+          <p className="text-[10px] text-graphite-400 text-center mt-2.5">
+            Default credentials: <span className="font-mono text-graphite-600 font-medium">Password123!</span>
           </p>
         </div>
       </div>

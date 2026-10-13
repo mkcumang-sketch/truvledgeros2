@@ -27,7 +27,7 @@ export function Badge({
     info: "bg-sky-50 text-sky-800 border-sky-200/80",
     neutral: "bg-graphite-100 text-graphite-800 border-graphite-200/80",
     gold: "bg-gold-50 text-gold-900 border-gold-200/80",
-    outline: "bg-transparent text-graphite-700 border-[#E2E0D8]",
+    outline: "bg-transparent text-graphite-700 border-[#E8ECE8]",
   };
 
   const sizeStyles = {

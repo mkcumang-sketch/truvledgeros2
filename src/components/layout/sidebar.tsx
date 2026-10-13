@@ -30,7 +30,7 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   badge?: string;
-  badgeVariant?: "emerald" | "amber" | "rose" | "teal" | "blue" | "purple" | "admin";
+  badgeVariant?: "emerald" | "amber" | "rose" | "teal" | "blue" | "gold" | "admin";
 }
 
 interface NavSection {
@@ -53,7 +53,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Payments & Recovery", href: "/payments", icon: CreditCard, badge: "Live", badgeVariant: "rose" },
       { label: "GST Compliance", href: "/gst", icon: Landmark, badge: "GSTR", badgeVariant: "teal" },
       { label: "Documents", href: "/documents", icon: FolderDown, badge: "Vault", badgeVariant: "blue" },
-      { label: "Tasks & Approvals", href: "/tasks", icon: ListTodo, badge: "Review", badgeVariant: "purple" },
+      { label: "Tasks & Approvals", href: "/tasks", icon: ListTodo, badge: "Review", badgeVariant: "gold" },
     ],
   },
   {
@@ -82,7 +82,7 @@ const badgeStyles = {
   rose: "bg-rose-50 text-rose-800 border-rose-200",
   teal: "bg-teal-50 text-teal-800 border-teal-200",
   blue: "bg-sky-50 text-sky-800 border-sky-200",
-  purple: "bg-purple-50 text-purple-800 border-purple-200",
+  gold: "bg-gold-50 text-gold-900 border-gold-200",
   admin: "bg-graphite-900 text-white border-graphite-700",
 };
 
@@ -131,7 +131,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white select-none">
       {/* Brand Header */}
-      <div className="h-16 px-5 border-b border-[#E2E0D8] flex items-center justify-between gap-3 flex-shrink-0">
+      <div className="h-16 px-5 border-b border-[#E8ECE8] flex items-center justify-between gap-3 flex-shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2.5 group">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-xs flex-shrink-0 group-hover:bg-emerald-700 transition-colors">
             <Sparkles className="w-4 h-4 text-emerald-100" />
@@ -151,7 +151,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
         {onCloseMobile && (
           <button
             onClick={onCloseMobile}
-            className="lg:hidden p-1.5 rounded-lg text-graphite-400 hover:text-graphite-700 hover:bg-[#FAF9F5]"
+            className="lg:hidden p-1.5 rounded-lg text-graphite-400 hover:text-graphite-700 hover:bg-[#FAFAF7]"
             aria-label="Close navigation menu"
           >
             <X className="w-5 h-5" />
@@ -188,7 +188,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
                       "flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors group",
                       isActive
                         ? "bg-emerald-50 text-emerald-900 font-semibold border border-emerald-200/80 shadow-2xs"
-                        : "text-graphite-600 hover:bg-[#FAF9F5] hover:text-graphite-900"
+                        : "text-graphite-600 hover:bg-[#FAFAF7] hover:text-graphite-900"
                     )}
                   >
                     <Icon
@@ -219,10 +219,10 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
       </div>
 
       {/* Firm Tenant Context Pill */}
-      <div className="p-3 border-t border-[#E2E0D8] bg-[#FAF9F5]/70 flex-shrink-0">
+      <div className="p-3 border-t border-[#E8ECE8] bg-[#FAFAF7]/70 flex-shrink-0">
         <Link
           href="/settings"
-          className="p-2.5 rounded-lg border border-[#E2E0D8] bg-white hover:bg-[#FAF9F5] transition-colors flex items-center gap-2.5 shadow-2xs group"
+          className="p-2.5 rounded-lg border border-[#E8ECE8] bg-white hover:bg-[#FAFAF7] transition-colors flex items-center gap-2.5 shadow-2xs group"
         >
           <div className="w-8 h-8 rounded-md bg-emerald-700 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
             {sessionData.firmName.substring(0, 2).toUpperCase()}

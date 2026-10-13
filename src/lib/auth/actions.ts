@@ -23,7 +23,7 @@ const ForgotPasswordSchema = z.object({
 
 const ResetPasswordSchema = z.object({
   token: z.string().min(1, "Reset token is required").max(256),
-  newPassword: z.string().min(10, "Password must be at least 10 characters").max(128, "Password must not exceed 128 characters"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters").max(128, "Password must not exceed 128 characters"),
 });
 
 export async function loginAction(formData: FormData) {
@@ -38,8 +38,16 @@ export async function loginAction(formData: FormData) {
   // Rate Limiting (5 attempts / 15 mins per account)
   const rateLimitResult = await rateLimiter.check(`account:login:${email}`, RATE_LIMIT_TIERS.AUTH);
   if (!rateLimitResult.allowed) {
+    if (rateLimitResult.error === "REDIS_UNAVAILABLE" || rateLimitResult.error === "REDIS_REQUIRED_IN_PRODUCTION") {
+      return {
+        error: `Authentication service temporarily unavailable. Please try again after ${rateLimitResult.retryAfterSeconds} seconds.`,
+        retryAfter: rateLimitResult.retryAfterSeconds,
+        isDegraded: true,
+      };
+    }
     return {
       error: `Too many failed attempts. Please try again after ${rateLimitResult.retryAfterSeconds} seconds.`,
+      retryAfter: rateLimitResult.retryAfterSeconds,
     };
   }
 
@@ -90,6 +98,11 @@ export async function loginAction(formData: FormData) {
       entityId: user.id,
     },
   }).catch(() => null);
+
+  // If superadmin has no specific practice tenant membership, route to Godmode console
+  if (user.isSuperAdmin && !defaultTenantId) {
+    redirect("/godmode");
+  }
 
   redirect("/dashboard");
 }

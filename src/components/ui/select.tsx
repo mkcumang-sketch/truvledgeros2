@@ -47,7 +47,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               "w-full appearance-none px-3 py-2 pr-9 text-sm bg-white border rounded-lg transition-colors text-graphite-900 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600",
               error
                 ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
-                : "border-[#E2E0D8]",
+                : "border-[#E8ECE8]",
               className
             )}
             {...props}
