@@ -1,0 +1,156 @@
+{
+  "name": "TRUV LedgerOS — Workflow D (Task Assignment & Approvals)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "truv-events",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-task-events",
+      "name": "Task Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "truv-events-tasks"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "task-assigned",
+              "leftValue": "={{ $json.body.eventType }}",
+              "rightValue": "task.assigned",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "task-reassigned",
+              "leftValue": "={{ $json.body.eventType }}",
+              "rightValue": "task.reassigned",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "task-rejected",
+              "leftValue": "={{ $json.body.eventType }}",
+              "rightValue": "task.rejected",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "any"
+        }
+      },
+      "id": "is-task-notification-event",
+      "name": "Is Task Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst event = $input.first().json.body;\nconst tenantId = event.tenantId;\nconst taskId = event.entityId || event.payload?.taskId;\nconst idempotencyKey = `idemp_task_${taskId}_${event.eventType}_${Date.now()}`;\nconst secret = $env.TRUV_LEDGEROS_WEBHOOK_SECRET || 'dev-n8n-webhook-hmac-sha256-secret';\nconst timestamp = Date.now().toString();\n\nconst payloadObj = {\n  action: 'NOTIFY_TASK_ASSIGNEE',\n  tenantId,\n  correlationId: `task_notif_${taskId}`,\n  idempotencyKey,\n  payload: {\n    taskId,\n    eventType: event.eventType,\n    assignedToId: event.payload?.assignedToId,\n    title: event.payload?.title\n  }\n};\n\nconst payloadString = JSON.stringify(payloadObj);\nconst hmac = crypto.createHmac('sha256', secret);\nhmac.update(`${timestamp}.${payloadString}`);\nconst signature = `sha256=${hmac.digest('hex')}`;\n\nreturn [{\n  json: {\n    body: payloadObj,\n    signature,\n    timestamp\n  }\n}];"
+      },
+      "id": "prepare-task-notif-payload",
+      "name": "Prepare Notification Payload & Sign HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TRUV_LEDGEROS_BASE_URL }}/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-truv-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-truv-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "dispatch-task-notification",
+      "name": "Dispatch Task Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 240]
+    }
+  ],
+  "connections": {
+    "Task Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Task Event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Task Event?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Notification Payload & Sign HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Notification Payload & Sign HMAC": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Task Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "TRUV-LedgerOS"
+    },
+    {
+      "name": "Tasks"
+    }
+  ]
+}

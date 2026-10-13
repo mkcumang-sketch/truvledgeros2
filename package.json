@@ -1,0 +1,53 @@
+{
+  "name": "truv-ledgeros",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "ts-node -r tsconfig-paths/register tests/security.test.ts && ts-node -r tsconfig-paths/register tests/phase2a-security-remediation.test.ts && ts-node -r tsconfig-paths/register tests/password-reset-concurrency.test.ts && ts-node -r tsconfig-paths/register tests/phase3-financial.test.ts && ts-node -r tsconfig-paths/register tests/client-360.test.ts && ts-node -r tsconfig-paths/register tests/bulk-import.test.ts && ts-node -r tsconfig-paths/register tests/accounting-workflows.test.ts && ts-node -r tsconfig-paths/register tests/automation-engine.test.ts && ts-node -r tsconfig-paths/register tests/workflow-schema-validation.test.ts && ts-node -r tsconfig-paths/register tests/phase4-e2e-automation.test.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "prisma db seed",
+    "outbox:worker": "ts-node -r tsconfig-paths/register scripts/outbox-worker.ts"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1149.0",
+    "@aws-sdk/s3-request-presigner": "^3.1149.0",
+    "@prisma/client": "^5.22.0",
+    "@types/ioredis": "^4.28.10",
+    "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
+    "dotenv": "^18.0.7",
+    "ioredis": "^6.0.0",
+    "lucide-react": "^0.462.0",
+    "next": "^14.2.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.5.5",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.17.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.18",
+    "postcss": "^8.4.49",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.15",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.6.3"
+  }
+}

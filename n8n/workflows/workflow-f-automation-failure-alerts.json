@@ -1,0 +1,92 @@
+{
+  "name": "TRUV LedgerOS — Workflow F (Automation Failure Alerts)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger-node",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst errorData = $input.first().json;\nconst execution = errorData.execution || {};\nconst workflow = errorData.workflow || {};\nconst secret = $env.TRUV_LEDGEROS_WEBHOOK_SECRET || 'dev-n8n-webhook-hmac-sha256-secret';\n\n// Redact any possible credentials or secrets in error messages\nlet rawMessage = errorData.execution?.error?.message || 'Workflow execution failed';\nrawMessage = rawMessage.replace(/Bearer\\s+[A-Za-z0-9-_.]+/gi, 'Bearer [REDACTED]');\nrawMessage = rawMessage.replace(/key=[A-Za-z0-9-_]+/gi, 'key=[REDACTED]');\n\nconst correlationId = `err_${execution.id || Date.now()}`;\nconst tenantId = execution.data?.resultData?.runData?.['LedgerOS Event Webhook']?.[0]?.data?.main?.[0]?.[0]?.json?.body?.tenantId || 'system';\nconst timestamp = Date.now().toString();\n\nconst payloadObj = {\n  action: 'RECORD_FAILURE_ALERT',\n  tenantId,\n  correlationId,\n  idempotencyKey: `idemp_err_${correlationId}`,\n  payload: {\n    workflowName: workflow.name || 'n8n Automation',\n    executionId: execution.id,\n    errorSummary: rawMessage.slice(0, 500),\n    failedAt: new Date().toISOString()\n  }\n};\n\nconst payloadString = JSON.stringify(payloadObj);\nconst hmac = crypto.createHmac('sha256', secret);\nhmac.update(`${timestamp}.${payloadString}`);\nconst signature = `sha256=${hmac.digest('hex')}`;\n\nreturn [{\n  json: {\n    body: payloadObj,\n    signature,\n    timestamp\n  }\n}];"
+      },
+      "id": "sanitize-error-diagnostics",
+      "name": "Sanitize Diagnostic Info & Sign HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TRUV_LEDGEROS_BASE_URL }}/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-truv-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-truv-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "dispatch-failure-alert",
+      "name": "Dispatch Alert to LedgerOS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Diagnostic Info & Sign HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Diagnostic Info & Sign HMAC": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Alert to LedgerOS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "TRUV-LedgerOS"
+    },
+    {
+      "name": "Reliability"
+    }
+  ]
+}

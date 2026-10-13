@@ -1,0 +1,120 @@
+# ==============================================================================
+# TRUV LedgerOS — Production n8n Workflow Automation Engine
+# Pinned Version: n8n 1.76.0 LTS with PostgreSQL 16 persistence
+# ==============================================================================
+version: '3.8'
+
+services:
+  n8n-db:
+    image: postgres:16-alpine
+    container_name: truv_n8n_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${N8N_DB_USER:-n8n_truv_admin}
+      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD:-truv_secure_n8n_db_pass_change_in_prod}
+      POSTGRES_DB: ${N8N_DB_NAME:-n8n_truv_ledgeros}
+    volumes:
+      - n8n_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER:-n8n_truv_admin} -d ${N8N_DB_NAME:-n8n_truv_ledgeros}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - truv_n8n_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:1.76.0
+    container_name: truv_n8n_engine
+    restart: unless-stopped
+    depends_on:
+      n8n-db:
+        condition: service_healthy
+    ports:
+      # Expose only to localhost in production; route via Nginx/Caddy reverse proxy
+      - "127.0.0.1:5678:5678"
+    environment:
+      # PostgreSQL Backend Database Persistence
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=n8n-db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME:-n8n_truv_ledgeros}
+      - DB_POSTGRESDB_USER=${N8N_DB_USER:-n8n_truv_admin}
+      - DB_POSTGRESDB_PASSWORD=${N8N_DB_PASSWORD:-truv_secure_n8n_db_pass_change_in_prod}
+
+      # Encryption Key for n8n Credential Vault (MUST be 32+ hex characters)
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+
+      # General Configuration & Timezone
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - TZ=Asia/Kolkata
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+
+      # Webhook URL and Protocol Configuration
+      - N8N_HOST=${N8N_HOST:-n8n.firm.truv.io}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-https://n8n.firm.truv.io/}
+
+      # LedgerOS Core Application API Boundary
+      - TRUV_LEDGEROS_BASE_URL=${TRUV_LEDGEROS_BASE_URL:-https://app.firm.truv.io}
+      - TRUV_LEDGEROS_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+
+      # Security & Admin Access Control
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE:-true}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-truv_admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+
+      # Execution Pruning & Retention Policy (14 days / max 50,000 runs)
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=336
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
+
+      # Logging & Metrics
+      - N8N_LOG_LEVEL=info
+      - N8N_LOG_OUTPUT=console
+      - N8N_METRICS=true
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
+    networks:
+      - truv_n8n_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  n8n_db_data:
+    name: truv_n8n_db_data
+  n8n_data:
+    name: truv_n8n_data
+
+networks:
+  truv_n8n_network:
+    name: truv_n8n_network
+    driver: bridge

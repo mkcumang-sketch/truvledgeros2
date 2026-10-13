@@ -1,0 +1,135 @@
+{
+  "name": "TRUV LedgerOS — Workflow C (Document Collection & Escalation)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-doc-check",
+      "name": "Daily Document Vault Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.TRUV_LEDGEROS_BASE_URL }}/api/documents/pending-requests",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-truv-timestamp",
+              "value": "={{ Date.now().toString() }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "fetch-pending-doc-requests",
+      "name": "Fetch Pending Document Requests",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare document reminder payload and compute HMAC-SHA256 signature\nconst crypto = require('crypto');\nconst requests = $input.first().json.requests || [];\nconst secret = $env.TRUV_LEDGEROS_WEBHOOK_SECRET || 'dev-n8n-webhook-hmac-sha256-secret';\nconst out = [];\n\nfor (const req of requests) {\n  if (req.status === 'PENDING') {\n    const timestamp = Date.now().toString();\n    const payloadObj = {\n      action: 'SEND_DOCUMENT_REMINDER',\n      tenantId: req.tenantId,\n      correlationId: `doc_${req.id}_${Date.now()}`,\n      idempotencyKey: `idemp_doc_rem_${req.id}_${new Date().toISOString().slice(0, 10)}`,\n      payload: {\n        requestId: req.id,\n        clientId: req.clientId,\n        title: req.title,\n        reminderCount: req.reminderCount || 0\n      }\n    };\n\n    const payloadString = JSON.stringify(payloadObj);\n    const hmac = crypto.createHmac('sha256', secret);\n    hmac.update(`${timestamp}.${payloadString}`);\n    const signature = `sha256=${hmac.digest('hex')}`;\n\n    out.push({\n      json: {\n        body: payloadObj,\n        signature,\n        timestamp\n      }\n    });\n  }\n}\n\nreturn out;"
+      },
+      "id": "prepare-doc-reminder-payload",
+      "name": "Prepare Reminder Payload & Sign HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TRUV_LEDGEROS_BASE_URL }}/api/webhooks/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-truv-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-truv-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "dispatch-doc-reminder",
+      "name": "Dispatch Document Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Daily Document Vault Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Document Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Pending Document Requests": {
+      "main": [
+        [
+          {
+            "node": "Prepare Reminder Payload & Sign HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Reminder Payload & Sign HMAC": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Document Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "TRUV-LedgerOS"
+    },
+    {
+      "name": "Documents"
+    }
+  ]
+}
