@@ -11,6 +11,7 @@ import {
   rateLimiter,
   RATE_LIMIT_TIERS,
 } from "@/lib/server/security/rate-limiter";
+import { sendPasswordResetEmail } from "@/lib/server/email/email-service";
 
 const LoginSchema = z.object({
   email: z.string().trim().toLowerCase().max(254, "Email must not exceed 254 characters").email("Invalid email format"),
@@ -159,9 +160,12 @@ export async function requestPasswordResetAction(formData: FormData) {
       },
     }).catch(() => null);
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`[AUTH-DEV] Reset Token for ${email}: ${rawToken}`);
-    }
+    // Dispatch branded transactional email with secure reset link
+    await sendPasswordResetEmail({
+      to: email,
+      name: user.name,
+      rawToken,
+    });
   }
 
   return {

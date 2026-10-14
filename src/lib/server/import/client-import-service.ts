@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/server/rbac/permissions";
 import { logSecurityEvent } from "@/lib/server/audit";
 import { publishDomainEvent } from "@/lib/server/domain-events";
 import {
@@ -612,9 +613,9 @@ export async function executeClientBulkImport(
   const context = await requireTenant();
   const tenantId = context.membership.tenantId;
 
-  // Authorization check: Only authorized practice members
-  const allowedRoles = ["PARTNER", "MANAGER", "ASSOCIATE", "ADMIN", "SUPERADMIN"];
-  if (!allowedRoles.includes(context.membership.role as string)) {
+  // Authorization check: Only authorized practice members with clients:create
+  const allowed = hasPermission(context.membership.role, "clients", "create");
+  if (!allowed && !context.user.isSuperAdmin) {
     throw new Error("You do not have permission to perform bulk client imports for this practice firm.");
   }
 

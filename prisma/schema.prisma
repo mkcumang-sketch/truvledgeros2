@@ -22,6 +22,13 @@ enum Role {
   CLIENT
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 enum InvoiceStatus {
   DRAFT
   AWAITING_APPROVAL
@@ -164,6 +171,7 @@ model Tenant {
   auditLogs          AuditLog[]
   notifications      Notification[]
   integrations       Integration[]
+  invitations        Invitation[]
 
   @@index([slug])
   @@index([active])
@@ -188,6 +196,7 @@ model User {
   memberships   Membership[]
   sessions      Session[]
   passwordResetTokens PasswordResetToken[]
+  invitationsSent     Invitation[] @relation("InvitationsSent")
   tasksAssigned Task[]    @relation("TaskAssignee")
   tasksCreated  Task[]    @relation("TaskCreator")
   auditLogs     AuditLog[]
@@ -236,20 +245,48 @@ model PasswordResetToken {
 }
 
 // ==========================================
+// 2.3 INVITATION
+// ==========================================
+
+model Invitation {
+  id          String           @id @default(cuid())
+  tenantId    String
+  email       String
+  role        Role             @default(EXECUTIVE)
+  permissions Json?
+  tokenHash   String           @unique
+  invitedById String
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy   User             @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, email])
+  @@index([tokenHash])
+  @@index([status])
+}
+
+// ==========================================
 // 3. MEMBERSHIP (TENANT-USER RBAC LINK)
 // ==========================================
 
 model Membership {
-  id        String   @id @default(cuid())
-  tenantId  String
-  userId    String
-  role      Role     @default(EXECUTIVE)
-  status    String   @default("ACTIVE")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+  role        Role     @default(EXECUTIVE)
+  status      String   @default("ACTIVE")
+  permissions Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId])
   @@index([tenantId, role])

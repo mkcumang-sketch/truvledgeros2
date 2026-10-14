@@ -3,34 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --background: #F5F4EF;
-  --foreground: #202522;
+  --background: #F7F8FA;
+  --foreground: #263238;
   
   --surface: #FFFFFF;
-  --surface-muted: #FAFAF7;
-  --surface-active: #EDEBE3;
+  --surface-muted: #F8FAFC;
+  --surface-active: #FFF4EE;
   
-  --border: #E8ECE8;
-  --border-subtle: #F0F2F0;
-  --border-focus: #087F5B;
+  --border: #E5E7EB;
+  --border-subtle: #F1F5F9;
+  --border-focus: #F26B38;
   
-  --primary: #087F5B;
-  --primary-hover: #06694B;
+  --primary: #F26B38;
+  --primary-hover: #D95524;
   --primary-foreground: #FFFFFF;
-  --primary-tint: #EDF8F4;
+  --primary-tint: #FFF4EE;
   
-  --muted: #5B6660;
-  --muted-light: #929F98;
+  --muted: #64748B;
+  --muted-light: #94A3B8;
   
-  --gold-accent: #D4A64A;
-  --gold-tint: #FDFBF7;
+  --gold-accent: #D97706;
+  --gold-tint: #FFFBEB;
   
-  --success: #087F5B;
-  --success-bg: #EDF8F4;
-  --warning: #D97706;
-  --warning-bg: #FEF3C7;
-  --danger: #DC2626;
-  --danger-bg: #FEE2E2;
+  --success: #10B981;
+  --success-bg: #ECFDF5;
+  --warning: #F59E0B;
+  --warning-bg: #FFFBEB;
+  --danger: #EF4444;
+  --danger-bg: #FEF2F2;
   --info: #0284C7;
   --info-bg: #E0F2FE;
 }
@@ -69,7 +69,7 @@ body {
 
 /* Accessible focus ring */
 :focus-visible {
-  outline: 2px solid #087F5B;
+  outline: 2px solid #F26B38;
   outline-offset: 2px;
 }
 

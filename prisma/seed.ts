@@ -6,7 +6,10 @@ declare const process: any;
 async function main() {
   console.log("🌱 Seeding TRUV LedgerOS Multi-Tenant Production Foundation...");
 
-  const defaultSeedPassword = process.env.SEED_DEFAULT_PASSWORD || "Password123!";
+  const defaultSeedPassword = process.env.SEED_DEFAULT_PASSWORD || (process.env.NODE_ENV === "production" ? null : "DevSeedPassword_Secure123!");
+  if (!defaultSeedPassword) {
+    throw new Error("SEED_DEFAULT_PASSWORD environment variable must be set to run seed in production.");
+  }
   const seedPasswordHash = await bcrypt.hash(defaultSeedPassword, 12);
 
   // 1. GODMODE PLATFORM SUPERADMIN

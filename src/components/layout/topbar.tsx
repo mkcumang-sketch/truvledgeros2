@@ -77,7 +77,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           <input
             type="text"
             placeholder="Search clients, PAN, GSTIN, invoices... (Ctrl + K)"
-            className="w-full bg-[#FAF9F5] border border-[#E2E0D8] rounded-lg pl-9 pr-4 py-1.5 text-xs text-graphite-900 placeholder:text-graphite-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-colors"
+            className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg pl-9 pr-4 py-1.5 text-xs text-[#263238] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F26B38]/20 focus:border-[#F26B38] transition-colors"
           />
         </div>
       </div>
@@ -85,10 +85,10 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Active Firm Badge (Desktop) */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#E2E0D8] bg-[#FAF9F5] text-xs font-semibold text-graphite-800">
-          <Building className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] text-xs font-semibold text-[#263238]">
+          <Building className="w-3.5 h-3.5 text-[#F26B38] flex-shrink-0" />
           <span className="truncate max-w-[200px]">{profile.firmName}</span>
-          <span className="text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-bold uppercase">
+          <span className="text-[10px] px-1.5 py-0.2 bg-[#FFF4EE] text-[#D95524] rounded font-bold uppercase border border-[#F26B38]/20">
             {profile.role.replace("_", " ")}
           </span>
         </div>
@@ -96,44 +96,44 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         {/* AI Practice Bot Quick Link */}
         <Link
           href="/support"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#FFF4EE] border border-[#F26B38]/30 text-[#D95524] hover:bg-[#FFE7DA] transition-colors shadow-2xs"
           title="Open AI Practice Copilot"
         >
-          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+          <Sparkles className="w-3.5 h-3.5 text-[#F26B38]" />
           <span className="hidden sm:inline">AI Practice Bot</span>
         </Link>
 
         {/* Notifications */}
         <Link
           href="/tasks"
-          className="relative p-2 rounded-lg border border-[#E2E0D8] text-graphite-600 hover:bg-[#FAF9F5] hover:text-graphite-900 transition-colors"
+          className="relative p-2 rounded-lg border border-[#E5E7EB] text-slate-600 hover:bg-[#F8FAFC] hover:text-[#263238] transition-colors"
           title="Practice Notifications & Approvals"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#F26B38] ring-2 ring-white" />
         </Link>
 
         {/* User Profile Pill & Dropdown */}
         <div className="relative">
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-2 pl-2 border-l border-[#E2E0D8] text-left hover:opacity-90 transition-opacity focus-visible:outline-none"
+            className="flex items-center gap-2 pl-2 border-l border-[#E5E7EB] text-left hover:opacity-90 transition-opacity focus-visible:outline-none"
             aria-expanded={userMenuOpen}
             aria-haspopup="true"
           >
-            <div className="w-8 h-8 rounded-full bg-emerald-700 text-white font-bold text-xs flex items-center justify-center shadow-xs flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#F26B38] text-white font-bold text-xs flex items-center justify-center shadow-xs flex-shrink-0">
               {initials}
             </div>
             <div className="hidden xl:block">
-              <div className="text-xs font-bold text-graphite-900 leading-tight truncate max-w-[140px]">
+              <div className="text-xs font-bold text-[#263238] leading-tight truncate max-w-[140px]">
                 {profile.name}
               </div>
-              <div className="text-[10px] text-graphite-500 flex items-center gap-1">
-                <UserCheck className="w-2.5 h-2.5 text-emerald-600" />
+              <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                <UserCheck className="w-2.5 h-2.5 text-[#F26B38]" />
                 <span className="truncate max-w-[120px]">{profile.role.replace("_", " ")}</span>
               </div>
             </div>
-            <ChevronDown className="w-3 h-3 text-graphite-400 hidden xl:block" />
+            <ChevronDown className="w-3 h-3 text-slate-400 hidden xl:block" />
           </button>
 
           {/* User Dropdown Menu */}

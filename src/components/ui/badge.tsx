@@ -9,6 +9,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
     | "info"
     | "neutral"
     | "gold"
+    | "orange"
     | "outline";
   size?: "sm" | "md";
 }
@@ -25,9 +26,10 @@ export function Badge({
     warning: "bg-amber-50 text-amber-800 border-amber-200/80",
     danger: "bg-rose-50 text-rose-800 border-rose-200/80",
     info: "bg-sky-50 text-sky-800 border-sky-200/80",
-    neutral: "bg-graphite-100 text-graphite-800 border-graphite-200/80",
-    gold: "bg-gold-50 text-gold-900 border-gold-200/80",
-    outline: "bg-transparent text-graphite-700 border-[#E8ECE8]",
+    neutral: "bg-slate-100 text-slate-800 border-slate-200/80",
+    gold: "bg-amber-50 text-amber-900 border-amber-200/80",
+    orange: "bg-[#FFF4EE] text-[#D95524] border-[#F26B38]/30 font-semibold",
+    outline: "bg-transparent text-graphite-700 border-[#E5E7EB]",
   };
 
   const sizeStyles = {

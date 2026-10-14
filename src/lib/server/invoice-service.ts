@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { requireTenant, requireRole } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/server/rbac/permissions";
 import { calculateInvoiceFinancials, LineItemInput, roundToPaise } from "@/lib/financial/math";
 import { getNextInvoiceNumber } from "./invoice-counter";
 import { logSecurityEvent } from "@/lib/server/audit";
@@ -27,6 +28,11 @@ export const CreateInvoiceSchema = z.object({
 export async function createDraftInvoice(input: z.infer<typeof CreateInvoiceSchema>) {
   const context = await requireTenant();
   const tenantId = context.membership.tenantId;
+
+  // Authorization check: restrict CLIENT role from creating practice invoices
+  if (!hasPermission(context.membership.role, "invoices", "create") && !context.user.isSuperAdmin) {
+    throw new Error("Access denied: insufficient permissions to create invoices.");
+  }
 
   // Verify client belongs to this tenant
   const client = await db.client.findFirst({

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { loginAction } from "@/lib/auth/actions";
 import Link from "next/link";
-import { Sparkles, ArrowRight, Lock, Mail, Clock, ShieldCheck } from "lucide-react";
+import { Sparkles, ArrowRight, Lock, Mail, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 
@@ -48,12 +48,6 @@ export default function LoginPage() {
         setLockoutSeconds(res.retryAfter);
       }
     }
-  }
-
-  function fillDemoAccount(demoEmail: string) {
-    setEmail(demoEmail);
-    setPassword("Password123!");
-    setError(null);
   }
 
   const isLockedOut = lockoutSeconds !== null && lockoutSeconds > 0;
@@ -167,39 +161,6 @@ export default function LoginPage() {
             {!isLockedOut && <ArrowRight className="w-4 h-4 ml-1" />}
           </Button>
         </form>
-
-        {/* Demo Fast-Login Assist */}
-        <div className="mt-6 pt-5 border-t border-[#E8ECE8]">
-          <div className="flex items-center justify-center gap-1.5 text-graphite-400 mb-3">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider">
-              Quick Practice Login (Development)
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              disabled={isLockedOut}
-              onClick={() => fillDemoAccount("priya.kulkarni@truvdemo.in")}
-              className="p-2.5 rounded-lg border border-[#E8ECE8] bg-[#FAFAF7] hover:bg-emerald-50 hover:border-emerald-200 text-left transition-colors disabled:opacity-50"
-            >
-              <p className="text-xs font-bold text-graphite-800">CA Priya Kulkarni</p>
-              <p className="text-[10px] text-graphite-500">Firm Owner (truv-demo-ca)</p>
-            </button>
-            <button
-              type="button"
-              disabled={isLockedOut}
-              onClick={() => fillDemoAccount("us7081569@gmail.com")}
-              className="p-2.5 rounded-lg border border-[#E8ECE8] bg-[#FAFAF7] hover:bg-emerald-50 hover:border-emerald-200 text-left transition-colors disabled:opacity-50"
-            >
-              <p className="text-xs font-bold text-graphite-800">Umang Sharma</p>
-              <p className="text-[10px] text-graphite-500">Superadmin (demo-firm)</p>
-            </button>
-          </div>
-          <p className="text-[10px] text-graphite-400 text-center mt-2.5">
-            Default credentials: <span className="font-mono text-graphite-600 font-medium">Password123!</span>
-          </p>
-        </div>
       </div>
     </div>
   );

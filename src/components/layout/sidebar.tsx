@@ -131,19 +131,19 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white select-none">
       {/* Brand Header */}
-      <div className="h-16 px-5 border-b border-[#E8ECE8] flex items-center justify-between gap-3 flex-shrink-0">
+      <div className="h-16 px-5 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-xs flex-shrink-0 group-hover:bg-emerald-700 transition-colors">
-            <Sparkles className="w-4 h-4 text-emerald-100" />
+          <div className="w-8 h-8 rounded-lg bg-[#F26B38] flex items-center justify-center text-white font-bold shadow-xs flex-shrink-0 group-hover:bg-[#D95524] transition-colors">
+            <Sparkles className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-graphite-900 text-sm tracking-tight">TRUV</span>
-              <span className="text-emerald-700 font-bold text-[10px] uppercase px-1.5 py-0.2 bg-emerald-50 border border-emerald-200 rounded">
+              <span className="font-extrabold text-[#263238] text-sm tracking-tight">TRUV</span>
+              <span className="text-[#D95524] font-bold text-[10px] uppercase px-1.5 py-0.2 bg-[#FFF4EE] border border-[#F26B38]/30 rounded">
                 LedgerOS
               </span>
             </div>
-            <div className="text-[10px] text-graphite-500 truncate font-medium">Accounting Practice OS</div>
+            <div className="text-[10px] text-[#64748B] truncate font-medium">Accounting Practice OS</div>
           </div>
         </Link>
 
@@ -151,7 +151,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
         {onCloseMobile && (
           <button
             onClick={onCloseMobile}
-            className="lg:hidden p-1.5 rounded-lg text-graphite-400 hover:text-graphite-700 hover:bg-[#FAFAF7]"
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-[#F8FAFC]"
             aria-label="Close navigation menu"
           >
             <X className="w-5 h-5" />
@@ -163,7 +163,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         {NAV_SECTIONS.map((section) => (
           <div key={section.title} className="space-y-1">
-            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-graphite-400">
+            <div className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               {section.title}
             </div>
             <div className="space-y-0.5 pt-1">
@@ -187,16 +187,16 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
                     className={cn(
                       "flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors group",
                       isActive
-                        ? "bg-emerald-50 text-emerald-900 font-semibold border border-emerald-200/80 shadow-2xs"
-                        : "text-graphite-600 hover:bg-[#FAFAF7] hover:text-graphite-900"
+                        ? "bg-[#FFF4EE] text-[#D95524] font-semibold border border-[#F26B38]/30 shadow-2xs"
+                        : "text-[#475569] hover:bg-[#F8FAFC] hover:text-[#263238]"
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-4 h-4 flex-shrink-0 transition-colors",
                         isActive
-                          ? "text-emerald-700"
-                          : "text-graphite-400 group-hover:text-graphite-600"
+                          ? "text-[#F26B38]"
+                          : "text-slate-400 group-hover:text-slate-600"
                       )}
                     />
                     <span className="flex-1 truncate">{item.label}</span>
@@ -219,23 +219,23 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
       </div>
 
       {/* Firm Tenant Context Pill */}
-      <div className="p-3 border-t border-[#E8ECE8] bg-[#FAFAF7]/70 flex-shrink-0">
+      <div className="p-3 border-t border-[#E5E7EB] bg-[#F8FAFC] flex-shrink-0">
         <Link
           href="/settings"
-          className="p-2.5 rounded-lg border border-[#E8ECE8] bg-white hover:bg-[#FAFAF7] transition-colors flex items-center gap-2.5 shadow-2xs group"
+          className="p-2.5 rounded-lg border border-[#E5E7EB] bg-white hover:bg-[#F8FAFC] transition-colors flex items-center gap-2.5 shadow-2xs group"
         >
-          <div className="w-8 h-8 rounded-md bg-emerald-700 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-md bg-[#F26B38] text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
             {sessionData.firmName.substring(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-graphite-900 truncate group-hover:text-emerald-700 transition-colors">
+            <div className="text-xs font-bold text-[#263238] truncate group-hover:text-[#F26B38] transition-colors">
               {sessionData.firmName}
             </div>
-            <div className="text-[10px] text-graphite-500 font-medium truncate">
+            <div className="text-[10px] text-[#64748B] font-medium truncate">
               {sessionData.plan}
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-graphite-400 group-hover:text-graphite-700" />
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
         </Link>
       </div>
     </div>

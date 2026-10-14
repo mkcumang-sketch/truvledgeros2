@@ -24,6 +24,14 @@ export async function createDocumentRequestAction(params: CreateDocumentRequestP
       return { success: false, error: "Document title is required." };
     }
 
+    // Verify target client belongs to the authenticated firm (IDOR protection)
+    const client = await db.client.findFirst({
+      where: { id: params.clientId, tenantId },
+    });
+    if (!client) {
+      return { success: false, error: "Client not found in this practice." };
+    }
+
     const request = await db.documentRequest.create({
       data: {
         tenantId,

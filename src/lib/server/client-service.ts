@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/server/rbac/permissions";
 import { logSecurityEvent } from "@/lib/server/audit";
 import { publishDomainEvent } from "./domain-events";
 import { z } from "zod";
@@ -271,6 +272,10 @@ export async function createClient(data: z.infer<typeof CreateClientSchema>) {
   const context = await requireTenant();
   const tenantId = context.membership.tenantId;
 
+  if (!hasPermission(context.membership.role, "clients", "create") && !context.user.isSuperAdmin) {
+    throw new Error("Access denied: insufficient permissions to create clients.");
+  }
+
   const validated = CreateClientSchema.parse(data);
 
   // Duplicate identifier warnings/check within the firm
@@ -388,6 +393,10 @@ export async function updateClient(
   const context = await requireTenant();
   const tenantId = context.membership.tenantId;
 
+  if (!hasPermission(context.membership.role, "clients", "edit") && !context.user.isSuperAdmin) {
+    throw new Error("Access denied: insufficient permissions to update clients.");
+  }
+
   const validated = UpdateClientSchema.parse(data);
 
   const existing = await db.client.findFirst({
@@ -480,6 +489,10 @@ export async function archiveClient(clientId: string) {
   const context = await requireTenant();
   const tenantId = context.membership.tenantId;
 
+  if (!hasPermission(context.membership.role, "clients", "delete") && !context.user.isSuperAdmin) {
+    throw new Error("Access denied: insufficient permissions to archive clients.");
+  }
+
   const client = await db.client.findFirst({
     where: { id: clientId, tenantId },
   });
@@ -511,6 +524,10 @@ export async function archiveClient(clientId: string) {
 export async function restoreClient(clientId: string) {
   const context = await requireTenant();
   const tenantId = context.membership.tenantId;
+
+  if (!hasPermission(context.membership.role, "clients", "edit") && !context.user.isSuperAdmin) {
+    throw new Error("Access denied: insufficient permissions to restore clients.");
+  }
 
   const client = await db.client.findFirst({
     where: { id: clientId, tenantId },

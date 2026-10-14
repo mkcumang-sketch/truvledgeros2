@@ -14,6 +14,7 @@ import {
   checkPayloadSize,
   withTimeout,
 } from "@/lib/server/security/request-validator";
+import { hasPermission } from "@/lib/server/rbac/permissions";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { error: "Authentication required to access client records." },
       { status: 401 }
+    );
+  }
+
+  // Enforce role permissions: CLIENT or restricted users cannot view client list
+  if (!hasPermission(context.membership.role, "clients", "view") && !context.user.isSuperAdmin) {
+    return NextResponse.json(
+      { error: "Access denied: insufficient permissions to view client records." },
+      { status: 403 }
     );
   }
 

@@ -11,7 +11,33 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        // TRUV Practice Design Tokens
+        // TRUV Practice Design Tokens - Orange & White Enterprise Palette
+        orange: {
+          DEFAULT: "#F26B38",
+          50: "#FFF4EE",
+          100: "#FFE7DA",
+          200: "#FFCEB5",
+          300: "#FFAE89",
+          400: "#FA8A58",
+          500: "#F26B38", // Primary brand action
+          600: "#D95524", // Hover / active
+          700: "#B83E15",
+          800: "#943213",
+          900: "#7A2B12",
+        },
+        charcoal: {
+          DEFAULT: "#263238",
+          900: "#263238",
+          800: "#374151",
+          700: "#4B5563",
+          600: "#6B7280",
+          500: "#64748B",
+          400: "#94A3B8",
+          300: "#CBD5E1",
+          200: "#E2E8F0",
+          100: "#F1F5F9",
+          50: "#F8FAFC",
+        },
         graphite: {
           DEFAULT: "#202522",
           900: "#202522",

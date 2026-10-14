@@ -4,7 +4,12 @@ const prisma = new PrismaClient();
 
 async function run() {
   console.log("Connecting to database...");
-  const passwordHash = await bcrypt.hash("Password123!", 10);
+  const rawPassword = process.env.ADMIN_PASSWORD;
+  if (!rawPassword) {
+    console.error("❌ Error: Set ADMIN_PASSWORD environment variable to run this script safely.");
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(rawPassword, 12);
 
   const tenant = await prisma.tenant.upsert({
     where: { slug: "demo-firm" },
@@ -51,8 +56,8 @@ async function run() {
   });
 
   console.log("=== SUCCESS: USER & TENANT SEEDED CLEANLY ===");
-  console.log("Email: us7081569@gmail.com");
-  console.log("Password: Password123!");
+  console.log(`Email: ${user.email}`);
+  console.log("Password configured securely from environment.");
 }
 
 run()

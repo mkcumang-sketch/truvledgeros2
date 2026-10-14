@@ -15,6 +15,7 @@ const PUBLIC_ROUTES = [
   "/login",
   "/forgot-password",
   "/reset-password",
+  "/accept-invite",
   "/healthz",
   "/readyz",
 ];
@@ -109,6 +110,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
+    pathname === "/accept-invite" ||
     pathname.startsWith("/api/auth/login")
   ) {
     const rateStatus = await edgeRateLimiter.check(`ip:auth:${clientIp}`, RATE_LIMIT_TIERS.AUTH);
