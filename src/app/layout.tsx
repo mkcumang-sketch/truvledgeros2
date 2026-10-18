@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Enterprise practice operating system for Indian Chartered Accountants, tax firms, and compliance teams.",
   icons: {
     icon: "/images/truv-icon.svg",
-    apple: "/images/truv-icon.svg",
+    apple: "/images/truv-icon.png",
   },
 };
 

@@ -211,7 +211,12 @@ export async function requestPasswordResetAction(formData: FormData) {
 
 export async function resetPasswordAction(formData: FormData) {
   const token = formData.get("token") as string;
-  const newPassword = formData.get("newPassword") as string;
+  const newPassword = ((formData.get("newPassword") || formData.get("password")) as string) || "";
+  const confirmPassword = formData.get("confirmPassword") as string | null;
+
+  if (confirmPassword !== null && confirmPassword !== newPassword) {
+    return { error: "Passwords do not match. Please ensure both fields are identical." };
+  }
 
   const parsed = ResetPasswordSchema.safeParse({ token, newPassword });
   if (!parsed.success) {

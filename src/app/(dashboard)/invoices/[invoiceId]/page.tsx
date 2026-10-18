@@ -42,6 +42,7 @@ export default async function InvoiceDetailPage({
       revalidatePath(`/invoices/${params.invoiceId}`);
     } catch (err) {
       console.error("[handleIssue Error]", err);
+      throw err;
     }
   }
 
@@ -53,6 +54,7 @@ export default async function InvoiceDetailPage({
       revalidatePath(`/invoices/${params.invoiceId}`);
     } catch (err) {
       console.error("[handleVoid Error]", err);
+      throw err;
     }
   }
 
@@ -72,6 +74,7 @@ export default async function InvoiceDetailPage({
       revalidatePath(`/invoices/${params.invoiceId}`);
     } catch (err) {
       console.error("[handleRecordPayment Error]", err);
+      throw err;
     }
   }
 

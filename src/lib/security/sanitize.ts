@@ -6,17 +6,12 @@
 import { z } from "zod";
 
 /**
- * Strips dangerous HTML tags, javascript: pseudo-protocols, and malicious script sequences.
+ * Normalizes input strings by trimming whitespace, preserving original text without
+ * destructive regex mutation. Relies on React's auto-escaping for secure presentation.
  */
 export function sanitizeString(input: string): string {
   if (!input) return "";
-  return input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/javascript:/gi, "")
-    .replace(/on\w+\s*=/gi, "")
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "")
-    .trim();
+  return input.trim();
 }
 
 /**

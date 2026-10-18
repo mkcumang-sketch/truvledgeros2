@@ -57,7 +57,7 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
           {onOpenEnquiry ? (
             <button
               onClick={onOpenEnquiry}
-              className="px-5 py-2.5 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-5 py-2.5 rounded-lg bg-orange-700 hover:bg-orange-800 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group cursor-pointer"
             >
               <span>Enquire Now</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -65,7 +65,7 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
           ) : (
             <Link
               href="/contact"
-              className="px-5 py-2.5 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group"
+              className="px-5 py-2.5 rounded-lg bg-orange-700 hover:bg-orange-800 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group"
             >
               <span>Enquire Now</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -127,7 +127,7 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
                 setIsMobileOpen(false);
                 if (onOpenEnquiry) onOpenEnquiry();
               }}
-              className="w-full text-center py-2.5 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider shadow-sm cursor-pointer"
+              className="w-full text-center py-2.5 rounded-lg bg-orange-700 hover:bg-orange-800 text-white text-xs font-bold uppercase tracking-wider shadow-sm cursor-pointer"
             >
               Enquire Now
             </button>

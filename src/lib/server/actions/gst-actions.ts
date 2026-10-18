@@ -16,6 +16,16 @@ async function getAuthContext() {
   return { tenantId };
 }
 
+function isNextRedirectError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const anyErr = err as any;
+  return Boolean(
+    anyErr.digest?.startsWith("NEXT_REDIRECT") ||
+    anyErr.message === "NEXT_REDIRECT" ||
+    anyErr.name === "NEXT_REDIRECT"
+  );
+}
+
 export async function getTenantGstReturnsAction(period?: string) {
   try {
     const { tenantId } = await getAuthContext();
@@ -45,6 +55,7 @@ export async function getTenantGstReturnsAction(period?: string) {
 
     return serializeForClient(returns);
   } catch (err: any) {
+    if (isNextRedirectError(err)) throw err;
     console.error("[getTenantGstReturnsAction Error]", err);
     return [];
   }
@@ -96,6 +107,7 @@ export async function updateGstReturnTaxAction(params: {
     revalidatePath("/gst");
     return { success: true, data: serializeForClient(updated) };
   } catch (err: any) {
+    if (isNextRedirectError(err)) throw err;
     console.error("[updateGstReturnTaxAction Error]", err);
     return { success: false, error: err?.message || "Failed to update GST tax amounts." };
   }
@@ -143,6 +155,7 @@ export async function sendClientGstSummaryAction(returnId: string): Promise<Acti
     revalidatePath("/gst");
     return { success: true, data: { sent: true } };
   } catch (err: any) {
+    if (isNextRedirectError(err)) throw err;
     console.error("[sendClientGstSummaryAction Error]", err);
     return { success: false, error: err?.message || "Failed to dispatch client GST summary." };
   }
@@ -176,6 +189,7 @@ export async function markGstReturnFiledAction(params: {
     revalidatePath("/gst");
     return { success: true, data: serializeForClient(filed) };
   } catch (err: any) {
+    if (isNextRedirectError(err)) throw err;
     console.error("[markGstReturnFiledAction Error]", err);
     return { success: false, error: err?.message || "Failed to mark GST return as filed." };
   }

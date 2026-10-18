@@ -21,10 +21,19 @@ function ResetPasswordForm() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const password = (formData.get("password") as string) || "";
+    const confirmPassword = (formData.get("confirmPassword") as string) || "";
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match. Please ensure both fields are identical.");
+      return;
+    }
+
+    setLoading(true);
     formData.set("token", token);
+    formData.set("newPassword", password);
 
     const res = await resetPasswordAction(formData);
     setLoading(false);

@@ -368,7 +368,7 @@ export default function ContactPage() {
                       <button
                         type="submit"
                         disabled={isPending}
-                        className="w-full py-3.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                        className="w-full py-3.5 rounded-xl bg-orange-700 hover:bg-orange-800 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                       >
                         {isPending ? (
                           <span>Verifying & Recording Consultation...</span>

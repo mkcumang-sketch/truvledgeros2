@@ -186,7 +186,7 @@ export function LandingPage() {
       <section id="features" className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-widest">
               <span>01</span>
               <span>•</span>
               <span>Operational Clarity</span>
@@ -350,7 +350,7 @@ export function LandingPage() {
       <section id="workflows" className="py-20 md:py-28 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-widest">
               <span>02</span>
               <span>•</span>
               <span>End-to-End CA Workflows</span>
@@ -487,7 +487,7 @@ export function LandingPage() {
       <section className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-widest">
               <span>03</span>
               <span>•</span>
               <span>Verified Application UI</span>
@@ -643,7 +643,7 @@ export function LandingPage() {
       <section className="py-20 md:py-28 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-widest">
               <span>04</span>
               <span>•</span>
               <span>Practice Investment</span>
@@ -704,7 +704,7 @@ export function LandingPage() {
                 Most Popular for CA Firms
               </div>
               <div className="space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-orange-600">
+                <div className="text-xs font-bold uppercase tracking-wider text-orange-700">
                   Multi-Partner Practice
                 </div>
                 <h3 className="text-2xl font-extrabold text-slate-900">Established Partnerships</h3>
@@ -736,7 +736,7 @@ export function LandingPage() {
               </div>
               <button
                 onClick={() => openEnquiryWithPlan("Multi-Partner Practice Tier (6-25 Users)")}
-                className="w-full py-3 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
+                className="w-full py-3 rounded-xl bg-orange-700 hover:bg-orange-800 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
               >
                 Request Multi-Partner Quote
               </button>
@@ -802,7 +802,7 @@ export function LandingPage() {
       <section id="security" className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-widest">
               <span>05</span>
               <span>•</span>
               <span>Data Governance & Isolation</span>
@@ -866,7 +866,7 @@ export function LandingPage() {
       <section id="faq" className="py-20 md:py-28 bg-slate-50 border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-widest">
               <span>06</span>
               <span>•</span>
               <span>Managing Partner Questions</span>
@@ -929,7 +929,7 @@ export function LandingPage() {
       <section id="enquire" className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-widest">
               <span>07</span>
               <span>•</span>
               <span>Schedule Walkthrough</span>
@@ -1128,7 +1128,7 @@ export function LandingPage() {
                   <button
                     type="submit"
                     disabled={isSubmittingQuick}
-                    className="w-full py-3.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    className="w-full py-3.5 rounded-xl bg-orange-700 hover:bg-orange-800 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     {isSubmittingQuick ? (
                       <span>Recording Practice Consultation...</span>

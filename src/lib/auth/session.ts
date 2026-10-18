@@ -269,7 +269,7 @@ export async function requireTenant(): Promise<Required<SessionContext>> {
       cookieStore.delete("next-auth.session-token");
       cookieStore.delete("__Secure-next-auth.session-token");
     } catch {}
-    redirect("/login?error=TENANT_MEMBERSHIP_REQUIRED");
+    redirect("/login?error=TENANT_MEMBERSHIP_REQUIRED&force=true");
   }
 
   if (context.membership.status !== "ACTIVE") {

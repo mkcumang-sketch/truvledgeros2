@@ -111,26 +111,6 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
-  // 0. Dedicated Edge Logout Handler
-  if (pathname === "/logout" || pathname === "/api/auth/logout") {
-    const isApiJson =
-      request.headers.get("accept")?.includes("application/json") &&
-      request.method === "POST" &&
-      pathname === "/api/auth/logout";
-
-    let res: NextResponse;
-    if (isApiJson) {
-      res = NextResponse.json({ success: true, message: "Logged out successfully" });
-    } else {
-      const loginUrl = new URL("/login?logout=true&force=true", request.url);
-      res = NextResponse.redirect(loginUrl);
-    }
-
-    clearAuthCookies(res);
-    applySecurityHeaders(res);
-    return res;
-  }
-
   // 1. Payload Size Validation (Enforce 1MB standard, 10MB upload max)
   const contentLengthHeader = request.headers.get("content-length");
   if (contentLengthHeader) {

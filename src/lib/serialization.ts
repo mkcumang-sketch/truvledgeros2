@@ -43,29 +43,47 @@ export function toISOStringSafe(val: unknown): string | null {
   return null;
 }
 
+export type Serialized<T> = T extends Date
+  ? string
+  : T extends bigint
+  ? number
+  : T extends { toNumber: () => number }
+  ? number
+  : T extends { toFixed: (...args: any[]) => string; d: any; e: any; s: any }
+  ? number
+  : T extends Array<infer U>
+  ? Serialized<U>[]
+  : T extends readonly (infer U)[]
+  ? readonly Serialized<U>[]
+  : T extends Function
+  ? T
+  : T extends object
+  ? { [K in keyof T]: Serialized<T[K]> }
+  : T;
+
 /**
  * Deep recursive serializer for Next.js Client Component props and Server Action responses.
  * Replaces Decimal with number, Date with ISO string, and strips un-serializable objects.
  */
-export function serializeForClient<T>(input: T): T {
+export function serializeForClient<T>(input: T): Serialized<T> {
   if (input === null || input === undefined) {
-    return input;
+    return input as Serialized<T>;
   }
 
   if (input instanceof Date) {
-    return input.toISOString() as unknown as T;
+    return input.toISOString() as unknown as Serialized<T>;
   }
 
   if (isPrismaDecimal(input)) {
-    return toDecimalNumber(input) as unknown as T;
+    return toDecimalNumber(input) as unknown as Serialized<T>;
   }
 
   if (typeof input === "bigint") {
-    return Number(input) as unknown as T;
+    return Number(input) as unknown as Serialized<T>;
   }
 
   if (Array.isArray(input)) {
-    return input.map((item) => serializeForClient(item)) as unknown as T;
+    return input.map((item) => serializeForClient(item)) as unknown as Serialized<T>;
   }
 
   if (typeof input === "object") {
@@ -73,7 +91,7 @@ export function serializeForClient<T>(input: T): T {
     const proto = Object.getPrototypeOf(input);
     if (proto !== Object.prototype && proto !== null) {
       if (isPrismaDecimal(input)) {
-        return toDecimalNumber(input) as unknown as T;
+        return toDecimalNumber(input) as unknown as Serialized<T>;
       }
     }
 
@@ -81,8 +99,8 @@ export function serializeForClient<T>(input: T): T {
     for (const [key, value] of Object.entries(input)) {
       result[key] = serializeForClient(value);
     }
-    return result as T;
+    return result as Serialized<T>;
   }
 
-  return input;
+  return input as Serialized<T>;
 }

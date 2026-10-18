@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -159,7 +159,7 @@ export default function PricingPage() {
               </div>
               <button
                 onClick={() => handleOpenPlan("Multi-Partner Practice Tier (6-25 Users)")}
-                className="w-full py-3.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
+                className="w-full py-3.5 rounded-xl bg-orange-700 hover:bg-orange-800 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
               >
                 Request Multi-Partner Quote
               </button>

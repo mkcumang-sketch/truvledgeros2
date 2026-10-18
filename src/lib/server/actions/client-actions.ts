@@ -32,6 +32,12 @@ export async function createClientAction(
     return { success: true, data: serializeForClient(client) };
   } catch (error: any) {
     console.error("[createClientAction Error]", error);
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues?.[0]?.message || error.errors?.[0]?.message || "Validation failed.",
+      };
+    }
     return {
       success: false,
       error:
@@ -58,6 +64,12 @@ export async function updateClientAction(
     return { success: true, data: serializeForClient(updated) };
   } catch (error: any) {
     console.error("[updateClientAction Error]", error);
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues?.[0]?.message || error.errors?.[0]?.message || "Validation failed.",
+      };
+    }
     return {
       success: false,
       error:
@@ -80,6 +92,12 @@ export async function archiveClientAction(clientId: string): Promise<ActionResul
     return { success: true, data: serializeForClient(archived) };
   } catch (error: any) {
     console.error("[archiveClientAction Error]", error);
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues?.[0]?.message || error.errors?.[0]?.message || "Validation failed.",
+      };
+    }
     return {
       success: false,
       error:
@@ -102,6 +120,12 @@ export async function restoreClientAction(clientId: string): Promise<ActionResul
     return { success: true, data: serializeForClient(restored) };
   } catch (error: any) {
     console.error("[restoreClientAction Error]", error);
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues?.[0]?.message || error.errors?.[0]?.message || "Validation failed.",
+      };
+    }
     return {
       success: false,
       error:
@@ -126,6 +150,12 @@ export async function addClientContactAction(
     return { success: true, data: serializeForClient(contact) };
   } catch (error: any) {
     console.error("[addClientContactAction Error]", error);
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: error.issues?.[0]?.message || error.errors?.[0]?.message || "Validation failed.",
+      };
+    }
     return {
       success: false,
       error:
