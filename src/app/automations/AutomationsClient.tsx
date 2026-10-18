@@ -168,7 +168,7 @@ export function AutomationsClient({
               <Cpu className="h-4 w-4" />
             </span>
             <h1 className="text-2xl font-bold tracking-tight text-graphite-900">
-              5-Suite Automation Hub
+              6-Suite Automation Hub
             </h1>
             <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
               n8n Powered
