@@ -5,16 +5,24 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "postinstall": "prisma generate",
+    "postinstall": "node scripts/patch-prisma-cli.js && prisma generate",
     "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "next lint",
-    "test": "ts-node -r tsconfig-paths/register tests/security.test.ts && ts-node -r tsconfig-paths/register tests/phase2a-security-remediation.test.ts && ts-node -r tsconfig-paths/register tests/password-reset-concurrency.test.ts && ts-node -r tsconfig-paths/register tests/phase3-financial.test.ts && ts-node -r tsconfig-paths/register tests/client-360.test.ts && ts-node -r tsconfig-paths/register tests/bulk-import.test.ts && ts-node -r tsconfig-paths/register tests/accounting-workflows.test.ts && ts-node -r tsconfig-paths/register tests/automation-engine.test.ts && ts-node -r tsconfig-paths/register tests/workflow-schema-validation.test.ts && ts-node -r tsconfig-paths/register tests/phase4-e2e-automation.test.ts && ts-node -r tsconfig-paths/register tests/login-security-hotfix.test.ts && ts-node -r tsconfig-paths/register tests/team-rbac-invitation.test.ts",
+    "test": "ts-node -r tsconfig-paths/register tests/security.test.ts && ts-node -r tsconfig-paths/register tests/phase2a-security-remediation.test.ts && ts-node -r tsconfig-paths/register tests/password-reset-concurrency.test.ts && ts-node -r tsconfig-paths/register tests/phase3-financial.test.ts && ts-node -r tsconfig-paths/register tests/client-360.test.ts && ts-node -r tsconfig-paths/register tests/bulk-import.test.ts && ts-node -r tsconfig-paths/register tests/accounting-workflows.test.ts && ts-node -r tsconfig-paths/register tests/automation-engine.test.ts && ts-node -r tsconfig-paths/register tests/workflow-schema-validation.test.ts && ts-node -r tsconfig-paths/register tests/phase4-e2e-automation.test.ts && ts-node -r tsconfig-paths/register tests/login-security-hotfix.test.ts && ts-node -r tsconfig-paths/register tests/team-rbac-invitation.test.ts && ts-node -r tsconfig-paths/register tests/role-hierarchy-tenant-isolation.test.ts && ts-node -r tsconfig-paths/register tests/e2e-ca-practice-scenarios.test.ts && ts-node -r tsconfig-paths/register tests/invitation-standby-safety.test.ts && ts-node -r tsconfig-paths/register tests/env-validation.test.ts && ts-node -r tsconfig-paths/register tests/db-readiness-guard.test.ts",
+    "test:db-guard": "ts-node -r tsconfig-paths/register tests/db-readiness-guard.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:staging": "ts-node -r tsconfig-paths/register scripts/safe-migrate.ts",
     "prisma:seed": "prisma db seed",
-    "outbox:worker": "ts-node -r tsconfig-paths/register scripts/outbox-worker.ts"
+    "outbox:worker": "ts-node -r tsconfig-paths/register scripts/outbox-worker.ts",
+    "env:validate": "ts-node -r tsconfig-paths/register scripts/validate-env.ts",
+    "db:readiness": "ts-node -r tsconfig-paths/register scripts/db-readiness.ts",
+    "db:readiness:staging": "ts-node -r tsconfig-paths/register scripts/db-readiness.ts --enforce-staging",
+    "db:inspect:readonly": "ts-node -r tsconfig-paths/register scripts/inspect-db-readonly.ts",
+    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
+    "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -22,8 +30,14 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
     "@aws-sdk/s3-request-presigner": "^3.1149.0",
+    "@marsidev/react-turnstile": "^1.6.2",
     "@prisma/client": "^5.22.0",
+    "@supabase/server": "^1.9.2",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.118.0",
     "@types/ioredis": "^4.28.10",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "dotenv": "^18.0.7",

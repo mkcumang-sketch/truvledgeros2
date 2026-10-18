@@ -26,6 +26,7 @@ export const CreateInvoiceSchema = z.object({
 });
 
 export async function createDraftInvoice(input: z.infer<typeof CreateInvoiceSchema>) {
+  CreateInvoiceSchema.parse(input);
   const context = await requireTenant();
   const tenantId = context.membership.tenantId;
 

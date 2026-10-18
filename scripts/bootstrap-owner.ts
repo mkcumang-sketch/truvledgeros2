@@ -2,6 +2,8 @@ import { PrismaClient, Role, InvitationStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import readline from "readline";
+import { sendTeamInvitationEmail } from "../src/lib/server/email/email-service";
+import { evaluateStandbySafety } from "../src/lib/server/email/standby-guard";
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 12;
@@ -32,8 +34,8 @@ function askPassword(promptText: string): Promise<string> {
         } else if (char === "\u0008" || char === "\x7f") {
           if (input.length > 0) {
             input = input.slice(0, -1);
-            process.stdout.write("\b \b");
           }
+          process.stdout.write("\b \b");
         } else if (char === "\u0003") {
           process.exit(1);
         } else {
@@ -60,7 +62,9 @@ async function main() {
   const args = process.argv.slice(2);
   const isExecute = args.includes("--execute");
   const isGenerateInvite = args.includes("--invite");
-  const tenantSlug = args.find((a) => a.startsWith("--tenant="))?.split("=")[1] || "demo-firm";
+  const shouldSendEmail = args.includes("--send-email");
+  const suppressToken = args.includes("--suppress-token");
+  const explicitTenant = args.find((a) => a.startsWith("--tenant="))?.split("=")[1];
 
   console.log(`\nVerified Intended Owner Email: [${INTENDED_OWNER_EMAIL}]`);
 
@@ -89,15 +93,26 @@ async function main() {
     console.log("\nStatus: User account DOES NOT EXIST in database (Fresh setup required).");
   }
 
-  // 2. Identify target tenant
-  const tenant = await prisma.tenant.findFirst({
-    where: {
-      OR: [
-        { slug: tenantSlug },
-        { active: true },
-      ],
-    },
-  });
+  // 2. Identify target tenant (clean resolution prioritizing explicit slug)
+  let tenant = null;
+  if (explicitTenant) {
+    tenant = await prisma.tenant.findUnique({
+      where: { slug: explicitTenant },
+    });
+    if (!tenant) {
+      console.error(`❌ Error: Practice tenant with slug "${explicitTenant}" not found in database.`);
+      process.exit(1);
+    }
+  } else {
+    // Default to the primary practice tenant
+    tenant = await prisma.tenant.findFirst({
+      where: {
+        slug: "truv-demo-ca",
+      },
+    }) || await prisma.tenant.findFirst({
+      where: { active: true },
+    });
+  }
 
   if (!tenant) {
     console.error("❌ Error: No practice tenant found in database to attach the owner to.");
@@ -116,8 +131,17 @@ async function main() {
 
     if (!isExecute) {
       console.log("\n🔒 DRY RUN COMPLETE. No database records were written.");
-      console.log("To generate the live invitation, rerun with `--execute`:");
-      console.log(`  npx ts-node -r tsconfig-paths/register scripts/bootstrap-owner.ts --invite --execute\n`);
+      const isEmailConfigured = Boolean(process.env.RESEND_API_KEY?.trim());
+      if (shouldSendEmail && !isEmailConfigured) {
+        console.warn("\n⚠️ Pre-flight Notice: RESEND_API_KEY is not configured in environment.");
+        console.warn("If executed with `--send-email`, emails will NOT be delivered (service in STANDBY_MODE).");
+        console.warn("Configure RESEND_API_KEY before running with `--send-email`, or use terminal output mode without `--send-email`.\n");
+      }
+      console.log("Options for execution:");
+      console.log("  a) With direct email delivery (Requires RESEND_API_KEY configured):");
+      console.log(`     npx ts-node -r tsconfig-paths/register scripts/bootstrap-owner.ts --invite --send-email --suppress-token --execute`);
+      console.log("  b) Without email (token output to private secure terminal - Recommended):");
+      console.log(`     npx ts-node -r tsconfig-paths/register scripts/bootstrap-owner.ts --invite --execute\n`);
       process.exit(0);
     }
 
@@ -128,9 +152,10 @@ async function main() {
     // Look for an existing system inviter, or use a platform identity
     const anyOwner = await prisma.membership.findFirst({
       where: { role: Role.FIRM_OWNER },
-      select: { userId: true },
+      include: { user: true },
     });
     const inviterId = anyOwner?.userId || (await prisma.user.findFirst({ select: { id: true } }))?.id;
+    const inviterName = anyOwner?.user.name || "Practice Administrator";
 
     if (!inviterId) {
       console.error("❌ Error: Cannot establish an inviter record.");
@@ -159,8 +184,54 @@ async function main() {
     console.log(`Target Email: ${INTENDED_OWNER_EMAIL}`);
     console.log(`Role: FIRM_OWNER`);
     console.log(`Expires: ${expiresAt.toISOString()} (48 hours)`);
-    console.log("\nDeliver this private, single-use onboarding URL to the owner:");
-    console.log(`🔗 Setup Link: ${setupUrl}`);
+
+    let emailResult = null;
+    if (shouldSendEmail) {
+      console.log(`\nDispatching invitation email via configured provider...`);
+      emailResult = await sendTeamInvitationEmail({
+        to: INTENDED_OWNER_EMAIL,
+        inviterName,
+        firmName: tenant.name,
+        roleName: "Organization Owner",
+        rawToken,
+        tenantId: tenant.id,
+      });
+
+      if (emailResult.success && emailResult.status === "SENT") {
+        console.log(`✉️ Email successfully dispatched to ${INTENDED_OWNER_EMAIL} (Provider Message ID: ${emailResult.messageId})`);
+      } else if (emailResult.status === "STANDBY_MODE") {
+        console.error(`\n❌ Email Delivery Failed: Email provider is unconfigured (RESEND_API_KEY missing, service in STANDBY_MODE). No network transmission occurred.`);
+      } else {
+        console.error(`\n❌ Email Delivery Failed: ${emailResult.error || "Provider transmission error"}`);
+      }
+    }
+
+    const decision = evaluateStandbySafety({
+      shouldSendEmail,
+      suppressToken,
+      emailResult,
+    });
+
+    if (shouldSendEmail && !decision.deliveryConfirmed) {
+      console.warn(`\n⚠️ CRITICAL SAFETY OVERRIDE: Email delivery was not confirmed by provider.`);
+      console.warn(`Token suppression (--suppress-token) has been disarmed to prevent permanent owner lockout.`);
+      console.log("\nDeliver this private, single-use onboarding URL to the owner directly:");
+      console.log(`🔗 Setup Link: ${setupUrl}`);
+      console.log("⚠️ Security Notice: Ensure this link is shared only via private, encrypted channels.");
+      console.log("\nThe owner will set their own independent application password upon visiting.");
+      console.log("==================================================================\n");
+      process.exit(1);
+    }
+
+    if (decision.allowTokenSuppression) {
+      console.log(`\n🔒 Security Protection: Raw token suppressed from terminal logs.`);
+      console.log(`The owner link was confirmed delivered to [${INTENDED_OWNER_EMAIL}] by provider.`);
+    } else {
+      console.log("\nDeliver this private, single-use onboarding URL to the owner:");
+      console.log(`🔗 Setup Link: ${setupUrl}`);
+      console.log("⚠️ Security Notice: Ensure this link is shared only via private, encrypted channels.");
+    }
+
     console.log("\nThe owner will set their own independent application password upon visiting.");
     console.log("==================================================================\n");
     process.exit(0);

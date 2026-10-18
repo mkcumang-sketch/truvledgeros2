@@ -189,10 +189,14 @@ export function createRateLimitResponse(status: RateLimitStatus): NextResponse {
     );
   }
 
+  const minutes = Math.max(1, Math.ceil(status.retryAfterSeconds / 60));
+  const errorMessage = `Too many attempts. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`;
+
   return NextResponse.json(
     {
-      error: "Too Many Requests",
-      message: `Rate limit exceeded. Please try again after ${status.retryAfterSeconds} seconds.`,
+      error: errorMessage,
+      message: errorMessage,
+      retryAfter: status.retryAfterSeconds,
       retryAfterSeconds: status.retryAfterSeconds,
     },
     {

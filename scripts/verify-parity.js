@@ -1,7 +1,26 @@
 const fs = require('fs');
 
+const path = require('path');
+
 const schema = fs.readFileSync('prisma/schema.prisma', 'utf8');
-const baseline = fs.readFileSync('prisma/baseline/0_init/migration.sql', 'utf8');
+
+// Read all migration files in chronological order from prisma/migrations
+const migrationsDir = 'prisma/migrations';
+const migrationDirs = fs.readdirSync(migrationsDir)
+  .filter(d => fs.statSync(path.join(migrationsDir, d)).isDirectory())
+  .sort();
+
+console.log('Found migration directories:', migrationDirs);
+
+let cumulativeSql = '';
+for (const dir of migrationDirs) {
+  const sqlFile = path.join(migrationsDir, dir, 'migration.sql');
+  if (fs.existsSync(sqlFile)) {
+    cumulativeSql += '\n' + fs.readFileSync(sqlFile, 'utf8');
+  }
+}
+
+const baseline = cumulativeSql;
 
 const schemaEnumRegex = /enum\s+([A-Za-z0-9_]+)\s*\{/g;
 const schemaEnums = [];

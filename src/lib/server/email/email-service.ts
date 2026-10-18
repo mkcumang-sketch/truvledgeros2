@@ -10,10 +10,26 @@ export interface SendEmailParams {
   category?: "INVITATION" | "PASSWORD_RESET" | "SECURITY_ALERT" | "NOTIFICATION";
 }
 
+export type EmailDeliveryStatus = 
+  | "SENT" 
+  | "DELIVERED" 
+  | "STANDBY_MODE" 
+  | "QUEUED" 
+  | "DISABLED" 
+  | "FAILED";
+
 export interface EmailDeliveryResult {
-  success: boolean;
-  status: "SENT" | "STANDBY_MODE" | "FAILED";
+  success: boolean;       // Process completed without unhandled exception
+  delivered?: boolean;    // Strictly true ONLY when transmitted to live SMTP/API gateway
+  status: EmailDeliveryStatus;
+  deliveryOutcome?: 
+    | "DELIVERED_TO_RECIPIENT" 
+    | "SIMULATED_STANDBY" 
+    | "QUEUED_IN_OUTBOX" 
+    | "DISABLED_BY_POLICY" 
+    | "DELIVERY_FAILED";
   messageId?: string;
+  detail?: string;
   error?: string;
 }
 
@@ -88,8 +104,11 @@ export async function sendTransactionalEmail(params: SendEmailParams): Promise<E
     console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (RESEND_API_KEY unconfigured; standby recorded)`);
     return {
       success: true,
+      delivered: false,
       status: "STANDBY_MODE",
+      deliveryOutcome: "SIMULATED_STANDBY",
       messageId: `standby_${Date.now()}`,
+      detail: "RESEND_API_KEY unconfigured; delivery intent simulated and logged to standby audit without live network transmission.",
     };
   }
 
@@ -115,21 +134,28 @@ export async function sendTransactionalEmail(params: SendEmailParams): Promise<E
       console.error("[RESEND-API-ERROR]", data);
       return {
         success: false,
+        delivered: false,
         status: "FAILED",
+        deliveryOutcome: "DELIVERY_FAILED",
         error: data.message || `Resend responded with HTTP ${response.status}`,
       };
     }
 
     return {
       success: true,
+      delivered: true,
       status: "SENT",
+      deliveryOutcome: "DELIVERED_TO_RECIPIENT",
       messageId: data.id,
+      detail: "Confirmed dispatched to Resend mail gateway.",
     };
   } catch (err: any) {
     console.error("[EMAIL-SEND-EXCEPTION]", err);
     return {
       success: false,
+      delivered: false,
       status: "FAILED",
+      deliveryOutcome: "DELIVERY_FAILED",
       error: err.message || "Failed to transmit email through provider",
     };
   }

@@ -27,59 +27,94 @@ const ResetPasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters").max(128, "Password must not exceed 128 characters"),
 });
 
+import {
+  upstashLoginLimiter,
+} from "@/lib/server/security/upstash-rate-limiter";
+import { verifyTurnstileToken } from "@/lib/server/security/turnstile";
+
+const AUTH_TIMEOUT_MS = 10000;
+
 export async function loginAction(formData: FormData) {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const password = formData.get("password") as string;
+  const captchaToken = (formData.get("turnstileToken") || formData.get("cf-turnstile-response")) as string | null;
 
   const parsed = LoginSchema.safeParse({ email, password });
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: "Invalid credentials" };
   }
 
-  // Rate Limiting (5 attempts / 15 mins per account)
-  const rateLimitResult = await rateLimiter.check(`account:login:${email}`, RATE_LIMIT_TIERS.AUTH);
+  // 1. Upstash Redis Token-Bucket Limiting (5 attempts / 15 mins)
+  const rateLimitResult = await upstashLoginLimiter.check(email);
   if (!rateLimitResult.allowed) {
-    if (rateLimitResult.error === "REDIS_UNAVAILABLE" || rateLimitResult.error === "REDIS_REQUIRED_IN_PRODUCTION") {
-      return {
-        error: `Authentication service temporarily unavailable. Please try again after ${rateLimitResult.retryAfterSeconds} seconds.`,
-        retryAfter: rateLimitResult.retryAfterSeconds,
-        isDegraded: true,
-      };
-    }
     return {
-      error: `Too many failed attempts. Please try again after ${rateLimitResult.retryAfterSeconds} seconds.`,
+      error: rateLimitResult.errorMessage,
       retryAfter: rateLimitResult.retryAfterSeconds,
+      retryAfterMinutes: rateLimitResult.retryAfterMinutes,
     };
   }
 
-  const user = await (db.user as any).findUnique({
-    where: { email },
-    include: {
-      memberships: {
-        include: { tenant: true },
-      },
-    },
-  });
-
-  // Generic failure response prevents user enumeration
-  if (!user || !user.passwordHash || !user.active) {
-    return { error: "Invalid email or password." };
+  // 2. Cloudflare Turnstile Captcha: Verify before DB credentials check
+  if (captchaToken) {
+    const captchaResult = await verifyTurnstileToken(captchaToken);
+    if (!captchaResult.success) {
+      return {
+        error: captchaResult.error || "Captcha verification failed. Please try again.",
+      };
+    }
   }
 
-  const isValidPassword = await verifyPassword(password, user.passwordHash);
-  if (!isValidPassword) {
-    await db.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "LOGIN_FAILED",
-        entityType: "USER",
-        entityId: user.id,
-      },
-    }).catch(() => null);
+  // 3. 10s Timeout Guardrail on Database & Password Verification
+  const timeoutPromise = new Promise<{ isTimeout: true }>((resolve) =>
+    setTimeout(() => resolve({ isTimeout: true }), AUTH_TIMEOUT_MS)
+  );
 
-    return { error: "Invalid email or password." };
+  const authExecutionPromise = (async () => {
+    const user = await (db.user as any).findUnique({
+      where: { email },
+      include: {
+        memberships: {
+          include: { tenant: true },
+        },
+      },
+    });
+
+    // Generic failure response prevents user enumeration
+    if (!user || !user.passwordHash || !user.active) {
+      return { authenticated: false };
+    }
+
+    const isValidPassword = await verifyPassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "LOGIN_FAILED",
+          entityType: "USER",
+          entityId: user.id,
+        },
+      }).catch(() => null);
+
+      return { authenticated: false };
+    }
+
+    return { authenticated: true, user };
+  })();
+
+  const authRace = await Promise.race([authExecutionPromise, timeoutPromise]);
+
+  if ("isTimeout" in authRace) {
+    console.warn(`[AUTH_TIMEOUT_GUARD] loginAction timed out after ${AUTH_TIMEOUT_MS}ms for email: ${email}`);
+    return { error: "Invalid credentials" };
   }
 
+  if (!authRace.authenticated || !authRace.user) {
+    return { error: "Invalid credentials" };
+  }
+
+  const user = authRace.user;
+
+  await upstashLoginLimiter.reset(email);
   resetRateLimit(`login:${email}`);
 
   // Resolve primary tenant

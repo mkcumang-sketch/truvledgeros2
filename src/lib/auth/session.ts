@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { generateSecureToken } from "./password";
 import { Role } from "@prisma/client";
@@ -169,17 +170,54 @@ export async function requireTenant(): Promise<Required<SessionContext>> {
 
   if (!context.membership || !context.tenant) {
     if (context.user.isSuperAdmin) {
-      throw new Error("GODMODE_TENANT_SELECTION_REQUIRED");
+      // Safe fallback: automatically query first active, unsuspended tenant
+      const defaultTenant = await db.tenant.findFirst({
+        where: { active: true, isSuspended: false },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (defaultTenant) {
+        try {
+          const cookieStore = cookies();
+          const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+          if (token) {
+            await (db as any).session.update({
+              where: { sessionToken: token },
+              data: { tenantId: defaultTenant.id },
+            }).catch(() => null);
+          }
+        } catch {
+          // ignore cookie error in test/headless context
+        }
+
+        context.tenant = {
+          id: defaultTenant.id,
+          name: defaultTenant.name,
+          slug: defaultTenant.slug,
+          active: defaultTenant.active,
+          isSuspended: defaultTenant.isSuspended,
+        };
+
+        context.membership = {
+          id: `superadmin-${defaultTenant.id}`,
+          tenantId: defaultTenant.id,
+          role: Role.FIRM_OWNER,
+          status: "ACTIVE",
+        };
+
+        return context as Required<SessionContext>;
+      }
     }
-    throw new Error("TENANT_MEMBERSHIP_REQUIRED");
+
+    redirect("/login?error=TENANT_MEMBERSHIP_REQUIRED");
   }
 
   if (context.membership.status !== "ACTIVE") {
-    throw new Error("MEMBERSHIP_INACTIVE");
+    redirect("/login?error=MEMBERSHIP_INACTIVE");
   }
 
   if (!context.tenant.active || context.tenant.isSuspended) {
-    throw new Error("TENANT_SUSPENDED");
+    redirect("/login?error=TENANT_SUSPENDED");
   }
 
   return context as Required<SessionContext>;

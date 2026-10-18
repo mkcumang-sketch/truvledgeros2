@@ -22,6 +22,7 @@ import {
   CreditCard as SubscriptionIcon,
   ChevronRight,
   X,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Firm Settings", href: "/settings", icon: Settings },
       { label: "Subscription", href: "/subscription", icon: SubscriptionIcon },
       { label: "TRUV Godmode", href: "/godmode", icon: ShieldAlert, badge: "Admin", badgeVariant: "admin" },
+      { label: "TRUV Service", href: "/service", icon: Briefcase, badge: "Ops", badgeVariant: "teal" },
     ],
   },
 ];
@@ -169,7 +171,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
             <div className="space-y-0.5 pt-1">
               {section.items
                 .filter((item) => {
-                  if (item.href === "/godmode") {
+                  if (item.href === "/godmode" || item.href === "/service") {
                     return Boolean(sessionData.isSuperAdmin || sessionData.role === "GODMODE_ADMIN");
                   }
                   return true;

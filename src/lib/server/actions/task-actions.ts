@@ -48,16 +48,31 @@ export async function createTaskAction(data: z.infer<typeof CreateTaskSchema>) {
   }
 }
 
+const UpdateTaskStatusSchema = z.object({
+  taskId: z.string().min(1, "Task ID is required"),
+  status: z.nativeEnum(TaskStatus),
+});
+
 export async function updateTaskStatusAction(taskId: string, status: TaskStatus) {
   try {
     const context = await requireTenant();
     const tenantId = context.membership.tenantId;
 
+    const validated = UpdateTaskStatusSchema.parse({ taskId, status });
+
+    const existing = await db.task.findFirst({
+      where: { id: validated.taskId, tenantId },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Task not found in this practice firm." };
+    }
+
     const task = await db.task.update({
-      where: { id: taskId, tenantId },
+      where: { id: existing.id },
       data: {
-        status,
-        completedAt: status === TaskStatus.COMPLETED ? new Date() : null,
+        status: validated.status,
+        completedAt: validated.status === TaskStatus.COMPLETED ? new Date() : null,
       },
     });
 
@@ -111,7 +126,7 @@ export async function completeTaskWithEvidenceAction(params: {
     }
 
     const completed = await db.task.update({
-      where: { id: params.taskId },
+      where: { id: task.id },
       data: {
         status: TaskStatus.COMPLETED,
         completedAt: new Date(),
@@ -185,17 +200,18 @@ export async function reassignTaskAction(params: {
 
     const previousAssigneeName = task.assignedTo?.name || "Unassigned";
 
-    const newAssignee = await db.user.findUnique({
-      where: { id: params.newAssigneeId },
-      select: { id: true, name: true },
+    const newAssigneeMembership = await db.membership.findFirst({
+      where: { userId: params.newAssigneeId, tenantId, status: "ACTIVE" },
+      include: { user: { select: { id: true, name: true } } },
     });
 
-    if (!newAssignee) {
-      return { success: false, error: "New assignee not found." };
+    if (!newAssigneeMembership || !newAssigneeMembership.user) {
+      return { success: false, error: "New assignee must be an active member of this practice firm." };
     }
+    const newAssignee = newAssigneeMembership.user;
 
     const updated = await db.task.update({
-      where: { id: params.taskId },
+      where: { id: task.id },
       data: {
         assignedToId: params.newAssigneeId,
       },
@@ -253,7 +269,7 @@ export async function rejectTaskReviewAction(params: {
     }
 
     const updated = await db.task.update({
-      where: { id: params.taskId },
+      where: { id: task.id },
       data: {
         status: TaskStatus.OPEN, // Returns to open queue for correction
         assignedToId: task.createdById || task.assignedToId, // Reassigns back to preparer

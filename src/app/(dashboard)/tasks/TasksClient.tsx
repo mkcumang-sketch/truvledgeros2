@@ -27,8 +27,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   createTaskAction,
   updateTaskStatusAction,
+  completeTaskWithEvidenceAction,
+  rejectTaskReviewAction,
 } from "@/lib/server/actions/task-actions";
 import { TaskStatus, TaskType } from "@prisma/client";
+import { FileCheck, RotateCcw, AlertCircle } from "lucide-react";
 
 interface TaskRecord {
   id: string;
@@ -83,6 +86,14 @@ export function TasksClient({ tasks, clients, teamMembers }: Props) {
   const [dueDate, setDueDate] = useState("2026-10-25");
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Evidence & Rejection Modals State
+  const [evidenceModalTask, setEvidenceModalTask] = useState<TaskRecord | null>(null);
+  const [resolutionNote, setResolutionNote] = useState("");
+  const [isRecurringGst, setIsRecurringGst] = useState(false);
+  const [rejectionModalTask, setRejectionModalTask] = useState<TaskRecord | null>(null);
+  const [rejectionFeedback, setRejectionFeedback] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const openCount = tasks.filter((t) => t.status === TaskStatus.OPEN).length;
   const inProgressCount = tasks.filter((t) => t.status === TaskStatus.IN_PROGRESS).length;
   const completedCount = tasks.filter((t) => t.status === TaskStatus.COMPLETED).length;
@@ -127,6 +138,62 @@ export function TasksClient({ tasks, clients, teamMembers }: Props) {
     startTransition(async () => {
       await updateTaskStatusAction(taskId, nextStatus);
       router.refresh();
+    });
+  };
+
+  const handleOpenEvidenceModal = (task: TaskRecord) => {
+    setActionError(null);
+    setResolutionNote("");
+    setIsRecurringGst(task.type === TaskType.GST_REVIEW);
+    setEvidenceModalTask(task);
+  };
+
+  const handleCompleteWithEvidence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!evidenceModalTask) return;
+    setActionError(null);
+
+    startTransition(async () => {
+      const res = await completeTaskWithEvidenceAction({
+        taskId: evidenceModalTask.id,
+        resolutionNote,
+        isRecurringGst,
+      });
+
+      if (res.success) {
+        setEvidenceModalTask(null);
+        setResolutionNote("");
+        router.refresh();
+      } else {
+        setActionError(res.error || "Failed to complete task.");
+      }
+    });
+  };
+
+  const handleOpenRejectionModal = (task: TaskRecord) => {
+    setActionError(null);
+    setRejectionFeedback("");
+    setRejectionModalTask(task);
+  };
+
+  const handleRejectReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectionModalTask) return;
+    setActionError(null);
+
+    startTransition(async () => {
+      const res = await rejectTaskReviewAction({
+        taskId: rejectionModalTask.id,
+        feedback: rejectionFeedback,
+      });
+
+      if (res.success) {
+        setRejectionModalTask(null);
+        setRejectionFeedback("");
+        router.refresh();
+      } else {
+        setActionError(res.error || "Failed to reject task review.");
+      }
     });
   };
 
@@ -317,18 +384,42 @@ export function TasksClient({ tasks, clients, teamMembers }: Props) {
                       </Badge>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <Badge
-                        variant={
-                          t.status === TaskStatus.COMPLETED
-                            ? "success"
-                            : t.status === TaskStatus.IN_PROGRESS
-                            ? "neutral"
-                            : "warning"
-                        }
-                        size="sm"
-                      >
-                        {t.status.replace("_", " ")}
-                      </Badge>
+                      <div className="flex items-center justify-end gap-2">
+                        <Badge
+                          variant={
+                            t.status === TaskStatus.COMPLETED
+                              ? "success"
+                              : t.status === TaskStatus.IN_PROGRESS
+                              ? "neutral"
+                              : "warning"
+                          }
+                          size="sm"
+                        >
+                          {t.status.replace("_", " ")}
+                        </Badge>
+                        {t.status !== TaskStatus.COMPLETED && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEvidenceModal(t)}
+                            title="Complete with Resolution Note"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-md font-medium shadow-xs transition-colors"
+                          >
+                            <FileCheck className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Sign-Off</span>
+                          </button>
+                        )}
+                        {t.status !== TaskStatus.COMPLETED && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRejectionModal(t)}
+                            title="Reject Review (Send Back to Preparer)"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-white border border-[#D3DBD6] hover:bg-rose-50 text-rose-700 rounded-md font-medium shadow-xs transition-colors"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Reject</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -436,6 +527,151 @@ export function TasksClient({ tasks, clients, teamMembers }: Props) {
               isLoading={isPending}
             >
               Assign Task
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Complete Task with Evidence / Resolution Note Modal */}
+      <Modal
+        isOpen={Boolean(evidenceModalTask)}
+        onClose={() => {
+          if (!isPending) setEvidenceModalTask(null);
+        }}
+        title="Complete Task with Practice Evidence"
+        description="Statutory compliance and audit reviews require a verified resolution note or workpaper reference before closure."
+        maxWidth="md"
+      >
+        <form onSubmit={handleCompleteWithEvidence} className="space-y-4">
+          {actionError && (
+            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{actionError}</span>
+            </div>
+          )}
+
+          <div className="p-3 rounded-lg bg-[#FAF4E8] border border-[#C89B3C]/30 text-xs text-[#5A3E17]">
+            <strong>Task:</strong> {evidenceModalTask?.title}
+            {evidenceModalTask?.client && (
+              <div className="mt-0.5 text-[#74817A]">
+                Client: {evidenceModalTask.client.name}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-graphite-900 mb-1">
+              Resolution Note / Workpaper Reference *
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={resolutionNote}
+              onChange={(e) => setResolutionNote(e.target.value)}
+              placeholder="e.g. Reconciliation verified against Form 26AS and sales register. Workpaper ref: WP-2026-10-A."
+              className="w-full px-3 py-2 text-xs rounded-lg border border-[#D3DBD6] bg-white text-graphite-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-600"
+            />
+            <p className="text-[11px] text-graphite-500 mt-1">
+              Minimum 5 characters. This note is permanently linked to the task history and audit trail.
+            </p>
+          </div>
+
+          {evidenceModalTask?.type === TaskType.GST_REVIEW && (
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="recurringGst"
+                checked={isRecurringGst}
+                onChange={(e) => setIsRecurringGst(e.target.checked)}
+                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+              />
+              <label htmlFor="recurringGst" className="text-xs text-graphite-700 font-medium">
+                Auto-schedule next month&apos;s recurring GST return review task
+              </label>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EBE9E1]">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setEvidenceModalTask(null)}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isPending}
+              disabled={resolutionNote.trim().length < 5}
+            >
+              Confirm Completion Sign-Off
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Reject Task Review Modal */}
+      <Modal
+        isOpen={Boolean(rejectionModalTask)}
+        onClose={() => {
+          if (!isPending) setRejectionModalTask(null);
+        }}
+        title="Reject Task Review & Return to Preparer"
+        description="Send task back to the assigned team member with specific corrective feedback."
+        maxWidth="md"
+      >
+        <form onSubmit={handleRejectReview} className="space-y-4">
+          {actionError && (
+            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{actionError}</span>
+            </div>
+          )}
+
+          <div className="p-3 rounded-lg bg-rose-50/50 border border-rose-200 text-xs text-rose-900">
+            <strong>Task:</strong> {rejectionModalTask?.title}
+            {rejectionModalTask?.assignedTo && (
+              <div className="mt-0.5 text-rose-700">
+                Current Assignee: {rejectionModalTask.assignedTo.name}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-graphite-900 mb-1">
+              Corrective Feedback for Staff *
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={rejectionFeedback}
+              onChange={(e) => setRejectionFeedback(e.target.value)}
+              placeholder="e.g. Missing bank confirmation letter for Q2. Recheck TDS credit mismatch in table 4A."
+              className="w-full px-3 py-2 text-xs rounded-lg border border-[#D3DBD6] bg-white text-graphite-900 focus:outline-hidden focus:ring-2 focus:ring-rose-600"
+            />
+            <p className="text-[11px] text-graphite-500 mt-1">
+              Provide actionable guidance. The task will be returned to the preparer&apos;s open queue.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EBE9E1]">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setRejectionModalTask(null)}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              isLoading={isPending}
+              disabled={!rejectionFeedback.trim()}
+            >
+              Return Task to Preparer
             </Button>
           </div>
         </form>

@@ -13,6 +13,12 @@ import {
 
 const PUBLIC_ROUTES = [
   "/login",
+  "/register",
+  "/pricing",
+  "/contact",
+  "/about",
+  "/privacy",
+  "/terms",
   "/forgot-password",
   "/reset-password",
   "/accept-invite",
@@ -101,13 +107,15 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+  const isPublicRoute =
+    pathname === "/" || PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
   const isApiRoute = pathname.startsWith("/api/");
 
   // 2. Edge / App Rate Limiting
   // Tier A: Auth & Reset Routes (5 per 15 min per IP)
   if (
     pathname === "/login" ||
+    pathname === "/register" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
     pathname === "/accept-invite" ||
@@ -140,8 +148,8 @@ export async function middleware(request: NextRequest) {
     return redirectRes;
   }
 
-  // 4. Authenticated user trying to access login/reset pages -> redirect to /dashboard
-  if (sessionToken && isPublicRoute && (pathname === "/login" || pathname === "/forgot-password" || pathname === "/reset-password")) {
+  // 4. Authenticated user trying to access login/register/reset pages -> redirect to /dashboard
+  if (sessionToken && isPublicRoute && (pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password")) {
     const dashboardUrl = new URL("/dashboard", request.url);
     const redirectRes = NextResponse.redirect(dashboardUrl);
     applySecurityHeaders(redirectRes);

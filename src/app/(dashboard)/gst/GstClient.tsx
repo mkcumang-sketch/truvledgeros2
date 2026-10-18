@@ -20,6 +20,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatINR } from "@/lib/financial/math";
+import { GstReturnRowActions } from "./gst-row-actions";
 
 interface GstReturnItem {
   id: string;
@@ -159,7 +160,7 @@ export function GstClient({ returns, gstClients }: Props) {
                   <th className="px-4 py-3.5">Due Date</th>
                   <th className="px-4 py-3.5 text-right">Net Tax Liability</th>
                   <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-5 py-3.5 text-right">ARN</th>
+                  <th className="px-5 py-3.5 text-right">Filing Action / ARN</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EBE9E1]">
@@ -194,8 +195,12 @@ export function GstClient({ returns, gstClients }: Props) {
                         {r.status.replace(/_/g, " ")}
                       </Badge>
                     </td>
-                    <td className="px-5 py-4 text-right font-mono text-xs text-graphite-500">
-                      {r.arnNumber || "—"}
+                    <td className="px-5 py-4 text-right">
+                      <GstReturnRowActions
+                        returnId={r.id}
+                        status={r.status}
+                        arnNumber={r.arnNumber}
+                      />
                     </td>
                   </tr>
                 ))}

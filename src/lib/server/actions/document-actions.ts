@@ -127,3 +127,105 @@ export async function escalateDocumentRequestReminderAction(requestId: string) {
     return { success: false, error: error.message || "Failed to escalate document reminder." };
   }
 }
+
+/**
+ * Creates a document entry in the client vault.
+ */
+export async function createDocumentAction(params: {
+  clientId: string;
+  name: string;
+  category: string;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  fileUrl?: string | null;
+  requestId?: string | null;
+}) {
+  try {
+    const context = await requireTenant();
+    const tenantId = context.membership.tenantId;
+
+    if (!params.name.trim()) {
+      return { success: false, error: "Document name is required." };
+    }
+
+    const client = await db.client.findFirst({
+      where: { id: params.clientId, tenantId },
+    });
+    if (!client) {
+      return { success: false, error: "Client not found in this practice." };
+    }
+
+    const doc = await db.document.create({
+      data: {
+        tenantId,
+        clientId: params.clientId,
+        name: params.name.trim(),
+        category: params.category || "General",
+        fileSize: params.fileSize || null,
+        mimeType: params.mimeType || "application/pdf",
+        fileUrl: params.fileUrl || null,
+        requestId: params.requestId || null,
+        status: DocumentStatus.UPLOADED,
+      },
+    });
+
+    if (params.requestId) {
+      await db.documentRequest.updateMany({
+        where: { id: params.requestId, tenantId },
+        data: { status: DocumentStatus.UPLOADED },
+      });
+    }
+
+    revalidatePath("/documents");
+    revalidatePath(`/clients/${params.clientId}`);
+    return { success: true, data: doc };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to upload document." };
+  }
+}
+
+/**
+ * Verifies or rejects a document with audit tracking.
+ */
+export async function updateDocumentStatusAction(params: {
+  documentId: string;
+  status: DocumentStatus;
+  rejectionReason?: string;
+}) {
+  try {
+    const context = await requireTenant();
+    const tenantId = context.membership.tenantId;
+
+    const doc = await db.document.findFirst({
+      where: { id: params.documentId, tenantId },
+    });
+    if (!doc) {
+      return { success: false, error: "Document not found in this practice." };
+    }
+
+    const updated = await db.document.update({
+      where: { id: params.documentId },
+      data: {
+        status: params.status,
+        verifiedAt: params.status === DocumentStatus.VERIFIED ? new Date() : null,
+        verifiedById: params.status === DocumentStatus.VERIFIED ? context.user.id : null,
+        rejectionReason: params.rejectionReason?.trim() || null,
+      },
+    });
+
+    await logSecurityEvent({
+      tenantId,
+      userId: context.user.id,
+      action: "CLIENT_UPDATED",
+      entityType: "DOCUMENT",
+      entityId: doc.id,
+      newValue: { status: params.status, rejectionReason: params.rejectionReason || null },
+    });
+
+    revalidatePath("/documents");
+    revalidatePath(`/clients/${doc.clientId}`);
+    return { success: true, data: updated };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to update document status." };
+  }
+}

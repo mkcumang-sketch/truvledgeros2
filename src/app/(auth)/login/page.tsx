@@ -3,9 +3,13 @@
 import { useState, useEffect } from "react";
 import { loginAction } from "@/lib/auth/actions";
 import Link from "next/link";
-import { Sparkles, ArrowRight, Lock, Mail, Clock } from "lucide-react";
+import { Sparkles, ArrowRight, Lock, Mail, Clock, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { Turnstile } from "@marsidev/react-turnstile";
+
+const TURNSTILE_SITE_KEY =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -13,6 +17,11 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  const requireTurnstile =
+    failedAttempts >= 2 || process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true";
 
   // Active lockout countdown timer
   useEffect(() => {
@@ -35,15 +44,28 @@ export default function LoginPage() {
     e.preventDefault();
     if (lockoutSeconds && lockoutSeconds > 0) return;
 
+    if (requireTurnstile && !turnstileToken) {
+      setError("Please complete the security verification challenge before continuing.");
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    if (turnstileToken) {
+      formData.set("turnstileToken", turnstileToken);
+      formData.set("cf-turnstile-response", turnstileToken);
+    }
+
     const res = await loginAction(formData);
 
     if (res?.error) {
       setError(res.error);
       setLoading(false);
+      setFailedAttempts((prev) => prev + 1);
+      // Reset captcha token on failure to require fresh solve
+      setTurnstileToken(null);
       if (res.retryAfter && typeof res.retryAfter === "number") {
         setLockoutSeconds(res.retryAfter);
       }
@@ -51,6 +73,7 @@ export default function LoginPage() {
   }
 
   const isLockedOut = lockoutSeconds !== null && lockoutSeconds > 0;
+  const isSubmitDisabled = loading || isLockedOut || (requireTurnstile && !turnstileToken);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-ivory p-4 sm:p-6">
@@ -90,6 +113,19 @@ export default function LoginPage() {
             </Alert>
           </div>
         ) : null}
+
+        {/* Security Challenge Notice */}
+        {requireTurnstile && !isLockedOut && (
+          <div className="mb-4">
+            <Alert
+              variant="info"
+              icon={<ShieldAlert className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />}
+              title="Security Verification Required"
+            >
+              Please verify your identity using the Cloudflare Turnstile challenge below.
+            </Alert>
+          </div>
+        )}
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -149,16 +185,34 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* Cloudflare Turnstile Captcha Widget */}
+          {requireTurnstile && (
+            <div className="pt-2 pb-1 flex justify-center">
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onError={() => setTurnstileToken(null)}
+                onExpire={() => setTurnstileToken(null)}
+              />
+            </div>
+          )}
+
           <Button
             type="submit"
             variant="primary"
             size="lg"
             isLoading={loading}
-            disabled={isLockedOut}
+            disabled={isSubmitDisabled}
             className="w-full mt-2"
           >
-            {isLockedOut ? `Locked (${lockoutSeconds}s)` : "Sign In to Practice"}
-            {!isLockedOut && <ArrowRight className="w-4 h-4 ml-1" />}
+            {isLockedOut
+              ? `Locked (${lockoutSeconds}s)`
+              : requireTurnstile && !turnstileToken
+              ? "Verify Captcha to Continue"
+              : "Sign In to Practice"}
+            {!isLockedOut && (!requireTurnstile || turnstileToken) && (
+              <ArrowRight className="w-4 h-4 ml-1" />
+            )}
           </Button>
         </form>
       </div>

@@ -40,9 +40,8 @@ export function timingSafeEqualCompare(a: string, b: string): boolean {
  * - Checks tenant existence, active status, and non-suspended status.
  * - If caller presents a tenant-bound credential (via db.integration), strictly verifies
  *   that the credential belongs to the requested tenant. Cross-tenant access is rejected with 403.
- * - Missing, expired, revoked, or malformed credentials fail closed.
- * - System-level credentials (CRON_SECRET, N8N_WEBHOOK_SECRET) are supported for automated outbox
- *   processing under tightly controlled, explicit system scope.
+ * - Missing, expired, revoked, or malformed credentials fail closed with 401.
+ * - Tenant scope validation occurs upon authentic credentials.
  */
 export async function authorizeM2MRequest(
   req: NextRequest,
@@ -81,59 +80,76 @@ export async function authorizeM2MRequest(
 
   const requestedTenantId = queryTenantId || headerTenantId;
 
-  // 1. Mandatory Tenant Scope Validation
-  if (!requestedTenantId || typeof requestedTenantId !== "string" || !requestedTenantId.trim()) {
-    return {
-      isM2MRequest: true,
-      authorized: false,
-      statusCode: 400,
-      errorCode: "MISSING_TENANT_SCOPE",
-      errorMessage: "tenantId query parameter or x-truv-tenant-id header is required for machine-to-machine requests.",
-    };
+  // Helper to validate tenant status once credential is valid
+  async function validateTenantScope(): Promise<
+    { valid: true; tenant: { id: string; active: boolean; isSuspended: boolean } } |
+    { valid: false; result: M2MAuthorizationResult }
+  > {
+    if (!requestedTenantId || typeof requestedTenantId !== "string" || !requestedTenantId.trim()) {
+      return {
+        valid: false,
+        result: {
+          isM2MRequest: true,
+          authorized: false,
+          statusCode: 400,
+          errorCode: "MISSING_TENANT_SCOPE",
+          errorMessage: "tenantId query parameter or x-truv-tenant-id header is required for machine-to-machine requests.",
+        },
+      };
+    }
+
+    const tenantId = requestedTenantId.trim();
+    if (tenantId.length > 128) {
+      return {
+        valid: false,
+        result: {
+          isM2MRequest: true,
+          authorized: false,
+          statusCode: 400,
+          errorCode: "INVALID_TENANT_SCOPE",
+          errorMessage: "Invalid or malformed tenantId parameter (length exceeds maximum 128 chars).",
+        },
+      };
+    }
+
+    const tenant = await db.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        active: true,
+        isSuspended: true,
+      },
+    });
+
+    if (!tenant) {
+      return {
+        valid: false,
+        result: {
+          isM2MRequest: true,
+          authorized: false,
+          statusCode: 404,
+          errorCode: "TENANT_NOT_FOUND",
+          errorMessage: "Requested tenant does not exist or is not authorized.",
+        },
+      };
+    }
+
+    if (!tenant.active || tenant.isSuspended) {
+      return {
+        valid: false,
+        result: {
+          isM2MRequest: true,
+          authorized: false,
+          statusCode: 403,
+          errorCode: "TENANT_UNAUTHORIZED",
+          errorMessage: "Tenant account is suspended or inactive.",
+        },
+      };
+    }
+
+    return { valid: true, tenant };
   }
 
-  const tenantId = requestedTenantId.trim();
-  if (tenantId.length > 128) {
-    return {
-      isM2MRequest: true,
-      authorized: false,
-      statusCode: 400,
-      errorCode: "INVALID_TENANT_SCOPE",
-      errorMessage: "Invalid or malformed tenantId parameter (length exceeds maximum 128 chars).",
-    };
-  }
-
-  // 2. Validate Tenant Status in Database
-  const tenant = await db.tenant.findUnique({
-    where: { id: tenantId },
-    select: {
-      id: true,
-      active: true,
-      isSuspended: true,
-    },
-  });
-
-  if (!tenant) {
-    return {
-      isM2MRequest: true,
-      authorized: false,
-      statusCode: 404,
-      errorCode: "TENANT_NOT_FOUND",
-      errorMessage: "Requested tenant does not exist or is not authorized.",
-    };
-  }
-
-  if (!tenant.active || tenant.isSuspended) {
-    return {
-      isM2MRequest: true,
-      authorized: false,
-      statusCode: 403,
-      errorCode: "TENANT_UNAUTHORIZED",
-      errorMessage: "Tenant account is suspended or inactive.",
-    };
-  }
-
-  // 3. Authenticate and Verify Credential-to-Tenant Scope
   // Branch A: Machine-to-Machine HMAC Signature Authentication
   if (hasHmacHeaders) {
     if (!signatureHeader || !timestampHeader) {
@@ -146,160 +162,128 @@ export async function authorizeM2MRequest(
       };
     }
 
-    // Check if the requested tenant has a registered tenant-bound credential
-    const tenantIntegration = await db.integration.findFirst({
-      where: {
-        tenantId: tenant.id,
-        provider: { in: ["N8N_M2M", "M2M_HMAC", "WEBHOOK"] },
-      },
-      select: {
-        id: true,
-        tenantId: true,
-        provider: true,
-        encryptedCredentials: true,
-        iv: true,
-        authTag: true,
-        status: true,
-      },
-    });
+    // Enforce 5-minute replay attack tolerance window
+    const tsNumber = parseInt(timestampHeader, 10);
+    const now = Date.now();
+    if (isNaN(tsNumber) || Math.abs(now - tsNumber) > 300000) {
+      return {
+        isM2MRequest: true,
+        authorized: false,
+        statusCode: 401,
+        errorCode: "TIMESTAMP_EXPIRED",
+        errorMessage: "Webhook timestamp expired or outside tolerance window.",
+      };
+    }
 
-    if (tenantIntegration) {
-      if (tenantIntegration.status !== "ACTIVE") {
-        return {
-          isM2MRequest: true,
-          authorized: false,
-          statusCode: 403,
-          errorCode: "CREDENTIAL_REVOKED",
-          errorMessage: "Tenant integration credential has been revoked or disabled.",
-        };
-      }
+    // Check system-level secret first
+    const systemSecret = process.env.N8N_WEBHOOK_SECRET?.trim();
+    let isSignatureValid = false;
+    let authScope: "TENANT" | "SYSTEM" = "SYSTEM";
+    let matchedIntegrationId: string | undefined;
 
-      let tenantSecret: string | null = null;
-      const format = classifyCredentialFormat(tenantIntegration);
-
-      if (format === "V1_ENCRYPTED") {
-        try {
-          tenantSecret = decryptRecoverableSecret({
-            encryptedCredentials: tenantIntegration.encryptedCredentials!,
-            iv: tenantIntegration.iv!,
-            authTag: tenantIntegration.authTag!,
-            tenantId: tenant.id,
-            provider: tenantIntegration.provider,
-            integrationId: tenantIntegration.id,
-          });
-        } catch {
-          return {
-            isM2MRequest: true,
-            authorized: false,
-            statusCode: 401,
-            errorCode: "INVALID_CREDENTIALS",
-            errorMessage: "Tenant integration secret decryption failed.",
-          };
-        }
-      } else if (format === "LEGACY_PLAINTEXT") {
-        tenantSecret = tenantIntegration.encryptedCredentials?.trim() || null;
-      } else {
-        return {
-          isM2MRequest: true,
-          authorized: false,
-          statusCode: 401,
-          errorCode: "UNCONFIGURED_SECRET",
-          errorMessage: "Tenant integration secret is empty, malformed, or unsuitable for HMAC authentication.",
-        };
-      }
-
-      if (!tenantSecret) {
-        return {
-          isM2MRequest: true,
-          authorized: false,
-          statusCode: 401,
-          errorCode: "UNCONFIGURED_SECRET",
-          errorMessage: "Tenant integration secret is empty or unconfigured.",
-        };
-      }
-
-      const auth = verifyWebhookSignature({
+    if (systemSecret) {
+      const systemAuth = verifyWebhookSignature({
         payloadString: options?.payloadString || "",
         signatureHeader,
         timestampHeader,
-        secret: tenantSecret,
+        secret: systemSecret,
+      });
+      if (systemAuth.valid) {
+        isSignatureValid = true;
+        authScope = "SYSTEM";
+      }
+    }
+
+    let tenantIntegration: any = null;
+
+    // If not verified with system secret, check if caller provided tenant scope and matches tenant integration
+    if (!isSignatureValid && requestedTenantId) {
+      tenantIntegration = await db.integration.findFirst({
+        where: {
+          tenantId: requestedTenantId,
+          provider: { in: ["N8N_M2M", "M2M_HMAC", "WEBHOOK"] },
+          status: "ACTIVE",
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          provider: true,
+          encryptedCredentials: true,
+          iv: true,
+          authTag: true,
+          status: true,
+        },
       });
 
-      if (auth.valid) {
+      if (tenantIntegration) {
+        let tenantSecret: string | null = null;
+        const format = classifyCredentialFormat(tenantIntegration);
+
+        if (format === "V1_ENCRYPTED") {
+          try {
+            tenantSecret = decryptRecoverableSecret({
+              encryptedCredentials: tenantIntegration.encryptedCredentials!,
+              iv: tenantIntegration.iv!,
+              authTag: tenantIntegration.authTag!,
+              tenantId: tenantIntegration.tenantId,
+              provider: tenantIntegration.provider,
+              integrationId: tenantIntegration.id,
+            });
+          } catch {
+            tenantSecret = null;
+          }
+        } else if (format === "LEGACY_PLAINTEXT") {
+          tenantSecret = tenantIntegration.encryptedCredentials?.trim() || null;
+        }
+
+        if (tenantSecret) {
+          const tenantAuth = verifyWebhookSignature({
+            payloadString: options?.payloadString || "",
+            signatureHeader,
+            timestampHeader,
+            secret: tenantSecret,
+          });
+          if (tenantAuth.valid) {
+            isSignatureValid = true;
+            authScope = "TENANT";
+            matchedIntegrationId = tenantIntegration.id;
+          }
+        }
+      }
+    }
+
+    if (!isSignatureValid) {
+      if (!systemSecret && !tenantIntegration) {
         return {
           isM2MRequest: true,
-          authorized: true,
-          tenantId: tenant.id,
-          authScope: "TENANT",
-          credentialId: tenantIntegration.id,
+          authorized: false,
+          statusCode: 401,
+          errorCode: "UNCONFIGURED_SECRET",
+          errorMessage: "M2M webhook authentication secret is not configured on server.",
         };
       }
 
-      // Check if signed with system-level HMAC secret (for internal system outbox dispatcher)
-      const systemSecret = process.env.N8N_WEBHOOK_SECRET?.trim();
-      if (systemSecret) {
-        const systemAuth = verifyWebhookSignature({
-          payloadString: options?.payloadString || "",
-          signatureHeader,
-          timestampHeader,
-          secret: systemSecret,
-        });
-
-        if (systemAuth.valid) {
-          return {
-            isM2MRequest: true,
-            authorized: true,
-            tenantId: tenant.id,
-            authScope: "SYSTEM",
-          };
-        }
-      }
-
-      const isExpired = auth.error?.includes("expired") || auth.error?.includes("tolerance");
       return {
         isM2MRequest: true,
         authorized: false,
         statusCode: 401,
-        errorCode: isExpired ? "TIMESTAMP_EXPIRED" : "INVALID_SIGNATURE",
-        errorMessage: auth.error || "Invalid webhook signature.",
+        errorCode: "INVALID_SIGNATURE",
+        errorMessage: "Invalid webhook signature.",
       };
     }
 
-    // System-level HMAC secret fallback for system outbox automation
-    const systemSecret = process.env.N8N_WEBHOOK_SECRET?.trim();
-    if (!systemSecret) {
-      return {
-        isM2MRequest: true,
-        authorized: false,
-        statusCode: 401,
-        errorCode: "UNCONFIGURED_SECRET",
-        errorMessage: "Webhook authentication secret is not configured on server.",
-      };
-    }
-
-    const auth = verifyWebhookSignature({
-      payloadString: options?.payloadString || "",
-      signatureHeader,
-      timestampHeader,
-      secret: systemSecret,
-    });
-
-    if (!auth.valid) {
-      const isExpired = auth.error?.includes("expired") || auth.error?.includes("tolerance");
-      return {
-        isM2MRequest: true,
-        authorized: false,
-        statusCode: 401,
-        errorCode: isExpired ? "TIMESTAMP_EXPIRED" : "INVALID_SIGNATURE",
-        errorMessage: auth.error || "Invalid webhook signature.",
-      };
+    // Signature is valid; now enforce tenant scope
+    const scopeCheck = await validateTenantScope();
+    if (!scopeCheck.valid) {
+      return scopeCheck.result;
     }
 
     return {
       isM2MRequest: true,
       authorized: true,
-      tenantId: tenant.id,
-      authScope: "SYSTEM",
+      tenantId: scopeCheck.tenant.id,
+      authScope,
+      credentialId: matchedIntegrationId,
     };
   }
 
@@ -318,92 +302,69 @@ export async function authorizeM2MRequest(
       };
     }
 
-    // 1. Check if token belongs to any registered Tenant Integration
-    // Strategy:
-    // a. Direct lookup for legacy plaintext tokens & in-memory test mocks
-    let tokenIntegration = await db.integration.findFirst({
-      where: {
-        encryptedCredentials: providedToken,
-        provider: { in: ["M2M_BEARER", "M2M_AUTH", "CRON", "API_KEY", "N8N_M2M"] },
-      },
-      select: {
-        id: true,
-        tenantId: true,
-        provider: true,
-        encryptedCredentials: true,
-        iv: true,
-        authTag: true,
-        status: true,
-      },
-    });
+    // 1. Check if token matches system-level CRON_SECRET
+    const systemCronSecret = (process.env.CRON_SECRET || process.env.N8N_WEBHOOK_SECRET)?.trim();
+    const isSystemAuthorized =
+      systemCronSecret && timingSafeEqualCompare(providedToken, systemCronSecret);
 
-    // b. Lookup by computed blinded digest envelope (Contract B)
-    if (!tokenIntegration) {
-      try {
-        const { digestEnvelope } = computeBearerTokenDigest({ token: providedToken });
-        tokenIntegration = await db.integration.findFirst({
-          where: {
-            encryptedCredentials: digestEnvelope,
-            provider: { in: ["M2M_BEARER", "M2M_AUTH", "CRON", "API_KEY", "N8N_M2M"] },
-          },
-          select: {
-            id: true,
-            tenantId: true,
-            provider: true,
-            encryptedCredentials: true,
-            iv: true,
-            authTag: true,
-            status: true,
-          },
-        });
-      } catch {
-        // Active pepper unavailable or computation error; continue safely
+    let tokenIntegration: any = null;
+
+    if (!isSystemAuthorized) {
+      // 2. Check if token belongs to any registered Tenant Integration
+      tokenIntegration = await db.integration.findFirst({
+        where: {
+          encryptedCredentials: providedToken,
+          provider: { in: ["M2M_BEARER", "M2M_AUTH", "CRON", "API_KEY", "N8N_M2M"] },
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          provider: true,
+          encryptedCredentials: true,
+          iv: true,
+          authTag: true,
+          status: true,
+        },
+      });
+
+      if (!tokenIntegration) {
+        try {
+          const { digestEnvelope } = computeBearerTokenDigest({ token: providedToken });
+          tokenIntegration = await db.integration.findFirst({
+            where: {
+              encryptedCredentials: digestEnvelope,
+              provider: { in: ["M2M_BEARER", "M2M_AUTH", "CRON", "API_KEY", "N8N_M2M"] },
+            },
+            select: {
+              id: true,
+              tenantId: true,
+              provider: true,
+              encryptedCredentials: true,
+              iv: true,
+              authTag: true,
+              status: true,
+            },
+          });
+        } catch {
+          // Digest unavailable
+        }
       }
     }
 
-    // c. Lookup by encrypted recoverable secret (Contract A) under requested tenant
-    if (!tokenIntegration) {
-      try {
-        const encryptedCandidates = await db.integration.findMany({
-          where: {
-            tenantId: tenant.id,
-            provider: { in: ["M2M_BEARER", "M2M_AUTH", "CRON", "API_KEY", "N8N_M2M"] },
-            status: "ACTIVE",
-          },
-          select: {
-            id: true,
-            tenantId: true,
-            provider: true,
-            encryptedCredentials: true,
-            iv: true,
-            authTag: true,
-            status: true,
-          },
-        });
+    if (!isSystemAuthorized && !tokenIntegration) {
+      return {
+        isM2MRequest: true,
+        authorized: false,
+        statusCode: 401,
+        errorCode: "INVALID_CREDENTIALS",
+        errorMessage: "Invalid machine credentials.",
+      };
+    }
 
-        for (const candidate of encryptedCandidates) {
-          if (classifyCredentialFormat(candidate) === "V1_ENCRYPTED") {
-            try {
-              const decrypted = decryptRecoverableSecret({
-                encryptedCredentials: candidate.encryptedCredentials,
-                iv: candidate.iv,
-                authTag: candidate.authTag,
-                tenantId: candidate.tenantId,
-                provider: candidate.provider,
-                integrationId: candidate.id,
-              });
-              if (timingSafeEqualCompare(providedToken, decrypted)) {
-                tokenIntegration = candidate;
-                break;
-              }
-            } catch {
-              // Decryption failure - skip candidate
-            }
-          }
-        }
-      } catch {
-        // Continue safely
-      }
+    // Token is valid; now enforce tenant scope
+    const scopeCheck = await validateTenantScope();
+    if (!scopeCheck.valid) {
+      return scopeCheck.result;
     }
 
     if (tokenIntegration) {
@@ -418,89 +379,29 @@ export async function authorizeM2MRequest(
       }
 
       // STRICT CROSS-TENANT BINDING: The token's registered tenant MUST match the requested tenant!
-      if (tokenIntegration.tenantId !== tenant.id) {
+      if (tokenIntegration.tenantId !== scopeCheck.tenant.id) {
         return {
           isM2MRequest: true,
           authorized: false,
           statusCode: 403,
           errorCode: "CROSS_TENANT_FORBIDDEN",
-          errorMessage: `Cross-tenant access denied: Machine credential authorized for tenant '${tokenIntegration.tenantId}' cannot access tenant '${tenant.id}'.`,
-        };
-      }
-
-      // Format-aware constant-time validation
-      const format = classifyCredentialFormat(tokenIntegration);
-      let isTokenValid = false;
-
-      if (format === "V1_DIGEST") {
-        isTokenValid = verifyBearerToken({
-          providedToken,
-          storedDigestEnvelope: tokenIntegration.encryptedCredentials,
-        });
-      } else if (format === "LEGACY_PLAINTEXT") {
-        isTokenValid = timingSafeEqualCompare(providedToken, tokenIntegration.encryptedCredentials);
-      } else if (format === "V1_ENCRYPTED") {
-        try {
-          const decrypted = decryptRecoverableSecret({
-            encryptedCredentials: tokenIntegration.encryptedCredentials,
-            iv: tokenIntegration.iv,
-            authTag: tokenIntegration.authTag,
-            tenantId: tokenIntegration.tenantId,
-            provider: tokenIntegration.provider,
-            integrationId: tokenIntegration.id,
-          });
-          isTokenValid = timingSafeEqualCompare(providedToken, decrypted);
-        } catch {
-          isTokenValid = false;
-        }
-      }
-
-      if (!isTokenValid) {
-        return {
-          isM2MRequest: true,
-          authorized: false,
-          statusCode: 401,
-          errorCode: "INVALID_CREDENTIALS",
-          errorMessage: "Invalid machine credentials.",
+          errorMessage: `Cross-tenant access denied: Machine credential authorized for tenant '${tokenIntegration.tenantId}' cannot access tenant '${scopeCheck.tenant.id}'.`,
         };
       }
 
       return {
         isM2MRequest: true,
         authorized: true,
-        tenantId: tenant.id,
+        tenantId: scopeCheck.tenant.id,
         authScope: "TENANT",
         credentialId: tokenIntegration.id,
-      };
-    }
-
-    // 2. Check if token matches the system-level CRON_SECRET
-    const systemCronSecret = (process.env.CRON_SECRET || process.env.N8N_WEBHOOK_SECRET)?.trim();
-    if (!systemCronSecret) {
-      return {
-        isM2MRequest: true,
-        authorized: false,
-        statusCode: 401,
-        errorCode: "UNCONFIGURED_SECRET",
-        errorMessage: "Machine authentication secret is not configured on server.",
-      };
-    }
-
-    const isSystemAuthorized = timingSafeEqualCompare(providedToken, systemCronSecret);
-    if (!isSystemAuthorized) {
-      return {
-        isM2MRequest: true,
-        authorized: false,
-        statusCode: 401,
-        errorCode: "INVALID_CREDENTIALS",
-        errorMessage: "Invalid machine credentials.",
       };
     }
 
     return {
       isM2MRequest: true,
       authorized: true,
-      tenantId: tenant.id,
+      tenantId: scopeCheck.tenant.id,
       authScope: "SYSTEM",
     };
   }

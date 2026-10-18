@@ -14,6 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { logoutAction } from "@/lib/auth/actions";
+import CommandPalette from "@/components/CommandPalette";
 
 export interface TopbarProps {
   onOpenMobileNav?: () => void;
@@ -21,6 +22,7 @@ export interface TopbarProps {
 
 export function Topbar({ onOpenMobileNav }: TopbarProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [profile, setProfile] = useState<{
     name: string;
     email: string;
@@ -49,6 +51,17 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
       .catch(() => null);
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const initials = profile.name
     .split(" ")
     .map((n) => n[0])
@@ -72,14 +85,27 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         )}
 
         {/* Global Search Bar */}
-        <div className="relative w-full max-w-md hidden sm:block">
-          <Search className="w-4 h-4 text-graphite-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <div
+          onClick={() => setIsCommandPaletteOpen(true)}
+          className="relative w-full max-w-md hidden sm:block cursor-pointer group"
+        >
+          <Search className="w-4 h-4 text-graphite-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none group-hover:text-[#F26B38] transition-colors" />
           <input
             type="text"
+            readOnly
             placeholder="Search clients, PAN, GSTIN, invoices... (Ctrl + K)"
-            className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg pl-9 pr-4 py-1.5 text-xs text-[#263238] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F26B38]/20 focus:border-[#F26B38] transition-colors"
+            className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg pl-9 pr-4 py-1.5 text-xs text-[#263238] placeholder:text-slate-400 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]/20 focus:border-[#F26B38] transition-colors"
           />
         </div>
+
+        {/* Mobile Search Icon Button */}
+        <button
+          onClick={() => setIsCommandPaletteOpen(true)}
+          className="sm:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-[#F8FAFC] transition-colors"
+          aria-label="Search practice records"
+        >
+          <Search className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Right Controls */}
@@ -177,6 +203,12 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           )}
         </div>
       </div>
+
+      {/* Global Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+      />
     </header>
   );
 }

@@ -42,22 +42,42 @@ export async function getTenantGstReturnsAction(period?: string) {
   return returns;
 }
 
+import { z } from "zod";
+
+const UpdateGstTaxSchema = z.object({
+  returnId: z.string().min(1, "Return ID is required"),
+  outputTax: z.number().min(0, "Output tax cannot be negative"),
+  inputTaxCredit: z.number().min(0, "Input tax credit cannot be negative"),
+});
+
+const MarkGstFiledSchema = z.object({
+  returnId: z.string().min(1, "Return ID is required"),
+  arnNumber: z.string().trim().min(1, "ARN number is required").max(50),
+});
+
 export async function updateGstReturnTaxAction(params: {
   returnId: string;
   outputTax: number;
   inputTaxCredit: number;
 }) {
   const { tenantId } = await getAuthContext();
-  const netPayable = Math.max(0, params.outputTax - params.inputTaxCredit);
+  const validated = UpdateGstTaxSchema.parse(params);
+
+  const existing = await db.gstReturn.findFirst({
+    where: { id: validated.returnId, tenantId },
+  });
+
+  if (!existing) {
+    throw new Error("GST return not found or does not belong to this practice firm.");
+  }
+
+  const netPayable = Math.max(0, validated.outputTax - validated.inputTaxCredit);
 
   const updated = await db.gstReturn.update({
-    where: {
-      id: params.returnId,
-      tenantId,
-    },
+    where: { id: existing.id },
     data: {
-      outputTax: params.outputTax,
-      inputTaxCredit: params.inputTaxCredit,
+      outputTax: validated.outputTax,
+      inputTaxCredit: validated.inputTaxCredit,
       netPayable: netPayable,
       status: GstReturnStatus.READY_FOR_REVIEW,
       dataReceived: true,
@@ -71,15 +91,19 @@ export async function updateGstReturnTaxAction(params: {
 export async function sendClientGstSummaryAction(returnId: string) {
   const { tenantId } = await getAuthContext();
 
+  if (!returnId || typeof returnId !== "string" || !returnId.trim()) {
+    throw new Error("Return ID is required.");
+  }
+
   const gstReturn = await db.gstReturn.findFirst({
-    where: { id: returnId, tenantId },
+    where: { id: returnId.trim(), tenantId },
     include: { client: true },
   });
 
-  if (!gstReturn) throw new Error("GST Return not found");
+  if (!gstReturn) throw new Error("GST Return not found in this practice firm.");
 
   await db.gstReturn.update({
-    where: { id: returnId },
+    where: { id: gstReturn.id },
     data: {
       status: GstReturnStatus.AWAITING_CLIENT_APPROVAL,
       summarySentAt: new Date(),
@@ -109,15 +133,21 @@ export async function markGstReturnFiledAction(params: {
   arnNumber: string;
 }) {
   const { tenantId } = await getAuthContext();
+  const validated = MarkGstFiledSchema.parse(params);
+
+  const existing = await db.gstReturn.findFirst({
+    where: { id: validated.returnId, tenantId },
+  });
+
+  if (!existing) {
+    throw new Error("GST return not found in this practice firm.");
+  }
 
   const filed = await db.gstReturn.update({
-    where: {
-      id: params.returnId,
-      tenantId,
-    },
+    where: { id: existing.id },
     data: {
       status: GstReturnStatus.FILED,
-      arnNumber: params.arnNumber,
+      arnNumber: validated.arnNumber,
       filedAt: new Date(),
     },
   });
