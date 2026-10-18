@@ -181,8 +181,10 @@ async function runTests() {
   // ---------------------------------------------------------------------------
   console.log("\n>>> Section 4: Transactional Email Templates & Standby Mode <<<");
 
-  // 4.1 Standby mode when RESEND_API_KEY is unconfigured
+  // 4.1 Standby mode when email providers are unconfigured
   delete process.env.RESEND_API_KEY;
+  delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASS;
   const inviteEmailRes = await sendTeamInvitationEmail({
     to: "new.staff@firm.in",
     inviterName: "CA Priya Kulkarni",

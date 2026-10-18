@@ -1,3 +1,4 @@
+import nodemailer from "nodemailer";
 import { logSecurityEvent } from "@/lib/server/audit";
 
 export interface SendEmailParams {
@@ -31,6 +32,7 @@ export interface EmailDeliveryResult {
   messageId?: string;
   detail?: string;
   error?: string;
+  provider?: "smtp" | "resend" | "standby";
 }
 
 /**
@@ -94,71 +96,124 @@ function wrapEmailTemplate(contentHtml: string, title: string): string {
 }
 
 /**
- * Sends a transactional email using Resend if configured, or records in standby mode.
+ * Direct Gmail SMTP / Resend / Standby Email Dispatcher
  */
-export async function sendTransactionalEmail(params: SendEmailParams): Promise<EmailDeliveryResult> {
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  const fromEmail = process.env.EMAIL_FROM?.trim() || "TRUV LedgerOS <onboarding@resend.dev>";
+export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryResult> {
+  const smtpUser = process.env.SMTP_USER?.trim();
+  const smtpPass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
+  const fromEmail = process.env.EMAIL_FROM?.trim() || (smtpUser ? `TRUV LedgerOS <${smtpUser}>` : "TRUV LedgerOS <onboarding@resend.dev>");
 
-  if (!resendApiKey) {
-    console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (RESEND_API_KEY unconfigured; standby recorded)`);
-    return {
-      success: true,
-      delivered: false,
-      status: "STANDBY_MODE",
-      deliveryOutcome: "SIMULATED_STANDBY",
-      messageId: `standby_${Date.now()}`,
-      detail: "RESEND_API_KEY unconfigured; delivery intent simulated and logged to standby audit without live network transmission.",
-    };
-  }
+  // 1. Primary: Direct Gmail SMTP via Nodemailer
+  if (smtpUser && smtpPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: (process.env.SMTP_PORT || "465") === "465",
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
 
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      const info = await transporter.sendMail({
         from: fromEmail,
-        to: [params.to],
+        to: params.to,
         subject: params.subject,
         html: params.html,
         text: params.text,
-      }),
-    });
+      });
 
-    const data = await response.json();
+      console.log(">>> [SMTP-DISPATCH] Sent email to:", params.to);
 
-    if (!response.ok) {
-      console.error("[RESEND-API-ERROR]", data);
+      return {
+        success: true,
+        delivered: true,
+        status: "SENT",
+        deliveryOutcome: "DELIVERED_TO_RECIPIENT",
+        messageId: info.messageId,
+        provider: "smtp",
+        detail: "Confirmed dispatched via direct Gmail SMTP.",
+      };
+    } catch (smtpErr: any) {
+      console.error("[SMTP-DELIVERY-ERROR]", smtpErr?.message || smtpErr);
+      // Fall through to Resend / Standby fallback below
+    }
+  }
+
+  // 2. Fallback: Resend API
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  if (resendApiKey) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [params.to],
+          subject: params.subject,
+          html: params.html,
+          text: params.text,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("[RESEND-API-ERROR]", data);
+        return {
+          success: false,
+          delivered: false,
+          status: "FAILED",
+          deliveryOutcome: "DELIVERY_FAILED",
+          provider: "resend",
+          error: data.message || `Resend responded with HTTP ${response.status}`,
+        };
+      }
+
+      return {
+        success: true,
+        delivered: true,
+        status: "SENT",
+        deliveryOutcome: "DELIVERED_TO_RECIPIENT",
+        messageId: data.id,
+        provider: "resend",
+        detail: "Confirmed dispatched to Resend mail gateway.",
+      };
+    } catch (err: any) {
+      console.error("[RESEND-SEND-EXCEPTION]", err);
       return {
         success: false,
         delivered: false,
         status: "FAILED",
         deliveryOutcome: "DELIVERY_FAILED",
-        error: data.message || `Resend responded with HTTP ${response.status}`,
+        provider: "resend",
+        error: err.message || "Failed to transmit email through Resend provider",
       };
     }
-
-    return {
-      success: true,
-      delivered: true,
-      status: "SENT",
-      deliveryOutcome: "DELIVERED_TO_RECIPIENT",
-      messageId: data.id,
-      detail: "Confirmed dispatched to Resend mail gateway.",
-    };
-  } catch (err: any) {
-    console.error("[EMAIL-SEND-EXCEPTION]", err);
-    return {
-      success: false,
-      delivered: false,
-      status: "FAILED",
-      deliveryOutcome: "DELIVERY_FAILED",
-      error: err.message || "Failed to transmit email through provider",
-    };
   }
+
+  // 3. Fallback: Standby Mode (Neither SMTP nor Resend configured)
+  console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (RESEND_API_KEY unconfigured; standby recorded)`);
+  return {
+    success: true,
+    delivered: false,
+    status: "STANDBY_MODE",
+    deliveryOutcome: "SIMULATED_STANDBY",
+    messageId: `standby_${Date.now()}`,
+    provider: "standby",
+    detail: "No active email provider configured; delivery intent simulated and logged to standby audit without live network transmission.",
+  };
+}
+
+/**
+ * Backward compatibility alias for sendEmail
+ */
+export async function sendTransactionalEmail(params: SendEmailParams): Promise<EmailDeliveryResult> {
+  return sendEmail(params);
 }
 
 // ============================================================================
