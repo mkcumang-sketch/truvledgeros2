@@ -1,6 +1,6 @@
 /**
- * Enterprise Input Sanitization & Anti-XSS Guardrails
- * Protects against stored/reflected XSS and malformed input vectors.
+ * Enterprise Input Normalization & Validation Guardrails
+ * Provides whitespace normalization and identifier validation schemas.
  */
 
 import { z } from "zod";
