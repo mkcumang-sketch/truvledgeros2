@@ -6,6 +6,8 @@ import { getSessionContext } from "@/lib/auth/session";
 import { verifyGodmodeAuthorization } from "@/lib/server/rbac/godmode-guard";
 import { logSecurityEvent } from "@/lib/server/audit";
 import { setRuntimeFeatureFlag } from "@/lib/server/feature-flags";
+import { ActionResult } from "@/lib/types/action-result";
+import { serializeForClient } from "@/lib/serialization";
 import { z } from "zod";
 
 /**
@@ -87,7 +89,7 @@ export async function toggleTenantSuspensionAction(params: z.infer<typeof Toggle
 
     revalidatePath("/godmode");
     revalidatePath("/service");
-    return { success: true, data: updated };
+    return { success: true, data: serializeForClient(updated) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to alter tenant status." };
   }
@@ -211,7 +213,12 @@ export async function togglePlatformFeatureFlagAction(params: {
     setRuntimeFeatureFlag(params.flagKey as any, params.enabled);
 
     revalidatePath("/godmode");
-    return { success: true, flagKey: params.flagKey, enabled: params.enabled };
+    return {
+      success: true,
+      data: { flagKey: params.flagKey, enabled: params.enabled },
+      flagKey: params.flagKey,
+      enabled: params.enabled,
+    };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to toggle platform flag." };
   }

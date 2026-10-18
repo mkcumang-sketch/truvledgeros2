@@ -5,6 +5,7 @@ import {
   getTenantOutboxEventsAction,
 } from "@/lib/server/actions/automation-actions";
 import { AutomationsClient } from "./AutomationsClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +38,9 @@ export default async function AutomationsPage() {
 
   return (
     <AutomationsClient
-      initialWorkflows={workflows as any}
-      initialOutboxEvents={outboxEvents as any}
-      stats={stats}
+      initialWorkflows={serializeForClient(workflows) as any}
+      initialOutboxEvents={serializeForClient(outboxEvents) as any}
+      stats={serializeForClient(stats)}
     />
   );
 }

@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Plus,
   Search,
@@ -285,7 +286,8 @@ export function ClientsDirectoryClient({
       if (res.success) {
         setIsAddModalOpen(false);
         resetForm();
-        setFormSuccessMessage(`"${res.data.name}" has been successfully added to your practice.`);
+        const clientName = (res.data as any)?.name || formName;
+        setFormSuccessMessage(`"${clientName}" has been successfully added to your practice.`);
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
@@ -320,7 +322,8 @@ export function ClientsDirectoryClient({
       if (res.success) {
         setEditingClient(null);
         resetForm();
-        setFormSuccessMessage(`Client record for "${res.data.name}" has been updated.`);
+        const clientName = (res.data as any)?.name || formName;
+        setFormSuccessMessage(`Client record for "${clientName}" has been updated.`);
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
@@ -335,12 +338,13 @@ export function ClientsDirectoryClient({
     startTransition(async () => {
       const res = await archiveClientAction(clientToArchive.id);
       if (res.success) {
+        toast.success(`"${clientToArchive.name}" archived. Historical records remain preserved.`);
         setFormSuccessMessage(`"${clientToArchive.name}" archived. Historical records remain preserved.`);
         setClientToArchive(null);
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
-        alert(res.error || "Unable to archive client.");
+        toast.error(res.error || "Unable to archive client.");
       }
     });
   };
@@ -351,12 +355,13 @@ export function ClientsDirectoryClient({
     startTransition(async () => {
       const res = await restoreClientAction(clientToRestore.id);
       if (res.success) {
+        toast.success(`"${clientToRestore.name}" restored to active practice.`);
         setFormSuccessMessage(`"${clientToRestore.name}" restored to active practice.`);
         setClientToRestore(null);
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
-        alert(res.error || "Unable to restore client.");
+        toast.error(res.error || "Unable to restore client.");
       }
     });
   };

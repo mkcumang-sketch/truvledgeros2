@@ -2,6 +2,7 @@ import React from "react";
 import { requireTenant } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { GstClient } from "./GstClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
   title: "GST Compliance & Returns — TRUV LedgerOS",
@@ -38,5 +39,10 @@ export default async function GstPage() {
     }),
   ]);
 
-  return <GstClient returns={returns as any} gstClients={gstClients} />;
+  return (
+    <GstClient
+      returns={serializeForClient(returns) as any}
+      gstClients={serializeForClient(gstClients)}
+    />
+  );
 }

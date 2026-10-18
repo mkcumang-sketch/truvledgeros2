@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useTransition } from "react";
 import { X, Send, CheckCircle2, AlertCircle, Building2, ShieldCheck } from "lucide-react";
@@ -113,7 +113,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
         ) : (
           <div>
             <div className="mb-6 space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-wider">
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-wider">
                 <Building2 className="w-4 h-4" />
                 <span>Enterprise Practice Consultation</span>
               </div>
@@ -147,7 +147,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                   required
                   className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                     formErrors.fullName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                  } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                  } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                 />
                 {formErrors.fullName && (
                   <p className="text-[11px] text-rose-600 mt-1">{formErrors.fullName}</p>
@@ -169,7 +169,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                     required
                     className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                       formErrors.email ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                    } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                    } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                   />
                   {formErrors.email && (
                     <p className="text-[11px] text-rose-600 mt-1">{formErrors.email}</p>
@@ -189,7 +189,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                     required
                     className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                       formErrors.phone ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                    } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                    } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                   />
                   {formErrors.phone && (
                     <p className="text-[11px] text-rose-600 mt-1">{formErrors.phone}</p>
@@ -212,7 +212,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                     required
                     className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                       formErrors.firmName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                    } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                    } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                   />
                   {formErrors.firmName && (
                     <p className="text-[11px] text-rose-600 mt-1">{formErrors.firmName}</p>
@@ -227,7 +227,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                     name="role"
                     value={formData.role}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                   >
                     <option value="Managing Partner">Managing Partner / Senior Partner</option>
                     <option value="Partner">Partner (GST / Tax / Audit)</option>
@@ -248,7 +248,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                     name="practiceSize"
                     value={formData.practiceSize}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                   >
                     <option value="1-5">1 - 5 Members (Core)</option>
                     <option value="6-15">6 - 15 Members (Multi-Partner)</option>
@@ -265,7 +265,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                     name="currentSoftware"
                     value={formData.currentSoftware}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                   >
                     <option value="Excel / Spreadsheets">Excel / Google Sheets</option>
                     <option value="Computax / Taxmann">Computax / Taxmann</option>
@@ -286,7 +286,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                   name="areasOfInterest"
                   value={formData.areasOfInterest}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                 >
                   <option value="All-In-One Practice Management">All-In-One Practice Management</option>
                   <option value="Core Practice Tier (1-5 Users)">Core Practice Tier (1-5 Users)</option>
@@ -312,7 +312,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                   required
                   className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                     formErrors.message ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                  } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                  } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                 />
                 {formErrors.message && (
                   <p className="text-[11px] text-rose-600 mt-1">{formErrors.message}</p>
@@ -327,11 +327,11 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                     name="privacyConsent"
                     checked={formData.privacyConsent}
                     onChange={handleInputChange}
-                    className="mt-0.5 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="mt-0.5 rounded-sm border-slate-300 text-[#F26B38] focus:ring-[#F26B38]"
                   />
                   <span>
                     I consent to TRUVTECH Practice Technologies processing my details in accordance with the{" "}
-                    <a href="/privacy" target="_blank" className="text-blue-700 underline font-semibold">
+                    <a href="/privacy" target="_blank" className="text-orange-600 underline font-semibold">
                       Privacy Policy
                     </a>.
                   </span>
@@ -346,7 +346,7 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isPending ? (
                     <span>Verifying & Recording Enquiry...</span>
@@ -365,3 +365,4 @@ export function EnquiryModal({ isOpen, onClose, defaultPlan }: EnquiryModalProps
     </div>
   );
 }
+

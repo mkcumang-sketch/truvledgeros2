@@ -5,6 +5,7 @@ import {
   sendClientGstSummaryAction,
   markGstReturnFiledAction,
 } from "@/lib/server/actions/gst-actions";
+import { toast } from "sonner";
 import { Send, CheckCircle2, Loader2, X, FileText } from "lucide-react";
 
 export interface GstReturnRowActionsProps {
@@ -27,11 +28,16 @@ export function GstReturnRowActions({
     try {
       setLoading(true);
       setFeedback(null);
-      await sendClientGstSummaryAction(returnId);
+      const res = await sendClientGstSummaryAction(returnId);
+      if (!res.success) {
+        toast.error(res.error || "Unable to send summary");
+        return;
+      }
+      toast.success("Sign-off dispatched to client");
       setFeedback("Sign-off dispatched to client");
       setTimeout(() => setFeedback(null), 4000);
     } catch (e: any) {
-      alert("Error sending summary: " + (e?.message || "Unknown error"));
+      toast.error(e?.message || "Failed to dispatch client GST summary.");
     } finally {
       setLoading(false);
     }
@@ -42,12 +48,17 @@ export function GstReturnRowActions({
     if (!arnInput.trim()) return;
     try {
       setLoading(true);
-      await markGstReturnFiledAction({ returnId, arnNumber: arnInput.trim() });
+      const res = await markGstReturnFiledAction({ returnId, arnNumber: arnInput.trim() });
+      if (!res.success) {
+        toast.error(res.error || "Unable to record filing");
+        return;
+      }
       setShowArnModal(false);
+      toast.success("Filing ARN recorded successfully");
       setFeedback("Filing recorded successfully");
       setTimeout(() => setFeedback(null), 4000);
     } catch (e: any) {
-      alert("Error recording filing ARN: " + (e?.message || "Unknown error"));
+      toast.error(e?.message || "Failed to record filing ARN.");
     } finally {
       setLoading(false);
     }

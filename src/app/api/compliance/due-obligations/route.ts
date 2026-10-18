@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import * as authSession from "@/lib/auth/session";
 import { Prisma } from "@prisma/client";
 import { authorizeM2MRequest } from "@/lib/server/m2m-auth";
+import { serializeForClient } from "@/lib/serialization";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      obligations,
+      obligations: serializeForClient(obligations),
     });
   } catch (err: any) {
     return NextResponse.json(

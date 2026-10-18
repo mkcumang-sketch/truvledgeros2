@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { Sparkles, ShieldCheck, Mail, ArrowUpRight } from "lucide-react";
+import { ShieldCheck, Mail, ArrowUpRight } from "lucide-react";
+import { TruvLogo } from "@/components/brand/truv-logo";
 
 export function PublicFooter() {
   const currentYear = new Date().getFullYear();
@@ -13,21 +14,16 @@ export function PublicFooter() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 pb-12 border-b border-slate-800">
           {/* Identity Column */}
           <div className="space-y-4 md:col-span-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-extrabold text-lg text-white tracking-tight">TRUVCA LedgerOS</span>
-            </div>
+            <TruvLogo size="md" theme="dark" href="/" />
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
               Authoritative Practice Management and Workflow Automation Operating System
               engineered specifically for Indian Chartered Accountant firms, statutory audit teams, and tax practitioners.
             </p>
-            <div className="text-xs text-blue-400 font-semibold tracking-wide">
+            <div className="text-xs text-orange-400 font-semibold tracking-wide">
               TRUVTECH Practice Technologies
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
-              <Mail className="w-3.5 h-3.5 text-blue-400" />
+              <Mail className="w-3.5 h-3.5 text-orange-400" />
               <span>Contact: onboarding@truvtech.com</span>
             </div>
           </div>
@@ -101,7 +97,7 @@ export function PublicFooter() {
             <h5 className="text-xs font-bold text-white uppercase tracking-wider">Firm Workspace</h5>
             <ul className="text-xs space-y-2.5 text-slate-400">
               <li>
-                <Link href="/login" className="text-blue-400 font-semibold hover:underline inline-flex items-center gap-1">
+                <Link href="/login" className="text-orange-400 font-semibold hover:underline inline-flex items-center gap-1">
                   <span>Sign In to Workspace</span>
                   <ArrowUpRight className="w-3 h-3" />
                 </Link>

@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Building2, Lock, Mail, Phone, MapPin, User, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Building2, Lock, Mail, Phone, MapPin, User, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { registerAction, type RegisterInput } from "@/lib/server/actions/register-actions";
+import { TruvLogo } from "@/components/brand/truv-logo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -61,13 +62,8 @@ export default function RegisterPage() {
     <div className="w-full max-w-lg mx-auto py-10 px-4 sm:px-6">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-8 sm:p-10 space-y-6">
         {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2.5 mb-2 group">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-bold group-hover:bg-slate-800 transition-colors shadow-xs">
-              <Sparkles className="w-4 h-4 text-blue-400" />
-            </div>
-            <span className="font-extrabold text-xl text-slate-900 tracking-tight">TRUVCA LedgerOS</span>
-          </Link>
+        <div className="text-center space-y-2 flex flex-col items-center">
+          <TruvLogo size="lg" subtext="Chartered Accountant Practice System" href="/" className="mb-2" />
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
             Register Your CA Practice
           </h2>
@@ -100,7 +96,7 @@ export default function RegisterPage() {
                 required
                 className={`w-full pl-10 pr-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                   formErrors.fullName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
               />
             </div>
             {formErrors.fullName && (
@@ -125,7 +121,7 @@ export default function RegisterPage() {
                   required
                   className={`w-full pl-10 pr-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                     formErrors.email ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                  } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                  } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                 />
               </div>
               {formErrors.email && (
@@ -148,7 +144,7 @@ export default function RegisterPage() {
                   required
                   className={`w-full pl-10 pr-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                     formErrors.phone ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                  } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                  } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                 />
               </div>
               {formErrors.phone && (
@@ -174,7 +170,7 @@ export default function RegisterPage() {
                   required
                   className={`w-full pl-10 pr-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                     formErrors.firmName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                  } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                  } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                 />
               </div>
               {formErrors.firmName && (
@@ -197,7 +193,7 @@ export default function RegisterPage() {
                   required
                   className={`w-full pl-10 pr-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                     formErrors.city ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                  } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                  } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                 />
               </div>
               {formErrors.city && (
@@ -206,7 +202,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Password */}
+            {/* Password */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
               Master Password *
@@ -222,7 +218,7 @@ export default function RegisterPage() {
                 required
                 className={`w-full pl-10 pr-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                   formErrors.password ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
               />
             </div>
             {formErrors.password && (
@@ -238,15 +234,15 @@ export default function RegisterPage() {
                 name="termsConsent"
                 checked={formData.termsConsent}
                 onChange={handleInputChange}
-                className="mt-0.5 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="mt-0.5 rounded-sm border-slate-300 text-[#F26B38] focus:ring-[#F26B38]"
               />
               <span>
                 I agree to the{" "}
-                <Link href="/terms" target="_blank" className="text-blue-700 font-semibold underline">
+                <Link href="/terms" target="_blank" className="text-orange-600 font-semibold underline">
                   Terms of Service
                 </Link>{" "}
                 and{" "}
-                <Link href="/privacy" target="_blank" className="text-blue-700 font-semibold underline">
+                <Link href="/privacy" target="_blank" className="text-orange-600 font-semibold underline">
                   Privacy Policy
                 </Link>.
               </span>
@@ -261,7 +257,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full py-3.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {isPending ? (
                 <span>Creating Practice Tenant & Workspace...</span>
@@ -277,7 +273,7 @@ export default function RegisterPage() {
 
         <div className="pt-4 border-t border-slate-200 text-center text-xs text-slate-500">
           Already registered your practice?{" "}
-          <Link href="/login" className="text-blue-700 font-bold hover:underline">
+          <Link href="/login" className="text-orange-600 font-bold hover:underline">
             Sign in to your firm workspace →
           </Link>
         </div>
@@ -285,3 +281,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

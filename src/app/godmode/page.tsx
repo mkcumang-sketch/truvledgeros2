@@ -6,6 +6,7 @@ import { verifyGodmodeAuthorization } from "@/lib/server/rbac/godmode-guard";
 import { db } from "@/lib/db";
 import { getAllFeatureFlags } from "@/lib/server/feature-flags";
 import { GodmodeClient } from "./GodmodeClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const metadata: Metadata = {
   title: "Platform God Mode // TRUVTECH Operations",
@@ -227,14 +228,14 @@ export default async function GodmodePage() {
 
   return (
     <GodmodeClient
-      stats={stats}
-      tenants={tenants}
-      auditLogs={auditLogs}
-      platformUsers={platformUsers}
-      integrations={integrations}
-      subscriptions={subscriptions}
-      initialFeatureFlags={featureFlags}
-      internalStaff={rawInternalStaff}
+      stats={serializeForClient(stats)}
+      tenants={serializeForClient(tenants)}
+      auditLogs={serializeForClient(auditLogs)}
+      platformUsers={serializeForClient(platformUsers)}
+      integrations={serializeForClient(integrations)}
+      subscriptions={serializeForClient(subscriptions)}
+      initialFeatureFlags={serializeForClient(featureFlags)}
+      internalStaff={serializeForClient(rawInternalStaff)}
     />
   );
 }

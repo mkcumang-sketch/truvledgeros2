@@ -1,6 +1,8 @@
 "use server";
 
-import { createDraftInvoice, CreateInvoiceSchema } from "@/lib/server/invoice-service";
+import { ActionResult } from "@/lib/types/action-result";
+import { serializeForClient } from "@/lib/serialization";
+import { CreateInvoiceSchema, createDraftInvoice } from "@/lib/server/invoice-service";
 
 export async function createDraftInvoiceAction(data: {
   clientId: string;
@@ -15,12 +17,19 @@ export async function createDraftInvoiceAction(data: {
     discountPercent: number;
     taxRatePercent: number;
   }[];
-}) {
+}): Promise<ActionResult<{ invoiceId: string }> & { invoiceId?: string }> {
   try {
     const validated = CreateInvoiceSchema.parse(data);
     const invoice = await createDraftInvoice(validated);
-    return { success: true, invoiceId: invoice.id };
+    return {
+      success: true,
+      data: serializeForClient({ invoiceId: invoice.id }),
+      invoiceId: invoice.id,
+    };
   } catch (error: any) {
-    return { success: false, error: error.message || "Failed to create invoice." };
+    return {
+      success: false,
+      error: error?.message || "Failed to create invoice.",
+    };
   }
 }

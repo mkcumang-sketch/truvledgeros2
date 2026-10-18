@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/lib/auth/actions";
 import CommandPalette from "@/components/CommandPalette";
+import { TruvMonogram } from "@/components/brand/truv-monogram";
 
 export interface TopbarProps {
   onOpenMobileNav?: () => void;
@@ -73,16 +74,21 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
   return (
     <header className="h-16 border-b border-[#E2E0D8] bg-white px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-30 flex-shrink-0 select-none">
       {/* Left: Mobile Hamburger & Search */}
-      <div className="flex items-center gap-3 flex-1 max-w-lg">
+      <div className="flex items-center gap-2.5 sm:gap-3 flex-1 max-w-lg">
         {onOpenMobileNav && (
           <button
             onClick={onOpenMobileNav}
-            className="lg:hidden p-2 rounded-lg text-graphite-600 hover:text-graphite-900 hover:bg-[#FAF9F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            className="lg:hidden p-2 rounded-lg text-graphite-600 hover:text-graphite-900 hover:bg-[#FAF9F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F26B38]"
             aria-label="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
+
+        {/* Mobile TRUV Brand Monogram */}
+        <Link href="/dashboard" className="lg:hidden flex items-center flex-shrink-0" title="TRUV LedgerOS">
+          <TruvMonogram className="w-8 h-8" />
+        </Link>
 
         {/* Global Search Bar */}
         <div
@@ -174,8 +180,8 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
                 <div className="px-3 py-2 border-b border-[#EBE9E1] mb-1">
                   <p className="font-bold text-graphite-900 truncate">{profile.name}</p>
                   <p className="text-graphite-500 text-[11px] truncate mt-0.5">{profile.email}</p>
-                  <div className="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[10px] font-semibold border border-emerald-200">
-                    <Shield className="w-3 h-3 text-emerald-600" />
+                  <div className="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FFF4EE] text-[#D95524] text-[10px] font-semibold border border-[#F26B38]/30">
+                    <Shield className="w-3 h-3 text-[#F26B38]" />
                     <span>{profile.role.replace("_", " ")}</span>
                   </div>
                 </div>

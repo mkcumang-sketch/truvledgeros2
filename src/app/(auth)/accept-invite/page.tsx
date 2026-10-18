@@ -4,7 +4,6 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Sparkles,
   Lock,
   User,
   Building,
@@ -17,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { TruvLogo } from "@/components/brand/truv-logo";
+import { TruvMonogram } from "@/components/brand/truv-monogram";
 import {
   getInvitationDetailsAction,
   acceptInvitationAction,
@@ -98,9 +99,7 @@ function AcceptInviteContent() {
   if (loading) {
     return (
       <div className="w-full max-w-md bg-white border border-[#E5E7EB] rounded-xl p-8 shadow-card text-center">
-        <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center mx-auto mb-3 animate-pulse">
-          <Sparkles className="w-5 h-5" />
-        </div>
+        <TruvMonogram className="w-10 h-10 mx-auto mb-3 animate-pulse" />
         <h2 className="text-sm font-semibold text-charcoal-900">Validating Invitation...</h2>
         <p className="text-xs text-slate-500 mt-1">Verifying cryptographic token security</p>
       </div>
@@ -129,16 +128,8 @@ function AcceptInviteContent() {
   return (
     <div className="w-full max-w-md bg-white border border-[#E5E7EB] rounded-xl p-6 sm:p-8 shadow-card">
       {/* Brand Header */}
-      <div className="text-center mb-6">
-        <div className="w-10 h-10 rounded-xl bg-[#F26B38] text-white flex items-center justify-center mx-auto mb-3 shadow-xs">
-          <Sparkles className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex items-center justify-center gap-1.5">
-          <span className="font-extrabold text-[#263238] text-xl tracking-tight">TRUV</span>
-          <span className="text-[#D95524] font-bold text-xs uppercase px-1.5 py-0.5 bg-[#FFF4EE] border border-[#F26B38]/30 rounded">
-            LedgerOS
-          </span>
-        </div>
+      <div className="text-center mb-6 flex flex-col items-center">
+        <TruvLogo size="lg" subtext="Practice Workspace Invitation" href="/" className="mb-2" />
         <h1 className="text-base font-bold text-[#263238] mt-2">
           Accept Team Invitation
         </h1>

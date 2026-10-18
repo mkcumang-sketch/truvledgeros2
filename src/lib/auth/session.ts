@@ -75,14 +75,36 @@ export async function createSession(
 }
 
 export async function destroySession(): Promise<void> {
-  const cookieStore = cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-  if (token) {
-    await (db as any).session.deleteMany({
-      where: { sessionToken: token },
-    });
-    cookieStore.delete(SESSION_COOKIE_NAME);
+    if (token) {
+      await (db as any).session
+        .deleteMany({
+          where: { sessionToken: token },
+        })
+        .catch(() => null);
+    }
+
+    const cookiesToClear = [
+      SESSION_COOKIE_NAME,
+      "next-auth.session-token",
+      "__Secure-next-auth.session-token",
+      "next-auth.csrf-token",
+      "__Host-next-auth.csrf-token",
+      "next-auth.callback-url",
+    ];
+
+    for (const name of cookiesToClear) {
+      try {
+        cookieStore.delete(name);
+      } catch {
+        // ignore cookie store errors in headless environments
+      }
+    }
+  } catch (err) {
+    console.error("[destroySession] Error clearing session:", err);
   }
 }
 
@@ -110,7 +132,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
       },
       tenant: true,
     },
-  });
+  }).catch(() => null);
 
   if (!session || session.expiresAt < new Date()) {
     if (session) {
@@ -158,33 +180,64 @@ export async function getSessionContext(): Promise<SessionContext | null> {
 }
 
 export async function requireAuth(): Promise<SessionContext> {
-  const context = await getSessionContext();
+  let context: SessionContext | null = null;
+  try {
+    context = await getSessionContext();
+  } catch (err) {
+    console.error("[requireAuth] Error resolving session context:", err);
+  }
+
   if (!context) {
-    throw new Error("UNAUTHORIZED");
+    try {
+      const cookieStore = cookies();
+      cookieStore.delete(SESSION_COOKIE_NAME);
+      cookieStore.delete("next-auth.session-token");
+      cookieStore.delete("__Secure-next-auth.session-token");
+    } catch {}
+    redirect("/login?error=SESSION_EXPIRED&force=true");
   }
   return context;
 }
 
 export async function requireTenant(): Promise<Required<SessionContext>> {
-  const context = await requireAuth();
+  let context: SessionContext | null = null;
+  try {
+    context = await getSessionContext();
+  } catch (err) {
+    console.error("[requireTenant] Error resolving session context:", err);
+  }
+
+  if (!context) {
+    try {
+      const cookieStore = cookies();
+      cookieStore.delete(SESSION_COOKIE_NAME);
+      cookieStore.delete("next-auth.session-token");
+      cookieStore.delete("__Secure-next-auth.session-token");
+    } catch {}
+    redirect("/login?error=SESSION_EXPIRED&force=true");
+  }
 
   if (!context.membership || !context.tenant) {
     if (context.user.isSuperAdmin) {
       // Safe fallback: automatically query first active, unsuspended tenant
-      const defaultTenant = await db.tenant.findFirst({
-        where: { active: true, isSuspended: false },
-        orderBy: { createdAt: "asc" },
-      });
+      const defaultTenant = await db.tenant
+        .findFirst({
+          where: { active: true, isSuspended: false },
+          orderBy: { createdAt: "asc" },
+        })
+        .catch(() => null);
 
       if (defaultTenant) {
         try {
           const cookieStore = cookies();
           const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
           if (token) {
-            await (db as any).session.update({
-              where: { sessionToken: token },
-              data: { tenantId: defaultTenant.id },
-            }).catch(() => null);
+            await (db as any).session
+              .update({
+                where: { sessionToken: token },
+                data: { tenantId: defaultTenant.id },
+              })
+              .catch(() => null);
           }
         } catch {
           // ignore cookie error in test/headless context
@@ -209,15 +262,30 @@ export async function requireTenant(): Promise<Required<SessionContext>> {
       }
     }
 
+    // User lacking active membership: clear cookies and redirect cleanly
+    try {
+      const cookieStore = cookies();
+      cookieStore.delete(SESSION_COOKIE_NAME);
+      cookieStore.delete("next-auth.session-token");
+      cookieStore.delete("__Secure-next-auth.session-token");
+    } catch {}
     redirect("/login?error=TENANT_MEMBERSHIP_REQUIRED");
   }
 
   if (context.membership.status !== "ACTIVE") {
-    redirect("/login?error=MEMBERSHIP_INACTIVE");
+    try {
+      const cookieStore = cookies();
+      cookieStore.delete(SESSION_COOKIE_NAME);
+    } catch {}
+    redirect("/login?error=MEMBERSHIP_INACTIVE&force=true");
   }
 
   if (!context.tenant.active || context.tenant.isSuspended) {
-    redirect("/login?error=TENANT_SUSPENDED");
+    try {
+      const cookieStore = cookies();
+      cookieStore.delete(SESSION_COOKIE_NAME);
+    } catch {}
+    redirect("/login?error=TENANT_SUSPENDED&force=true");
   }
 
   return context as Required<SessionContext>;

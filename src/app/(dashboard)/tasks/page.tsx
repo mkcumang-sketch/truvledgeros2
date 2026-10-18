@@ -2,6 +2,7 @@ import React from "react";
 import { requireTenant } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { TasksClient } from "./TasksClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
   title: "Tasks & Partner Approvals — TRUV LedgerOS",
@@ -43,9 +44,9 @@ export default async function TasksPage() {
 
   return (
     <TasksClient
-      tasks={tasks as any}
-      clients={clients}
-      teamMembers={teamMembers}
+      tasks={serializeForClient(tasks) as any}
+      clients={serializeForClient(clients)}
+      teamMembers={serializeForClient(teamMembers)}
     />
   );
 }

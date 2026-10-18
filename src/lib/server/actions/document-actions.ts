@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/session";
 import { DocumentStatus } from "@prisma/client";
 import { logSecurityEvent } from "@/lib/server/audit";
+import { ActionResult } from "@/lib/types/action-result";
+import { serializeForClient } from "@/lib/serialization";
 
 export interface CreateDocumentRequestParams {
   clientId: string;
@@ -45,7 +47,7 @@ export async function createDocumentRequestAction(params: CreateDocumentRequestP
 
     revalidatePath("/documents");
     revalidatePath(`/clients/${params.clientId}`);
-    return { success: true, data: request };
+    return { success: true, data: serializeForClient(request) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to create document request." };
   }
@@ -117,11 +119,11 @@ export async function escalateDocumentRequestReminderAction(requestId: string) {
     revalidatePath(`/clients/${request.clientId}`);
     return {
       success: true,
-      data: {
+      data: serializeForClient({
         ...updated,
         isEscalatedToPartner,
         clientName: request.client.name,
-      },
+      }),
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to escalate document reminder." };
@@ -178,7 +180,7 @@ export async function createDocumentAction(params: {
 
     revalidatePath("/documents");
     revalidatePath(`/clients/${params.clientId}`);
-    return { success: true, data: doc };
+    return { success: true, data: serializeForClient(doc) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to upload document." };
   }
@@ -224,7 +226,7 @@ export async function updateDocumentStatusAction(params: {
 
     revalidatePath("/documents");
     revalidatePath(`/clients/${doc.clientId}`);
-    return { success: true, data: updated };
+    return { success: true, data: serializeForClient(updated) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update document status." };
   }

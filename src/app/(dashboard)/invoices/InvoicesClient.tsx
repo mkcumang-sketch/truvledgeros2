@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   FileText,
   Plus,
@@ -105,9 +106,11 @@ export function InvoicesClient({ invoices, clients }: Props) {
       });
 
       if (res.success) {
+        toast.success("Invoice generated successfully");
         setIsModalOpen(false);
         router.refresh();
       } else {
+        toast.error(res.error || "Unable to generate invoice.");
         setFormError(res.error || "Unable to generate invoice.");
       }
     });

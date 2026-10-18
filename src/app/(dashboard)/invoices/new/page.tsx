@@ -132,13 +132,20 @@ function NewInvoiceForm() {
       items,
     });
 
-    if (!res.success || !res.invoiceId) {
+    if (!res.success) {
       setError(res.error || "Failed to create invoice.");
       setLoading(false);
       return;
     }
 
-    router.push(`/invoices/${res.invoiceId}`);
+    const invoiceId = res.invoiceId || res.data?.invoiceId;
+    if (!invoiceId) {
+      setError("Failed to obtain invoice ID.");
+      setLoading(false);
+      return;
+    }
+
+    router.push(`/invoices/${invoiceId}`);
   }
 
   return (

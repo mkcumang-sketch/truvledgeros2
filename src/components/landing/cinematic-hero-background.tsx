@@ -104,7 +104,7 @@ export function CinematicHeroBackground() {
           if (dist < maxDist) {
             const lineAlpha = (1 - dist / maxDist) * 0.16;
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(37, 99, 235, ${lineAlpha})`; // Professional blue #2563EB
+            ctx.strokeStyle = `rgba(242, 107, 56, ${lineAlpha})`; // TRUV warm orange #F26B38
             ctx.lineWidth = 0.8;
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -126,11 +126,11 @@ export function CinematicHeroBackground() {
         const pulse = Math.sin(time * 1.5 + p.phase) * 0.3 + 0.7;
         const currentAlpha = p.alpha * pulse;
 
-        // Glowing blue core
+        // Glowing orange/amber core
         ctx.beginPath();
         const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 3.5);
-        grad.addColorStop(0, `rgba(37, 99, 235, ${currentAlpha})`);
-        grad.addColorStop(0.6, `rgba(59, 130, 246, ${currentAlpha * 0.4})`);
+        grad.addColorStop(0, `rgba(242, 107, 56, ${currentAlpha})`);
+        grad.addColorStop(0.6, `rgba(251, 146, 60, ${currentAlpha * 0.4})`);
         grad.addColorStop(1, "rgba(255, 255, 255, 0)");
 
         ctx.fillStyle = grad;
@@ -145,7 +145,7 @@ export function CinematicHeroBackground() {
         // Node label on desktop
         if (p.nodeLabel && width >= 1024) {
           ctx.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace";
-          ctx.fillStyle = `rgba(30, 64, 175, ${currentAlpha * 0.85})`;
+          ctx.fillStyle = `rgba(194, 65, 12, ${currentAlpha * 0.85})`;
           ctx.fillText(p.nodeLabel, p.x + 8, p.y + 3);
         }
       });
@@ -248,9 +248,9 @@ export function CinematicHeroBackground() {
           onClick={toggleMotion}
           type="button"
           aria-label={isPlayingMotion ? "Pause background motion" : "Resume background motion"}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-slate-700 border border-slate-300 text-xs font-mono shadow-sm backdrop-blur-xs transition-all hover:border-blue-400 cursor-pointer"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-slate-700 border border-slate-300 text-xs font-mono shadow-sm backdrop-blur-xs transition-all hover:border-orange-400 cursor-pointer"
         >
-          <Film className="w-3.5 h-3.5 text-blue-600" />
+          <Film className="w-3.5 h-3.5 text-orange-600" />
           <span>{isPlayingMotion ? "Motion: Active" : "Motion: Paused"}</span>
           {isPlayingMotion ? (
             <Pause className="w-3 h-3 text-slate-500" />

@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   ListTodo,
   CheckCircle2,
@@ -119,11 +120,13 @@ export function TasksClient({ tasks, clients, teamMembers }: Props) {
       });
 
       if (res.success) {
+        toast.success("Task created successfully");
         setIsModalOpen(false);
         setTitle("");
         setDetail("");
         router.refresh();
       } else {
+        toast.error(res.error || "Unable to create task.");
         setFormError(res.error || "Unable to create task.");
       }
     });
@@ -136,7 +139,12 @@ export function TasksClient({ tasks, clients, teamMembers }: Props) {
         : TaskStatus.COMPLETED;
 
     startTransition(async () => {
-      await updateTaskStatusAction(taskId, nextStatus);
+      const res = await updateTaskStatusAction(taskId, nextStatus);
+      if (res.success) {
+        toast.success(nextStatus === TaskStatus.COMPLETED ? "Task completed" : "Task reopened");
+      } else {
+        toast.error(res.error || "Failed to update task status.");
+      }
       router.refresh();
     });
   };

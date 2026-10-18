@@ -2,6 +2,7 @@ import React from "react";
 import { requireTenant } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { InvoicesClient } from "./InvoicesClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
   title: "Billing & Invoices — TRUV LedgerOS",
@@ -32,5 +33,10 @@ export default async function InvoicesPage() {
     }),
   ]);
 
-  return <InvoicesClient invoices={invoices as any} clients={clients} />;
+  return (
+    <InvoicesClient
+      invoices={serializeForClient(invoices) as any}
+      clients={serializeForClient(clients)}
+    />
+  );
 }

@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Sparkles, Menu, X, ArrowRight } from "lucide-react";
+import { Menu, X, ArrowRight } from "lucide-react";
+import { TruvLogo } from "@/components/brand/truv-logo";
 
 interface PublicNavbarProps {
   onOpenEnquiry?: () => void;
@@ -14,23 +15,8 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        {/* Authentic TRUVTECH Brand Identity */}
-        <Link href="/" className="flex items-center gap-3 group focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-600">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm group-hover:bg-slate-800 transition-colors">
-            <Sparkles className="w-5 h-5 text-blue-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-slate-900 text-lg tracking-tight">TRUVCA</span>
-              <span className="text-blue-700 font-bold text-[10px] uppercase px-2 py-0.5 bg-blue-50 border border-blue-200 rounded-md">
-                LedgerOS
-              </span>
-            </div>
-            <div className="text-[11px] text-slate-500 font-medium tracking-wide">
-              Chartered Accountant Practice System
-            </div>
-          </div>
-        </Link>
+        {/* Authentic TRUV Monogram & Brand Identity */}
+        <TruvLogo size="md" subtext="Chartered Accountant Practice System" href="/" />
 
         {/* Desktop Navigation Links */}
         <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-slate-600 tracking-wide uppercase">
@@ -58,20 +44,20 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
         <div className="hidden sm:flex items-center gap-3">
           <Link
             href="/login"
-            className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-blue-600 tracking-wider uppercase transition-colors"
+            className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-orange-600 tracking-wider uppercase transition-colors"
           >
             Sign In
           </Link>
           <Link
             href="/register"
-            className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-blue-600 tracking-wider uppercase transition-colors border border-slate-300 rounded-lg bg-white hover:bg-slate-50"
+            className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-orange-600 tracking-wider uppercase transition-colors border border-slate-300 rounded-lg bg-white hover:bg-slate-50"
           >
             Register
           </Link>
           {onOpenEnquiry ? (
             <button
               onClick={onOpenEnquiry}
-              className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group cursor-pointer"
+              className="px-5 py-2.5 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group cursor-pointer"
             >
               <span>Enquire Now</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -79,7 +65,7 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
           ) : (
             <Link
               href="/contact"
-              className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group"
+              className="px-5 py-2.5 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 group"
             >
               <span>Enquire Now</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -101,22 +87,22 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
       {isMobileOpen && (
         <div className="lg:hidden bg-white border-b border-slate-200 px-6 py-6 space-y-4 shadow-lg animate-in slide-in-from-top-2">
           <nav className="flex flex-col gap-3 text-sm font-semibold uppercase tracking-wider text-slate-700">
-            <Link href="/" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-blue-600">
+            <Link href="/" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-orange-600">
               Home
             </Link>
-            <Link href="/#features" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-blue-600">
+            <Link href="/#features" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-orange-600">
               Platform Features
             </Link>
-            <Link href="/#workflows" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-blue-600">
+            <Link href="/#workflows" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-orange-600">
               CA Workflows
             </Link>
-            <Link href="/pricing" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-blue-600">
+            <Link href="/pricing" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-orange-600">
               Pricing Plans
             </Link>
-            <Link href="/contact" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-blue-600">
+            <Link href="/contact" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-orange-600">
               Contact Us
             </Link>
-            <Link href="/about" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-blue-600">
+            <Link href="/about" onClick={() => setIsMobileOpen(false)} className="py-2 hover:text-orange-600">
               About TRUVCA
             </Link>
           </nav>
@@ -132,7 +118,7 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
             <Link
               href="/register"
               onClick={() => setIsMobileOpen(false)}
-              className="w-full text-center py-2.5 rounded-lg border border-blue-600 text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50"
+              className="w-full text-center py-2.5 rounded-lg border border-orange-500 text-xs font-bold uppercase tracking-wider text-orange-700 bg-orange-50"
             >
               Register New Practice
             </Link>
@@ -141,7 +127,7 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
                 setIsMobileOpen(false);
                 if (onOpenEnquiry) onOpenEnquiry();
               }}
-              className="w-full text-center py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm"
+              className="w-full text-center py-2.5 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider shadow-sm cursor-pointer"
             >
               Enquire Now
             </button>

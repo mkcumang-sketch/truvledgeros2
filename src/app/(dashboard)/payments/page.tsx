@@ -6,6 +6,7 @@ import {
   getDashboardFinancialMetrics,
 } from "@/lib/server/financial-analytics";
 import { PaymentsClient } from "./PaymentsClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
   title: "Payments & Recovery — TRUV LedgerOS",
@@ -36,8 +37,8 @@ export default async function PaymentsPage() {
 
   return (
     <PaymentsClient
-      recoveryList={recoveryList as any}
-      recentPayments={recentPayments as any}
+      recoveryList={serializeForClient(recoveryList) as any}
+      recentPayments={serializeForClient(recentPayments) as any}
       totalCollected={metrics.totalCollectedRevenue}
       totalOutstanding={metrics.totalOutstanding}
     />

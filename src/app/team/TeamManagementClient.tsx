@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
   Users,
   Award,
@@ -195,9 +196,9 @@ export function TeamManagementClient({
     startTransition(async () => {
       const res = await resendInvitationAction({ invitationId });
       if (res.success) {
-        alert("Invitation resent with renewed 48-hour cryptographic token.");
+        toast.success("Invitation resent with renewed 48-hour cryptographic token.");
       } else {
-        alert(res.error || "Failed to resend invitation.");
+        toast.error(res.error || "Failed to resend invitation.");
       }
     });
   }
@@ -235,13 +236,25 @@ export function TeamManagementClient({
     startTransition(async () => {
       if (confirmConfig.actionType === "suspend") {
         const res = await suspendMemberAction({ memberId: confirmConfig.targetId });
-        if (!res.success) alert(res.error || "Failed to suspend member.");
+        if (res.success) {
+          toast.success("Team member suspended.");
+        } else {
+          toast.error(res.error || "Failed to suspend member.");
+        }
       } else if (confirmConfig.actionType === "reactivate") {
         const res = await reactivateMemberAction({ memberId: confirmConfig.targetId });
-        if (!res.success) alert(res.error || "Failed to reactivate member.");
+        if (res.success) {
+          toast.success("Team member reactivated.");
+        } else {
+          toast.error(res.error || "Failed to reactivate member.");
+        }
       } else if (confirmConfig.actionType === "revoke_invite") {
         const res = await revokeInvitationAction({ invitationId: confirmConfig.targetId });
-        if (!res.success) alert(res.error || "Failed to revoke invitation.");
+        if (res.success) {
+          toast.success("Invitation revoked.");
+        } else {
+          toast.error(res.error || "Failed to revoke invitation.");
+        }
       }
     });
   }

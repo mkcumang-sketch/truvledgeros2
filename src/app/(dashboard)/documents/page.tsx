@@ -2,6 +2,7 @@ import React from "react";
 import { requireTenant } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { DocumentsClient } from "./DocumentsClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
   title: "Document Vault — TRUV LedgerOS",
@@ -27,5 +28,10 @@ export default async function DocumentsPage() {
     }),
   ]);
 
-  return <DocumentsClient documents={documents as any} clients={clients} />;
+  return (
+    <DocumentsClient
+      documents={serializeForClient(documents) as any}
+      clients={serializeForClient(clients)}
+    />
+  );
 }

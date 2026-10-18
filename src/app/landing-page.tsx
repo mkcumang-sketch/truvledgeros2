@@ -108,7 +108,7 @@ export function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-orange-100 selection:text-orange-950">
       {/* 1. Global Public Navigation */}
       <PublicNavbar onOpenEnquiry={() => setIsEnquiryModalOpen(true)} />
 
@@ -121,8 +121,8 @@ export function LandingPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           {/* Eyebrow Pill */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 text-xs font-semibold tracking-wide uppercase shadow-xs mb-6">
-            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            <span className="font-bold text-blue-700">TRUVCA LEDGEROS</span>
+            <span className="w-2 h-2 rounded-full bg-[#F26B38] animate-pulse" />
+            <span className="font-bold text-orange-600">TRUVCA LEDGEROS</span>
             <span className="text-slate-300">•</span>
             <span>Chartered Accountant Practice Operating System</span>
           </div>
@@ -130,7 +130,7 @@ export function LandingPage() {
           {/* Main Headline */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.08] max-w-5xl mx-auto">
             Run Your CA Practice. <br />
-            <span className="text-blue-600">Automate the Workflows</span> Behind It.
+            <span className="text-orange-600">Automate the Workflows</span> Behind It.
           </h1>
 
           {/* Supporting Text */}
@@ -144,7 +144,7 @@ export function LandingPage() {
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={() => setIsEnquiryModalOpen(true)}
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-3 group cursor-pointer"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-sm uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-3 group cursor-pointer"
             >
               <span>Book a Demo</span>
               <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
@@ -186,7 +186,7 @@ export function LandingPage() {
       <section id="features" className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
               <span>01</span>
               <span>•</span>
               <span>Operational Clarity</span>
@@ -213,7 +213,7 @@ export function LandingPage() {
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-200">
+                <span className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-orange-50 text-orange-600 font-semibold border border-orange-200">
                   TENANT ISOLATED SESSION
                 </span>
               </div>
@@ -242,12 +242,12 @@ export function LandingPage() {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-xl bg-blue-50/60 border border-blue-200">
-                  <div className="text-xs font-semibold text-blue-800 uppercase tracking-wider">
+                <div className="p-5 rounded-xl bg-orange-50/60 border border-orange-200">
+                  <div className="text-xs font-semibold text-orange-800 uppercase tracking-wider">
                     Dual-Control Review Queue
                   </div>
-                  <div className="text-3xl font-extrabold text-blue-700 mt-2">11</div>
-                  <div className="text-[11px] text-blue-800 mt-1.5 font-semibold">
+                  <div className="text-3xl font-extrabold text-orange-600 mt-2">11</div>
+                  <div className="text-[11px] text-orange-800 mt-1.5 font-semibold">
                     Requires Resolution Notes
                   </div>
                 </div>
@@ -313,7 +313,7 @@ export function LandingPage() {
                         ) : (
                           <button
                             onClick={() => setSignedOffRow("bharat")}
-                            className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded font-semibold transition-all cursor-pointer shadow-2xs"
+                            className="text-[11px] bg-[#F26B38] hover:bg-[#D95524] text-white px-3 py-1 rounded font-semibold transition-all cursor-pointer shadow-2xs"
                           >
                             Sign-off Return
                           </button>
@@ -350,7 +350,7 @@ export function LandingPage() {
       <section id="workflows" className="py-20 md:py-28 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
               <span>02</span>
               <span>•</span>
               <span>End-to-End CA Workflows</span>
@@ -367,8 +367,8 @@ export function LandingPage() {
           {/* 7 Connected Workflow Stages Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Stage 1 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-blue-300 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-sm flex items-center justify-center border border-blue-200">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-orange-300 transition-all space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 font-extrabold text-sm flex items-center justify-center border border-orange-200">
                 01
               </div>
               <h3 className="text-lg font-bold text-slate-900">Client Intake & 360° Profile</h3>
@@ -382,8 +382,8 @@ export function LandingPage() {
             </div>
 
             {/* Stage 2 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-blue-300 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-sm flex items-center justify-center border border-blue-200">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-orange-300 transition-all space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 font-extrabold text-sm flex items-center justify-center border border-orange-200">
                 02
               </div>
               <h3 className="text-lg font-bold text-slate-900">Compliance Calendar & Deadlines</h3>
@@ -397,8 +397,8 @@ export function LandingPage() {
             </div>
 
             {/* Stage 3 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-blue-300 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-sm flex items-center justify-center border border-blue-200">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-orange-300 transition-all space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 font-extrabold text-sm flex items-center justify-center border border-orange-200">
                 03
               </div>
               <h3 className="text-lg font-bold text-slate-900">Document Calls & Evidence Vault</h3>
@@ -412,8 +412,8 @@ export function LandingPage() {
             </div>
 
             {/* Stage 4 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-blue-300 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-sm flex items-center justify-center border border-blue-200">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-orange-300 transition-all space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 font-extrabold text-sm flex items-center justify-center border border-orange-200">
                 04
               </div>
               <h3 className="text-lg font-bold text-slate-900">Preparation & Two-Tier Review</h3>
@@ -427,8 +427,8 @@ export function LandingPage() {
             </div>
 
             {/* Stage 5 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-blue-300 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-sm flex items-center justify-center border border-blue-200">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-orange-300 transition-all space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 font-extrabold text-sm flex items-center justify-center border border-orange-200">
                 05
               </div>
               <h3 className="text-lg font-bold text-slate-900">Filing Status & ARN Lock</h3>
@@ -442,8 +442,8 @@ export function LandingPage() {
             </div>
 
             {/* Stage 6 */}
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-blue-300 transition-all space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-sm flex items-center justify-center border border-blue-200">
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-orange-300 transition-all space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 font-extrabold text-sm flex items-center justify-center border border-orange-200">
                 06
               </div>
               <h3 className="text-lg font-bold text-slate-900">Invoicing & 4-Stage Recovery</h3>
@@ -487,7 +487,7 @@ export function LandingPage() {
       <section className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
               <span>03</span>
               <span>•</span>
               <span>Verified Application UI</span>
@@ -553,7 +553,7 @@ export function LandingPage() {
                     <h4 className="font-bold text-slate-900 text-base">Practice Overview & Metrics Dashboard</h4>
                     <p className="text-slate-500">Firm-wide compliance status, active clients, and unrecovered billings</p>
                   </div>
-                  <span className="font-mono text-blue-700 bg-blue-50 px-3 py-1 rounded border border-blue-200 font-semibold">
+                  <span className="font-mono text-orange-600 bg-orange-50 px-3 py-1 rounded border border-orange-200 font-semibold">
                     Live Runtime Capture
                   </span>
                 </div>
@@ -597,7 +597,7 @@ export function LandingPage() {
                     <h4 className="font-bold text-slate-900 text-base">Two-Tier Quality Review & Approvals</h4>
                     <p className="text-slate-500">Mandatory resolution notes enforced before statutory compliance task closure</p>
                   </div>
-                  <span className="font-mono text-blue-700 bg-blue-50 px-3 py-1 rounded border border-blue-200 font-semibold">
+                  <span className="font-mono text-orange-600 bg-orange-50 px-3 py-1 rounded border border-orange-200 font-semibold">
                     Dual Control Active
                   </span>
                 </div>
@@ -619,7 +619,7 @@ export function LandingPage() {
                     <h4 className="font-bold text-slate-900 text-base">Invoicing & 4-Stage Recovery Pipeline</h4>
                     <p className="text-slate-500">GST tax invoices, immutable payment audit records, and automated reminder cadence</p>
                   </div>
-                  <span className="font-mono text-blue-700 bg-blue-50 px-3 py-1 rounded border border-blue-200 font-semibold">
+                  <span className="font-mono text-orange-600 bg-orange-50 px-3 py-1 rounded border border-orange-200 font-semibold">
                     Zero Leakage
                   </span>
                 </div>
@@ -643,7 +643,7 @@ export function LandingPage() {
       <section className="py-20 md:py-28 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
               <span>04</span>
               <span>•</span>
               <span>Practice Investment</span>
@@ -699,12 +699,12 @@ export function LandingPage() {
             </div>
 
             {/* Multi-Partner */}
-            <div className="p-8 rounded-2xl bg-white border-2 border-blue-600 shadow-md flex flex-col justify-between space-y-6 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+            <div className="p-8 rounded-2xl bg-white border-2 border-orange-600 shadow-md flex flex-col justify-between space-y-6 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
                 Most Popular for CA Firms
               </div>
               <div className="space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                <div className="text-xs font-bold uppercase tracking-wider text-orange-600">
                   Multi-Partner Practice
                 </div>
                 <h3 className="text-2xl font-extrabold text-slate-900">Established Partnerships</h3>
@@ -736,7 +736,7 @@ export function LandingPage() {
               </div>
               <button
                 onClick={() => openEnquiryWithPlan("Multi-Partner Practice Tier (6-25 Users)")}
-                className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
+                className="w-full py-3 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
               >
                 Request Multi-Partner Quote
               </button>
@@ -787,7 +787,7 @@ export function LandingPage() {
           <div className="mt-8 text-center">
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-2 text-xs font-bold text-blue-700 hover:text-blue-800 uppercase tracking-wider"
+              className="inline-flex items-center gap-2 text-xs font-bold text-orange-600 hover:text-orange-800 uppercase tracking-wider"
             >
               <span>View Full Practice Pricing & Feature Breakdown</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -802,7 +802,7 @@ export function LandingPage() {
       <section id="security" className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
               <span>05</span>
               <span>•</span>
               <span>Data Governance & Isolation</span>
@@ -818,7 +818,7 @@ export function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-200">
                 <Lock className="w-5 h-5" />
               </div>
               <h4 className="font-bold text-base text-slate-900">Tenant Boundary Isolation</h4>
@@ -828,7 +828,7 @@ export function LandingPage() {
             </div>
 
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-200">
                 <Users className="w-5 h-5" />
               </div>
               <h4 className="font-bold text-base text-slate-900">Granular RBAC Hierarchy</h4>
@@ -838,7 +838,7 @@ export function LandingPage() {
             </div>
 
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-200">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <h4 className="font-bold text-base text-slate-900">Immutable Audit Trails</h4>
@@ -848,7 +848,7 @@ export function LandingPage() {
             </div>
 
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-200">
                 <FileCheck className="w-5 h-5" />
               </div>
               <h4 className="font-bold text-base text-slate-900">HSTS & Session Security</h4>
@@ -866,7 +866,7 @@ export function LandingPage() {
       <section id="faq" className="py-20 md:py-28 bg-slate-50 border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="text-center space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
               <span>06</span>
               <span>•</span>
               <span>Managing Partner Questions</span>
@@ -929,7 +929,7 @@ export function LandingPage() {
       <section id="enquire" className="py-20 md:py-28 bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest">
               <span>07</span>
               <span>•</span>
               <span>Schedule Walkthrough</span>
@@ -976,7 +976,7 @@ export function LandingPage() {
                       required
                       className={`w-full px-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                         quickErrors.fullName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                      } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                      } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                     />
                     {quickErrors.fullName && (
                       <p className="text-[11px] text-rose-600 mt-1">{quickErrors.fullName}</p>
@@ -996,7 +996,7 @@ export function LandingPage() {
                       required
                       className={`w-full px-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                         quickErrors.email ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                      } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                      } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                     />
                     {quickErrors.email && (
                       <p className="text-[11px] text-rose-600 mt-1">{quickErrors.email}</p>
@@ -1018,7 +1018,7 @@ export function LandingPage() {
                       required
                       className={`w-full px-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                         quickErrors.phone ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                      } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                      } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                     />
                     {quickErrors.phone && (
                       <p className="text-[11px] text-rose-600 mt-1">{quickErrors.phone}</p>
@@ -1038,7 +1038,7 @@ export function LandingPage() {
                       required
                       className={`w-full px-3.5 py-2.5 text-sm rounded-lg border bg-white ${
                         quickErrors.firmName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                      } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                      } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                     />
                     {quickErrors.firmName && (
                       <p className="text-[11px] text-rose-600 mt-1">{quickErrors.firmName}</p>
@@ -1055,7 +1055,7 @@ export function LandingPage() {
                       name="practiceSize"
                       value={quickForm.practiceSize}
                       onChange={handleQuickChange}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                     >
                       <option value="1-5">1 - 5 Members (Core)</option>
                       <option value="6-15">6 - 15 Members (Multi-Partner)</option>
@@ -1072,7 +1072,7 @@ export function LandingPage() {
                       name="areasOfInterest"
                       value={quickForm.areasOfInterest}
                       onChange={handleQuickChange}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                     >
                       <option value="All-In-One Practice Management">All-In-One Practice Management</option>
                       <option value="GST & Statutory Compliance Matrix">GST & Compliance Matrix</option>
@@ -1096,7 +1096,7 @@ export function LandingPage() {
                     required
                     className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                       quickErrors.message ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                    } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                    } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                   />
                   {quickErrors.message && (
                     <p className="text-[11px] text-rose-600 mt-1">{quickErrors.message}</p>
@@ -1110,11 +1110,11 @@ export function LandingPage() {
                       name="privacyConsent"
                       checked={quickForm.privacyConsent}
                       onChange={handleQuickChange}
-                      className="mt-0.5 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                      className="mt-0.5 rounded-sm border-slate-300 text-orange-600 focus:ring-[#F26B38]"
                     />
                     <span>
                       I consent to TRUVTECH Practice Technologies processing my details under the{" "}
-                      <Link href="/privacy" className="text-blue-700 underline font-semibold">
+                      <Link href="/privacy" className="text-orange-600 underline font-semibold">
                         Privacy Policy
                       </Link>.
                     </span>
@@ -1128,7 +1128,7 @@ export function LandingPage() {
                   <button
                     type="submit"
                     disabled={isSubmittingQuick}
-                    className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    className="w-full py-3.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     {isSubmittingQuick ? (
                       <span>Recording Practice Consultation...</span>
@@ -1158,3 +1158,4 @@ export function LandingPage() {
     </div>
   );
 }
+

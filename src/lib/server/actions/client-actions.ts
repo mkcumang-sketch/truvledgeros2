@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
   createClient,
@@ -11,25 +12,24 @@ import {
   UpdateClientSchema,
   ContactSchema,
 } from "@/lib/server/client-service";
-import { z } from "zod";
+import { ActionResult } from "@/lib/types/action-result";
+import { serializeForClient } from "@/lib/serialization";
+import { validateEntityId } from "@/lib/security/sanitize";
 
-export type ActionResult<T = any> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-};
+export type { ActionResult };
 
 /**
  * Creates a client record and triggers cache revalidation.
  */
 export async function createClientAction(
   data: z.infer<typeof CreateClientSchema>
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   try {
-    const client = await createClient(data);
+    const validated = CreateClientSchema.parse(data);
+    const client = await createClient(validated);
     revalidatePath("/clients");
     revalidatePath("/dashboard");
-    return { success: true, data: client };
+    return { success: true, data: serializeForClient(client) };
   } catch (error: any) {
     console.error("[createClientAction Error]", error);
     return {
@@ -47,13 +47,15 @@ export async function createClientAction(
 export async function updateClientAction(
   clientId: string,
   data: z.infer<typeof UpdateClientSchema>
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   try {
-    const updated = await updateClient(clientId, data);
+    const validId = validateEntityId(clientId);
+    const validated = UpdateClientSchema.parse(data);
+    const updated = await updateClient(validId, validated);
     revalidatePath("/clients");
-    revalidatePath(`/clients/${clientId}`);
+    revalidatePath(`/clients/${validId}`);
     revalidatePath("/dashboard");
-    return { success: true, data: updated };
+    return { success: true, data: serializeForClient(updated) };
   } catch (error: any) {
     console.error("[updateClientAction Error]", error);
     return {
@@ -68,13 +70,14 @@ export async function updateClientAction(
 /**
  * Archives a client record preserving historical records.
  */
-export async function archiveClientAction(clientId: string): Promise<ActionResult> {
+export async function archiveClientAction(clientId: string): Promise<ActionResult<any>> {
   try {
-    const archived = await archiveClient(clientId);
+    const validId = validateEntityId(clientId);
+    const archived = await archiveClient(validId);
     revalidatePath("/clients");
-    revalidatePath(`/clients/${clientId}`);
+    revalidatePath(`/clients/${validId}`);
     revalidatePath("/dashboard");
-    return { success: true, data: archived };
+    return { success: true, data: serializeForClient(archived) };
   } catch (error: any) {
     console.error("[archiveClientAction Error]", error);
     return {
@@ -89,13 +92,14 @@ export async function archiveClientAction(clientId: string): Promise<ActionResul
 /**
  * Restores an archived client to active practice tracking.
  */
-export async function restoreClientAction(clientId: string): Promise<ActionResult> {
+export async function restoreClientAction(clientId: string): Promise<ActionResult<any>> {
   try {
-    const restored = await restoreClient(clientId);
+    const validId = validateEntityId(clientId);
+    const restored = await restoreClient(validId);
     revalidatePath("/clients");
-    revalidatePath(`/clients/${clientId}`);
+    revalidatePath(`/clients/${validId}`);
     revalidatePath("/dashboard");
-    return { success: true, data: restored };
+    return { success: true, data: serializeForClient(restored) };
   } catch (error: any) {
     console.error("[restoreClientAction Error]", error);
     return {
@@ -113,11 +117,13 @@ export async function restoreClientAction(clientId: string): Promise<ActionResul
 export async function addClientContactAction(
   clientId: string,
   data: z.infer<typeof ContactSchema>
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   try {
-    const contact = await addClientContact(clientId, data);
-    revalidatePath(`/clients/${clientId}`);
-    return { success: true, data: contact };
+    const validId = validateEntityId(clientId);
+    const validated = ContactSchema.parse(data);
+    const contact = await addClientContact(validId, validated);
+    revalidatePath(`/clients/${validId}`);
+    return { success: true, data: serializeForClient(contact) };
   } catch (error: any) {
     console.error("[addClientContactAction Error]", error);
     return {

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { requestPasswordResetAction } from "@/lib/auth/actions";
 import Link from "next/link";
-import { Sparkles, ArrowLeft, Mail, Send } from "lucide-react";
+import { ArrowLeft, Mail, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { TruvLogo } from "@/components/brand/truv-logo";
 
 export default function ForgotPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
@@ -33,16 +34,8 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen w-full flex items-center justify-center bg-ivory p-4 sm:p-6">
       <div className="w-full max-w-md bg-white border border-[#E8ECE8] rounded-xl p-6 sm:p-8 shadow-card">
         {/* Brand Header */}
-        <div className="text-center mb-6">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center mx-auto mb-3 shadow-xs">
-            <Sparkles className="w-5 h-5 text-emerald-100" />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight text-graphite-900">
-            Reset Password
-          </h1>
-          <p className="text-xs text-graphite-500 mt-1">
-            Enter your practice email to receive secure recovery instructions.
-          </p>
+        <div className="text-center mb-6 flex flex-col items-center">
+          <TruvLogo size="lg" subtext="Practice Password Recovery" href="/" className="mb-2" />
         </div>
 
         {error && (
@@ -78,7 +71,7 @@ export default function ForgotPasswordPage() {
                 required
                 autoComplete="email"
                 disabled={loading}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#E8ECE8] rounded-lg text-graphite-900 placeholder:text-graphite-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-colors disabled:opacity-60 disabled:bg-[#FAFAF7]"
+                className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-[#E8ECE8] rounded-lg text-graphite-900 placeholder:text-graphite-400 focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]/20 focus:border-[#F26B38] transition-colors disabled:opacity-60 disabled:bg-[#FAFAF7]"
                 placeholder="practitioner@firm.in"
               />
             </div>
@@ -99,7 +92,7 @@ export default function ForgotPasswordPage() {
         <div className="mt-6 pt-5 border-t border-[#E8ECE8] text-center">
           <Link
             href="/login"
-            className="inline-flex items-center text-xs text-emerald-700 hover:text-emerald-800 font-medium transition-colors"
+            className="inline-flex items-center text-xs text-orange-600 hover:text-orange-700 font-semibold transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5 mr-1" />
             Return to Sign In

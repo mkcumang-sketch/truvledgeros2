@@ -37,30 +37,42 @@ export default async function InvoiceDetailPage({
 
   async function handleIssue() {
     "use server";
-    await issueInvoice(params.invoiceId);
-    revalidatePath(`/invoices/${params.invoiceId}`);
+    try {
+      await issueInvoice(params.invoiceId);
+      revalidatePath(`/invoices/${params.invoiceId}`);
+    } catch (err) {
+      console.error("[handleIssue Error]", err);
+    }
   }
 
   async function handleVoid(formData: FormData) {
     "use server";
-    const reason = (formData.get("reason") as string) || "Administrative void";
-    await voidInvoice(params.invoiceId, reason);
-    revalidatePath(`/invoices/${params.invoiceId}`);
+    try {
+      const reason = (formData.get("reason") as string) || "Administrative void";
+      await voidInvoice(params.invoiceId, reason);
+      revalidatePath(`/invoices/${params.invoiceId}`);
+    } catch (err) {
+      console.error("[handleVoid Error]", err);
+    }
   }
 
   async function handleRecordPayment(formData: FormData) {
     "use server";
-    const amount = parseFloat(formData.get("amount") as string);
-    const paymentMode = (formData.get("paymentMode") as any) || "UPI";
-    const referenceNo = (formData.get("referenceNo") as string) || undefined;
+    try {
+      const amount = parseFloat(formData.get("amount") as string);
+      const paymentMode = (formData.get("paymentMode") as any) || "UPI";
+      const referenceNo = (formData.get("referenceNo") as string) || undefined;
 
-    await recordPayment({
-      invoiceId: params.invoiceId,
-      amount,
-      paymentMode,
-      referenceNo,
-    });
-    revalidatePath(`/invoices/${params.invoiceId}`);
+      await recordPayment({
+        invoiceId: params.invoiceId,
+        amount,
+        paymentMode,
+        referenceNo,
+      });
+      revalidatePath(`/invoices/${params.invoiceId}`);
+    } catch (err) {
+      console.error("[handleRecordPayment Error]", err);
+    }
   }
 
   return (

@@ -6,6 +6,7 @@ import {
   getTenantTeamMembers,
 } from "@/lib/server/client-service";
 import { ClientsDirectoryClient } from "./ClientsDirectoryClient";
+import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
   title: "Clients 360° Directory — TRUV LedgerOS",
@@ -23,9 +24,9 @@ export default async function ClientsPage() {
 
   return (
     <ClientsDirectoryClient
-      initialClients={directory.clients as any}
-      metrics={metrics}
-      teamMembers={teamMembers}
+      initialClients={serializeForClient(directory.clients) as any}
+      metrics={serializeForClient(metrics)}
+      teamMembers={serializeForClient(teamMembers)}
       initialStatus="ACTIVE"
     />
   );

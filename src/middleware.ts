@@ -13,6 +13,7 @@ import {
 
 const PUBLIC_ROUTES = [
   "/login",
+  "/logout",
   "/register",
   "/pricing",
   "/contact",
@@ -24,9 +25,32 @@ const PUBLIC_ROUTES = [
   "/accept-invite",
   "/healthz",
   "/readyz",
+  "/api/auth/logout",
 ];
 
 const UPLOAD_ROUTES = ["/api/documents/upload", "/clients/import"];
+
+const AUTH_COOKIE_NAMES = [
+  "truv_session",
+  "next-auth.session-token",
+  "__Secure-next-auth.session-token",
+  "next-auth.csrf-token",
+  "__Host-next-auth.csrf-token",
+  "next-auth.callback-url",
+];
+
+function clearAuthCookies(response: NextResponse): void {
+  for (const cookieName of AUTH_COOKIE_NAMES) {
+    response.cookies.set(cookieName, "", {
+      maxAge: 0,
+      expires: new Date(0),
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+    });
+    response.cookies.delete(cookieName);
+  }
+}
 
 function applySecurityHeaders(response: NextResponse): void {
   // 1. HSTS (Strict-Transport-Security: 2 years, includeSubDomains, preload)
@@ -83,6 +107,26 @@ export async function middleware(request: NextRequest) {
   // Liveness / Readiness healthchecks pass directly without overhead
   if (pathname === "/healthz" || pathname === "/readyz") {
     const res = NextResponse.next();
+    applySecurityHeaders(res);
+    return res;
+  }
+
+  // 0. Dedicated Edge Logout Handler
+  if (pathname === "/logout" || pathname === "/api/auth/logout") {
+    const isApiJson =
+      request.headers.get("accept")?.includes("application/json") &&
+      request.method === "POST" &&
+      pathname === "/api/auth/logout";
+
+    let res: NextResponse;
+    if (isApiJson) {
+      res = NextResponse.json({ success: true, message: "Logged out successfully" });
+    } else {
+      const loginUrl = new URL("/login?logout=true&force=true", request.url);
+      res = NextResponse.redirect(loginUrl);
+    }
+
+    clearAuthCookies(res);
     applySecurityHeaders(res);
     return res;
   }
@@ -148,8 +192,28 @@ export async function middleware(request: NextRequest) {
     return redirectRes;
   }
 
-  // 4. Authenticated user trying to access login/register/reset pages -> redirect to /dashboard
-  if (sessionToken && isPublicRoute && (pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password")) {
+  // 4. Force or logout query parameters allow direct login access without redirect loop
+  const hasForceBypass =
+    request.nextUrl.searchParams.get("force") === "true" ||
+    request.nextUrl.searchParams.get("logout") === "true";
+
+  if (pathname === "/login" && hasForceBypass) {
+    const res = NextResponse.next();
+    clearAuthCookies(res);
+    applySecurityHeaders(res);
+    return res;
+  }
+
+  // 5. Authenticated user trying to access login/register/reset pages -> redirect to /dashboard
+  if (
+    sessionToken &&
+    !hasForceBypass &&
+    isPublicRoute &&
+    (pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/forgot-password" ||
+      pathname === "/reset-password")
+  ) {
     const dashboardUrl = new URL("/dashboard", request.url);
     const redirectRes = NextResponse.redirect(dashboardUrl);
     applySecurityHeaders(redirectRes);

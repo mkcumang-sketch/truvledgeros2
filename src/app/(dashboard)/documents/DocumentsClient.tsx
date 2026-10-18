@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Folder,
   FileText,
@@ -138,6 +139,7 @@ export function DocumentsClient({ documents, clients }: Props) {
       });
 
       if (res.success) {
+        toast.success("Formal document request dispatched to client contact.");
         setIsRequestModalOpen(false);
         setRequestTitle("");
         setRequestDesc("");
@@ -145,6 +147,7 @@ export function DocumentsClient({ documents, clients }: Props) {
         setTimeout(() => setActionFeedback(null), 4000);
         router.refresh();
       } else {
+        toast.error(res.error || "Failed to create document request.");
         setRequestError(res.error || "Failed to create document request.");
       }
     });
@@ -159,13 +162,16 @@ export function DocumentsClient({ documents, clients }: Props) {
       });
 
       if (res.success) {
-        setActionFeedback(
+        const msg =
           status === DocumentStatus.VERIFIED
             ? "Document verified and locked."
-            : "Document flagged as rejected."
-        );
+            : "Document flagged as rejected.";
+        toast.success(msg);
+        setActionFeedback(msg);
         setTimeout(() => setActionFeedback(null), 4000);
         router.refresh();
+      } else {
+        toast.error(res.error || "Failed to update document status.");
       }
     });
   };

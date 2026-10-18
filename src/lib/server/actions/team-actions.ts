@@ -16,6 +16,8 @@ import {
   getInvitationDetails,
 } from "@/lib/server/team/team-service";
 import { rateLimiter, RATE_LIMIT_TIERS } from "@/lib/server/security/rate-limiter";
+import { ActionResult } from "@/lib/types/action-result";
+import { serializeForClient } from "@/lib/serialization";
 
 const InviteMemberSchema = z.object({
   email: z.string().trim().toLowerCase().email("Valid work email is required"),
@@ -86,7 +88,7 @@ export async function inviteMemberAction(data: {
     });
 
     revalidatePath("/team");
-    return { success: true, data: result };
+    return { success: true, data: serializeForClient(result) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to send invitation." };
   }
@@ -114,7 +116,7 @@ export async function resendInvitationAction(data: { invitationId: string }) {
     });
 
     revalidatePath("/team");
-    return { success: true, data: result };
+    return { success: true, data: serializeForClient(result) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to resend invitation." };
   }
@@ -137,7 +139,7 @@ export async function revokeInvitationAction(data: { invitationId: string }) {
     });
 
     revalidatePath("/team");
-    return { success: true, data: result };
+    return { success: true, data: serializeForClient(result) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to revoke invitation." };
   }
@@ -167,7 +169,7 @@ export async function updateMemberRoleAction(data: {
     });
 
     revalidatePath("/team");
-    return { success: true, data: result };
+    return { success: true, data: serializeForClient(result) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update role." };
   }
@@ -192,7 +194,7 @@ export async function suspendMemberAction(data: { memberId: string; reason?: str
     });
 
     revalidatePath("/team");
-    return { success: true, data: result };
+    return { success: true, data: serializeForClient(result) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to suspend member." };
   }
@@ -216,7 +218,7 @@ export async function reactivateMemberAction(data: { memberId: string }) {
     });
 
     revalidatePath("/team");
-    return { success: true, data: result };
+    return { success: true, data: serializeForClient(result) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to reactivate member." };
   }
@@ -227,7 +229,8 @@ export async function reactivateMemberAction(data: { memberId: string }) {
  */
 export async function getInvitationDetailsAction(token: string) {
   try {
-    return await getInvitationDetails(token);
+    const details = await getInvitationDetails(token);
+    return serializeForClient(details);
   } catch (error: any) {
     return { valid: false, error: error.message || "Failed to load invitation." };
   }
@@ -265,7 +268,7 @@ export async function acceptInvitationAction(data: {
       userAgent,
     });
 
-    return { success: true, data: result };
+    return { success: true, data: serializeForClient(result) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to accept invitation." };
   }

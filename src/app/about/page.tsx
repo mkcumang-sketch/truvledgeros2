@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Sparkles, Building2, ShieldCheck, Scale, Cpu, Users, ArrowRight } from "lucide-react";
@@ -19,7 +19,7 @@ export default function AboutPage() {
       {/* Header */}
       <section className="py-16 md:py-24 bg-slate-50 border-b border-slate-200 text-center">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider">
             Practice Technology Engineering
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
@@ -53,7 +53,7 @@ export default function AboutPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
             <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-700 flex items-center justify-center border border-orange-200">
                 <Scale className="w-5 h-5" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">Dual-Control Governance</h3>
@@ -85,7 +85,7 @@ export default function AboutPage() {
             </p>
             <p className="text-xs text-slate-500">
               For direct partnership inquiries, technical evaluations, or security audits, contact us at{" "}
-              <a href="mailto:onboarding@truvtech.com" className="text-blue-700 font-bold hover:underline">
+              <a href="mailto:onboarding@truvtech.com" className="text-orange-600 font-bold hover:underline">
                 onboarding@truvtech.com
               </a>.
             </p>
@@ -103,7 +103,7 @@ export default function AboutPage() {
           <div className="pt-2">
             <Link
               href="/contact"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all"
             >
               <span>Schedule Consultation</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -116,3 +116,4 @@ export default function AboutPage() {
     </div>
   );
 }
+

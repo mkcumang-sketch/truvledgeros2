@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   CreditCard,
   Send,
@@ -122,11 +123,13 @@ export function PaymentsClient({
       });
 
       if (res.success) {
+        toast.success(`Payment of ₹${payAmount} recorded for ${selectedInvoice.clientName}.`);
         setSelectedInvoice(null);
         setSuccessBanner(`Payment of ₹${payAmount} recorded for ${selectedInvoice.clientName}.`);
         setTimeout(() => setSuccessBanner(null), 4000);
         router.refresh();
       } else {
+        toast.error(res.error || "Unable to record payment.");
         setPayError(res.error || "Unable to record payment.");
       }
     });

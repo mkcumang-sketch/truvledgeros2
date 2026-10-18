@@ -4,6 +4,7 @@ import { requireTenant } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { DocumentStatus } from "@prisma/client";
 import { MAX_UPLOAD_SIZE_BYTES } from "@/lib/server/security/request-validator";
+import { serializeForClient } from "@/lib/serialization";
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: true, document },
+      { success: true, document: serializeForClient(document) },
       { status: 201 }
     );
   } catch (error: any) {

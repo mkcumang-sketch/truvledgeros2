@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -23,7 +23,7 @@ export default function PricingPage() {
       {/* Header */}
       <section className="py-16 md:py-24 bg-slate-50 border-b border-slate-200 text-center">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider">
             Practice Pricing Architecture
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
@@ -118,12 +118,12 @@ export default function PricingPage() {
             </div>
 
             {/* Multi-Partner */}
-            <div className="p-8 rounded-2xl bg-white border-2 border-blue-600 shadow-md flex flex-col justify-between space-y-6 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+            <div className="p-8 rounded-2xl bg-white border-2 border-orange-600 shadow-md flex flex-col justify-between space-y-6 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
                 Recommended for CA Firms
               </div>
               <div className="space-y-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                <span className="text-xs font-bold uppercase tracking-wider text-orange-600">
                   Multi-Partner Practice Tier
                 </span>
                 <h3 className="text-2xl font-extrabold text-slate-900">Established Partnerships</h3>
@@ -159,7 +159,7 @@ export default function PricingPage() {
               </div>
               <button
                 onClick={() => handleOpenPlan("Multi-Partner Practice Tier (6-25 Users)")}
-                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
+                className="w-full py-3.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer text-center"
               >
                 Request Multi-Partner Quote
               </button>
@@ -227,7 +227,7 @@ export default function PricingPage() {
                 <tr>
                   <th className="py-3 px-4">Capability</th>
                   <th className="py-3 px-4 text-center">Core</th>
-                  <th className="py-3 px-4 text-center text-blue-700">Multi-Partner</th>
+                  <th className="py-3 px-4 text-center text-orange-600">Multi-Partner</th>
                   <th className="py-3 px-4 text-center">Enterprise</th>
                 </tr>
               </thead>
@@ -235,37 +235,37 @@ export default function PricingPage() {
                 <tr>
                   <td className="py-3 px-4 font-bold text-slate-900">Master Corporate Dossiers</td>
                   <td className="py-3 px-4 text-center">Included</td>
-                  <td className="py-3 px-4 text-center font-bold text-blue-700">Included</td>
+                  <td className="py-3 px-4 text-center font-bold text-orange-600">Included</td>
                   <td className="py-3 px-4 text-center font-bold">Included</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-4 font-bold text-slate-900">Multi-State GSTIN Matrix</td>
                   <td className="py-3 px-4 text-center">Included</td>
-                  <td className="py-3 px-4 text-center font-bold text-blue-700">Included</td>
+                  <td className="py-3 px-4 text-center font-bold text-orange-600">Included</td>
                   <td className="py-3 px-4 text-center font-bold">Included</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-4 font-bold text-slate-900">Two-Tier Dual-Control Review</td>
                   <td className="py-3 px-4 text-center">Included</td>
-                  <td className="py-3 px-4 text-center font-bold text-blue-700">Included</td>
+                  <td className="py-3 px-4 text-center font-bold text-orange-600">Included</td>
                   <td className="py-3 px-4 text-center font-bold">Included</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-4 font-bold text-slate-900">Client Document Request Links</td>
                   <td className="py-3 px-4 text-center">Included</td>
-                  <td className="py-3 px-4 text-center font-bold text-blue-700">Included</td>
+                  <td className="py-3 px-4 text-center font-bold text-orange-600">Included</td>
                   <td className="py-3 px-4 text-center font-bold">Included</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-4 font-bold text-slate-900">4-Stage Automated Payment Recovery</td>
                   <td className="py-3 px-4 text-center text-slate-400">Manual</td>
-                  <td className="py-3 px-4 text-center font-bold text-blue-700">Automated</td>
+                  <td className="py-3 px-4 text-center font-bold text-orange-600">Automated</td>
                   <td className="py-3 px-4 text-center font-bold">Custom Cadence</td>
                 </tr>
                 <tr>
                   <td className="py-3 px-4 font-bold text-slate-900">Cryptographic Tenant Isolation</td>
                   <td className="py-3 px-4 text-center">Included</td>
-                  <td className="py-3 px-4 text-center font-bold text-blue-700">Included</td>
+                  <td className="py-3 px-4 text-center font-bold text-orange-600">Included</td>
                   <td className="py-3 px-4 text-center font-bold">Included</td>
                 </tr>
                 <tr>
@@ -290,3 +290,4 @@ export default function PricingPage() {
     </div>
   );
 }
+

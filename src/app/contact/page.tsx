@@ -76,7 +76,7 @@ export default function ContactPage() {
 
       <section className="py-16 md:py-24 bg-slate-50 border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-wider">
             Practice Consultation & Inquiries
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
@@ -104,12 +104,12 @@ export default function ContactPage() {
 
               <div className="space-y-4 text-sm">
                 <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-orange-50 text-orange-700 flex items-center justify-center border border-orange-200 flex-shrink-0">
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="font-bold text-slate-900">Practice Onboarding & Inquiries</div>
-                    <a href="mailto:onboarding@truvtech.com" className="text-blue-700 font-semibold hover:underline mt-0.5 block">
+                    <a href="mailto:onboarding@truvtech.com" className="text-orange-600 font-semibold hover:underline mt-0.5 block">
                       onboarding@truvtech.com
                     </a>
                     <div className="text-xs text-slate-500 mt-1">Typical response time: within 1 business day</div>
@@ -178,7 +178,7 @@ export default function ContactPage() {
                         required
                         className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                           formErrors.fullName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                        } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                        } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                       />
                       {formErrors.fullName && (
                         <p className="text-[11px] text-rose-600 mt-1">{formErrors.fullName}</p>
@@ -199,7 +199,7 @@ export default function ContactPage() {
                           required
                           className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                             formErrors.email ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                          } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                          } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                         />
                         {formErrors.email && (
                           <p className="text-[11px] text-rose-600 mt-1">{formErrors.email}</p>
@@ -219,7 +219,7 @@ export default function ContactPage() {
                           required
                           className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                             formErrors.phone ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                          } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                          } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                         />
                         {formErrors.phone && (
                           <p className="text-[11px] text-rose-600 mt-1">{formErrors.phone}</p>
@@ -241,7 +241,7 @@ export default function ContactPage() {
                           required
                           className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                             formErrors.firmName ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                          } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                          } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                         />
                         {formErrors.firmName && (
                           <p className="text-[11px] text-rose-600 mt-1">{formErrors.firmName}</p>
@@ -256,7 +256,7 @@ export default function ContactPage() {
                           name="role"
                           value={formData.role}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                         >
                           <option value="Managing Partner">Managing Partner / Senior Partner</option>
                           <option value="Partner">Partner (GST / Tax / Audit)</option>
@@ -276,7 +276,7 @@ export default function ContactPage() {
                           name="practiceSize"
                           value={formData.practiceSize}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                         >
                           <option value="1-5">1 - 5 Members (Core)</option>
                           <option value="6-15">6 - 15 Members (Multi-Partner)</option>
@@ -293,7 +293,7 @@ export default function ContactPage() {
                           name="currentSoftware"
                           value={formData.currentSoftware}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                         >
                           <option value="Excel / Spreadsheets">Excel / Google Sheets</option>
                           <option value="Computax / Taxmann">Computax / Taxmann</option>
@@ -313,7 +313,7 @@ export default function ContactPage() {
                         name="areasOfInterest"
                         value={formData.areasOfInterest}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]"
                       >
                         <option value="All-In-One Practice Management">All-In-One Practice Management</option>
                         <option value="GST & Compliance Matrix Automation">GST & Compliance Matrix Automation</option>
@@ -336,7 +336,7 @@ export default function ContactPage() {
                         required
                         className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white ${
                           formErrors.message ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-300"
-                        } focus:outline-hidden focus:ring-2 focus:ring-blue-600`}
+                        } focus:outline-hidden focus:ring-2 focus:ring-[#F26B38]`}
                       />
                       {formErrors.message && (
                         <p className="text-[11px] text-rose-600 mt-1">{formErrors.message}</p>
@@ -350,11 +350,11 @@ export default function ContactPage() {
                           name="privacyConsent"
                           checked={formData.privacyConsent}
                           onChange={handleInputChange}
-                          className="mt-0.5 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                          className="mt-0.5 rounded-sm border-slate-300 text-[#F26B38] focus:ring-[#F26B38]"
                         />
                         <span>
                           I consent to TRUVTECH Practice Technologies processing my details under the{" "}
-                          <Link href="/privacy" className="text-blue-700 underline font-semibold">
+                          <Link href="/privacy" className="text-orange-600 underline font-semibold">
                             Privacy Policy
                           </Link>.
                         </span>
@@ -368,7 +368,7 @@ export default function ContactPage() {
                       <button
                         type="submit"
                         disabled={isPending}
-                        className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                        className="w-full py-3.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                       >
                         {isPending ? (
                           <span>Verifying & Recording Consultation...</span>
@@ -392,3 +392,4 @@ export default function ContactPage() {
     </div>
   );
 }
+

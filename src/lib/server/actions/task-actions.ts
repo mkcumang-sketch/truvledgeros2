@@ -6,6 +6,8 @@ import { requireTenant } from "@/lib/auth/session";
 import { TaskStatus, TaskType, Role } from "@prisma/client";
 import { logSecurityEvent } from "@/lib/server/audit";
 import { getNextInvoiceNumber } from "@/lib/server/invoice-counter";
+import { ActionResult } from "@/lib/types/action-result";
+import { serializeForClient } from "@/lib/serialization";
 import { z } from "zod";
 
 const CreateTaskSchema = z.object({
@@ -42,7 +44,7 @@ export async function createTaskAction(data: z.infer<typeof CreateTaskSchema>) {
 
     revalidatePath("/tasks");
     revalidatePath("/dashboard");
-    return { success: true, data: task };
+    return { success: true, data: serializeForClient(task) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to create task." };
   }
@@ -78,7 +80,7 @@ export async function updateTaskStatusAction(taskId: string, status: TaskStatus)
 
     revalidatePath("/tasks");
     revalidatePath("/dashboard");
-    return { success: true, data: task };
+    return { success: true, data: serializeForClient(task) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update task status." };
   }
@@ -165,10 +167,10 @@ export async function completeTaskWithEvidenceAction(params: {
     revalidatePath("/dashboard");
     return {
       success: true,
-      data: {
+      data: serializeForClient({
         completedTask: completed,
         nextRecurringTask,
-      },
+      }),
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to complete task." };
@@ -233,7 +235,7 @@ export async function reassignTaskAction(params: {
     });
 
     revalidatePath("/tasks");
-    return { success: true, data: updated };
+    return { success: true, data: serializeForClient(updated) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to reassign task." };
   }

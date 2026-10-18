@@ -15,6 +15,7 @@ import {
   withTimeout,
 } from "@/lib/server/security/request-validator";
 import { hasPermission } from "@/lib/server/rbac/permissions";
+import { serializeForClient } from "@/lib/serialization";
 
 export const runtime = "nodejs";
 
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       10000,
       "Client directory query timed out"
     );
-    return NextResponse.json(result);
+    return NextResponse.json(serializeForClient(result));
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Internal server error" },
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
       10000,
       "Client creation timed out"
     );
-    return NextResponse.json({ client }, { status: 201 });
+    return NextResponse.json({ client: serializeForClient(client) }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Validation failed" },

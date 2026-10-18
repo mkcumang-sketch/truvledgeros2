@@ -18,13 +18,13 @@ import {
   Users,
   Settings,
   ShieldAlert,
-  Sparkles,
   CreditCard as SubscriptionIcon,
   ChevronRight,
   X,
   Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TruvLogo } from "@/components/brand/truv-logo";
 
 interface NavItem {
   label: string;
@@ -133,21 +133,8 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white select-none">
       {/* Brand Header */}
-      <div className="h-16 px-5 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-shrink-0">
-        <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-[#F26B38] flex items-center justify-center text-white font-bold shadow-xs flex-shrink-0 group-hover:bg-[#D95524] transition-colors">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-[#263238] text-sm tracking-tight">TRUV</span>
-              <span className="text-[#D95524] font-bold text-[10px] uppercase px-1.5 py-0.2 bg-[#FFF4EE] border border-[#F26B38]/30 rounded">
-                LedgerOS
-              </span>
-            </div>
-            <div className="text-[10px] text-[#64748B] truncate font-medium">Accounting Practice OS</div>
-          </div>
-        </Link>
+      <div className="h-16 px-4 border-b border-[#E5E7EB] flex items-center justify-between gap-3 flex-shrink-0">
+        <TruvLogo size="sm" subtext="Accounting Practice OS" href="/dashboard" />
 
         {/* Mobile Close Button */}
         {onCloseMobile && (

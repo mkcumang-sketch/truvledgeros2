@@ -5,6 +5,8 @@ import { requireTenant } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { EventStatus, Role } from "@prisma/client";
 import { processOutboxQueue } from "@/lib/server/automation/outbox-dispatcher";
+import { ActionResult } from "@/lib/types/action-result";
+import { serializeForClient } from "@/lib/serialization";
 
 import { CORE_WORKFLOWS } from "@/lib/server/automation/workflow-definitions";
 
@@ -73,7 +75,7 @@ export async function getTenantAutomationsAction() {
 
     return {
       success: true,
-      data: {
+      data: serializeForClient({
         workflows,
         stats: {
           totalRuns,
@@ -83,7 +85,7 @@ export async function getTenantAutomationsAction() {
           n8nConfigured: Boolean(process.env.N8N_BASE_URL && process.env.N8N_WEBHOOK_SECRET),
           webhookBaseUrl: process.env.N8N_BASE_URL || "Standby / Not Configured",
         },
-      },
+      }),
     };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to load automations" };
@@ -121,7 +123,7 @@ export async function toggleAutomationAction(code: string, enabled: boolean) {
     });
 
     revalidatePath("/automations");
-    return { success: true, data: automation };
+    return { success: true, data: serializeForClient(automation) };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to toggle automation" };
   }
@@ -196,7 +198,7 @@ export async function retryOutboxEventAction(eventId: string) {
     });
 
     revalidatePath("/automations");
-    return { success: true, data: updated };
+    return { success: true, data: serializeForClient(updated) };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to retry outbox event" };
   }
@@ -217,7 +219,7 @@ export async function triggerOutboxDispatchAction() {
     });
 
     revalidatePath("/automations");
-    return { success: true, data: summary };
+    return { success: true, data: serializeForClient(summary) };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to trigger dispatch" };
   }

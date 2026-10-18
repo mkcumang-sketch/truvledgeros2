@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getDashboardFinancialMetrics } from "@/lib/server/financial-analytics";
 import { formatINR } from "@/lib/financial/math";
@@ -21,47 +20,100 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
 
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { requireTenant, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+
 export const metadata = {
   title: "Practice Overview — TRUV LedgerOS",
   description: "Live operational analytics, client billing, and compliance pipeline.",
 };
 
 export default async function DashboardPage() {
-  const context = await requireTenant();
+  let context: any;
+  try {
+    context = await requireTenant();
+  } catch (error: any) {
+    if (error?.digest?.startsWith("NEXT_REDIRECT") || error?.message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    console.error("[DashboardPage] requireTenant failed:", error);
+    try {
+      const cookieStore = cookies();
+      cookieStore.delete(SESSION_COOKIE_NAME);
+      cookieStore.delete("next-auth.session-token");
+      cookieStore.delete("__Secure-next-auth.session-token");
+    } catch {}
+    redirect("/login?error=SESSION_EXPIRED&force=true");
+  }
+
   const tenantId = context.membership.tenantId;
 
-  const [clientCount, corporateCount, metrics, recentClients, recentInvoices, openTasksCount] =
-    await Promise.all([
-      db.client.count({ where: { tenantId, active: true } }),
-      db.client.count({
-        where: {
-          tenantId,
-          active: true,
-          OR: [
-            { planName: { contains: "Pvt Ltd", mode: "insensitive" } },
-            { planName: { contains: "PRIVATE_LIMITED", mode: "insensitive" } },
-            { planName: { contains: "LLP", mode: "insensitive" } },
-          ],
-        },
-      }),
-      getDashboardFinancialMetrics(),
-      db.client.findMany({
-        where: { tenantId, active: true },
-        take: 5,
-        orderBy: { createdAt: "desc" },
-        include: {
-          contacts: { where: { isPrimary: true }, take: 1 },
-          _count: { select: { invoices: true } },
-        },
-      }),
-      db.invoice.findMany({
-        where: { tenantId },
-        take: 5,
-        orderBy: { issuedDate: "desc" },
-        include: { client: { select: { name: true } } },
-      }),
-      db.task.count({ where: { tenantId, status: "OPEN" } }),
+  let clientCount = 0;
+  let corporateCount = 0;
+  let metrics = {
+    totalCollectedRevenue: 0,
+    totalOutstanding: 0,
+    totalOverdue: 0,
+    counts: { paid: 0, pending: 0, overdue: 0 },
+  };
+  let recentClients: any[] = [];
+  let recentInvoices: any[] = [];
+  let openTasksCount = 0;
+
+  try {
+    const results = await Promise.all([
+      db.client.count({ where: { tenantId, active: true } }).catch(() => 0),
+      db.client
+        .count({
+          where: {
+            tenantId,
+            active: true,
+            OR: [
+              { planName: { contains: "Pvt Ltd", mode: "insensitive" } },
+              { planName: { contains: "PRIVATE_LIMITED", mode: "insensitive" } },
+              { planName: { contains: "LLP", mode: "insensitive" } },
+            ],
+          },
+        })
+        .catch(() => 0),
+      getDashboardFinancialMetrics().catch(() => ({
+        totalCollectedRevenue: 0,
+        totalOutstanding: 0,
+        totalOverdue: 0,
+        counts: { paid: 0, pending: 0, overdue: 0 },
+      })),
+      db.client
+        .findMany({
+          where: { tenantId, active: true },
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          include: {
+            contacts: { where: { isPrimary: true }, take: 1 },
+            _count: { select: { invoices: true } },
+          },
+        })
+        .catch(() => []),
+      db.invoice
+        .findMany({
+          where: { tenantId },
+          take: 5,
+          orderBy: { issuedDate: "desc" },
+          include: { client: { select: { name: true } } },
+        })
+        .catch(() => []),
+      db.task.count({ where: { tenantId, status: "OPEN" } }).catch(() => 0),
     ]);
+
+    clientCount = results[0];
+    corporateCount = results[1];
+    metrics = results[2] as typeof metrics;
+    recentClients = results[3];
+    recentInvoices = results[4];
+    openTasksCount = results[5];
+  } catch (dataErr) {
+    console.error("[DashboardPage] Data fetching error:", dataErr);
+  }
 
   return (
     <div className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
