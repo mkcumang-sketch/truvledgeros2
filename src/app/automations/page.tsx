@@ -10,7 +10,7 @@ import { serializeForClient } from "@/lib/serialization";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "5-Suite Automations & n8n Engine — TRUV LedgerOS",
+  title: "6-Suite Automations & n8n Engine — TRUV LedgerOS",
   description: "Enterprise workflow automation, transactional outbox ledger, and compliance scheduling.",
 };
 

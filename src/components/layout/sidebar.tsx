@@ -62,7 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "AI Practice Bot", href: "/support", icon: Bot },
       { label: "Outreach & Comms", href: "/communications", icon: MessagesSquare },
-      { label: "5-Suite Automations", href: "/automations", icon: Cpu, badge: "Auto", badgeVariant: "emerald" },
+      { label: "6-Suite Automations", href: "/automations", icon: Cpu, badge: "Auto", badgeVariant: "emerald" },
       { label: "Reports & Analytics", href: "/reports", icon: BarChart3 },
     ],
   },
