@@ -78,6 +78,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         {onOpenMobileNav && (
           <button
             onClick={onOpenMobileNav}
+            data-testid="mobile-hamburger"
             className="lg:hidden p-2 rounded-lg text-graphite-600 hover:text-graphite-900 hover:bg-[#FAF9F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F26B38]"
             aria-label="Open navigation menu"
           >

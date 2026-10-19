@@ -1,0 +1,84 @@
+{
+  "timestamp": "2026-10-19T11:44:20.200Z",
+  "baseUrl": "http://localhost:3000",
+  "viewports": {
+    "iPhone-13-14": {
+      "width": 390,
+      "height": 844,
+      "pages": {
+        "/login": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": null
+        },
+        "/dashboard": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": {
+            "hamburgerFound": true,
+            "drawerOpened": true,
+            "flickeredOrAutoClosed": false
+          }
+        },
+        "/automations": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": {
+            "hamburgerFound": true,
+            "drawerOpened": true,
+            "flickeredOrAutoClosed": false
+          }
+        },
+        "/team": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": {
+            "hamburgerFound": true,
+            "drawerOpened": true,
+            "flickeredOrAutoClosed": false
+          }
+        }
+      }
+    },
+    "iPhone-SE": {
+      "width": 375,
+      "height": 667,
+      "pages": {
+        "/login": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": null
+        },
+        "/dashboard": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": {
+            "hamburgerFound": true,
+            "drawerOpened": true,
+            "flickeredOrAutoClosed": false
+          }
+        },
+        "/automations": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": {
+            "hamburgerFound": true,
+            "drawerOpened": true,
+            "flickeredOrAutoClosed": false
+          }
+        },
+        "/team": {
+          "overflowCount": 0,
+          "overflows": [],
+          "drawerTest": {
+            "hamburgerFound": true,
+            "drawerOpened": true,
+            "flickeredOrAutoClosed": false
+          }
+        }
+      }
+    }
+  },
+  "totalOverflows": 0,
+  "overallStatus": "PASSED"
+}

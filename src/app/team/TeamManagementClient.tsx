@@ -286,19 +286,19 @@ export function TeamManagementClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full min-w-0 overflow-x-hidden">
       {/* Top Banner & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E5E7EB] rounded-xl p-4 sm:p-5 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#263238]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-[#263238] break-words">
               Team & Access Management
             </h1>
-            <span className="text-xs font-semibold px-2 py-0.5 bg-[#FFF4EE] text-[#D95524] rounded-md border border-[#F26B38]/20">
+            <span className="text-xs font-semibold px-2 py-0.5 bg-[#FFF4EE] text-[#D95524] rounded-md border border-[#F26B38]/20 shrink-0">
               {tenantName}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[#64748B] mt-1">
+          <p className="text-xs sm:text-sm text-[#64748B] mt-1 break-words">
             Invite practice employees, configure role-based access control, and audit security events.
           </p>
         </div>
@@ -306,22 +306,22 @@ export function TeamManagementClient({
         {isOwnerOrAdmin && (
           <Button
             onClick={handleOpenInvite}
-            className="bg-[#F26B38] hover:bg-[#D95524] text-white shadow-xs font-semibold text-xs sm:text-sm flex items-center gap-2"
+            className="bg-[#F26B38] hover:bg-[#D95524] text-white shadow-xs font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-4 h-4 shrink-0" />
             <span>Invite Team Member</span>
           </Button>
         )}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#64748B]">Active Members</span>
             <Users className="w-4 h-4 text-[#F26B38]" />
           </div>
-          <div className="text-2xl font-extrabold text-[#263238] mt-2 tabular-nums">
+          <div className="text-xl sm:text-2xl font-extrabold text-[#263238] mt-2 tabular-nums break-words">
             {activeMembersCount}
           </div>
           <p className="text-[11px] text-[#64748B] mt-0.5">Authorized staff accounts</p>
@@ -332,7 +332,7 @@ export function TeamManagementClient({
             <span className="text-xs font-semibold text-[#64748B]">Signing Partners</span>
             <Award className="w-4 h-4 text-amber-600" />
           </div>
-          <div className="text-2xl font-extrabold text-[#263238] mt-2 tabular-nums">
+          <div className="text-xl sm:text-2xl font-extrabold text-[#263238] mt-2 tabular-nums break-words">
             {partnersCount}
           </div>
           <p className="text-[11px] text-[#64748B] mt-0.5">Owners & FCA authority</p>
@@ -343,7 +343,7 @@ export function TeamManagementClient({
             <span className="text-xs font-semibold text-[#64748B]">Pending Invitations</span>
             <Mail className="w-4 h-4 text-[#F26B38]" />
           </div>
-          <div className="text-2xl font-extrabold text-[#263238] mt-2 tabular-nums">
+          <div className="text-xl sm:text-2xl font-extrabold text-[#263238] mt-2 tabular-nums break-words">
             {pendingInvitesCount}
           </div>
           <p className="text-[11px] text-[#64748B] mt-0.5">Awaiting activation</p>
@@ -354,61 +354,61 @@ export function TeamManagementClient({
             <span className="text-xs font-semibold text-[#64748B]">Security Model</span>
             <Shield className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-sm font-bold text-[#263238] mt-2">
+          <div className="text-sm font-bold text-[#263238] mt-2 break-words">
             Server-Enforced RBAC
           </div>
           <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">Deny-by-default active</p>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="border-b border-[#E5E7EB] flex items-center gap-1 sm:gap-2">
+      {/* Navigation Tabs - 2-col Grid on mobile, flex on sm */}
+      <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-2 border-b border-[#E5E7EB] pb-2 w-full">
         <button
           onClick={() => setActiveTab("members")}
-          className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`w-full sm:w-auto p-2 sm:pb-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg sm:rounded-none border sm:border-0 sm:border-b-2 transition-colors flex items-center justify-center sm:justify-start gap-2 ${
             activeTab === "members"
-              ? "border-[#F26B38] text-[#F26B38]"
-              : "border-transparent text-[#64748B] hover:text-[#263238]"
+              ? "border-[#F26B38] text-[#F26B38] bg-orange-50/50 sm:bg-transparent"
+              : "border-slate-200 sm:border-transparent text-[#64748B] hover:text-[#263238]"
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>Team Roster ({members.length})</span>
+          <Users className="w-4 h-4 shrink-0" />
+          <span className="truncate">Roster ({members.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("invites")}
-          className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`w-full sm:w-auto p-2 sm:pb-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg sm:rounded-none border sm:border-0 sm:border-b-2 transition-colors flex items-center justify-center sm:justify-start gap-2 ${
             activeTab === "invites"
-              ? "border-[#F26B38] text-[#F26B38]"
-              : "border-transparent text-[#64748B] hover:text-[#263238]"
+              ? "border-[#F26B38] text-[#F26B38] bg-orange-50/50 sm:bg-transparent"
+              : "border-slate-200 sm:border-transparent text-[#64748B] hover:text-[#263238]"
           }`}
         >
-          <Mail className="w-4 h-4" />
-          <span>Pending Invitations ({invitations.length})</span>
+          <Mail className="w-4 h-4 shrink-0" />
+          <span className="truncate">Invites ({invitations.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("roles")}
-          className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`w-full sm:w-auto p-2 sm:pb-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg sm:rounded-none border sm:border-0 sm:border-b-2 transition-colors flex items-center justify-center sm:justify-start gap-2 ${
             activeTab === "roles"
-              ? "border-[#F26B38] text-[#F26B38]"
-              : "border-transparent text-[#64748B] hover:text-[#263238]"
+              ? "border-[#F26B38] text-[#F26B38] bg-orange-50/50 sm:bg-transparent"
+              : "border-slate-200 sm:border-transparent text-[#64748B] hover:text-[#263238]"
           }`}
         >
-          <Shield className="w-4 h-4" />
-          <span>Roles & Permissions Matrix</span>
+          <Shield className="w-4 h-4 shrink-0" />
+          <span className="truncate">Roles Matrix</span>
         </button>
 
         <button
           onClick={() => setActiveTab("audit")}
-          className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`w-full sm:w-auto p-2 sm:pb-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg sm:rounded-none border sm:border-0 sm:border-b-2 transition-colors flex items-center justify-center sm:justify-start gap-2 ${
             activeTab === "audit"
-              ? "border-[#F26B38] text-[#F26B38]"
-              : "border-transparent text-[#64748B] hover:text-[#263238]"
+              ? "border-[#F26B38] text-[#F26B38] bg-orange-50/50 sm:bg-transparent"
+              : "border-slate-200 sm:border-transparent text-[#64748B] hover:text-[#263238]"
           }`}
         >
-          <Activity className="w-4 h-4" />
-          <span>Activity Audit Log</span>
+          <Activity className="w-4 h-4 shrink-0" />
+          <span className="truncate">Audit Log</span>
         </button>
       </div>
 
@@ -454,10 +454,104 @@ export function TeamManagementClient({
             </div>
           </div>
 
-          {/* Members Table */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-[#263238]">
+          {/* Mobile Members Cards */}
+          <div className="sm:hidden space-y-3">
+            {filteredMembers.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 bg-white border border-[#E5E7EB] rounded-xl">
+                No team members match the search query.
+              </div>
+            ) : (
+              filteredMembers.map((m) => {
+                const isTargetOwner = m.role === Role.FIRM_OWNER;
+                const isSelf = m.userId === currentUserId;
+
+                return (
+                  <div key={m.id} className="bg-white border border-[#E5E7EB] rounded-xl p-4 space-y-3 shadow-2xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-sm text-[#263238] flex items-center gap-1.5 flex-wrap">
+                          <span>{m.name}</span>
+                          {isSelf && (
+                            <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-medium">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-[#64748B] mt-0.5 font-mono">
+                          ID: {m.userId.substring(0, 10)}...
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant={
+                            m.role === Role.FIRM_OWNER
+                              ? "orange"
+                              : m.role === Role.PARTNER
+                              ? "gold"
+                              : "neutral"
+                          }
+                          size="sm"
+                        >
+                          {m.role.replace("_", " ")}
+                        </Badge>
+                        <Badge
+                          variant={m.status === "ACTIVE" ? "success" : "danger"}
+                          size="sm"
+                        >
+                          {m.status}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-[#64748B] break-words">
+                      <div>{m.email}</div>
+                      {m.phone && <div className="text-[11px] mt-0.5">{m.phone}</div>}
+                    </div>
+
+                    {isOwnerOrAdmin && (
+                      <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleOpenEditRole(m)}
+                          disabled={isPending || isTargetOwner}
+                          className="text-xs flex-1"
+                        >
+                          Change Role
+                        </Button>
+                        {m.status === "ACTIVE" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenConfirm("suspend", m.id, m.name)}
+                            disabled={isPending || isTargetOwner || isSelf}
+                            className="text-xs text-rose-600 border-rose-200 hover:bg-rose-50 flex-1"
+                          >
+                            Suspend
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenConfirm("reactivate", m.id, m.name)}
+                            disabled={isPending}
+                            className="text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 flex-1"
+                          >
+                            Reactivate
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Members Table */}
+          <div className="hidden sm:block bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-xs w-full max-w-full min-w-0">
+            <div className="w-full overflow-x-auto touch-pan-x">
+              <table className="w-full min-w-[640px] text-left text-xs text-[#263238]">
                 <thead className="bg-[#F8FAFC] text-[11px] uppercase tracking-wider text-[#64748B] font-bold border-b border-[#E5E7EB]">
                   <tr>
                     <th className="px-5 py-3.5">Member Name</th>
@@ -576,9 +670,69 @@ export function TeamManagementClient({
 
       {/* TAB 2: PENDING INVITATIONS */}
       {activeTab === "invites" && (
-        <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-[#263238]">
+        <div className="space-y-3">
+          {/* Mobile Invites Cards */}
+          <div className="sm:hidden space-y-3">
+            {invitations.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 bg-white border border-[#E5E7EB] rounded-xl">
+                No invitations found. Use the &quot;Invite Team Member&quot; button to invite colleagues.
+              </div>
+            ) : (
+              invitations.map((inv) => {
+                const isPendingInvite = inv.status === InvitationStatus.PENDING;
+                return (
+                  <div key={inv.id} className="bg-white border border-[#E5E7EB] rounded-xl p-4 space-y-2 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-xs text-[#263238] break-words">{inv.email}</span>
+                      <Badge variant="orange" size="sm">{inv.role.replace("_", " ")}</Badge>
+                    </div>
+                    <div className="text-[11px] text-[#64748B] flex items-center justify-between">
+                      <span>By: {inv.invitedByName}</span>
+                      <Badge
+                        variant={
+                          inv.status === "ACCEPTED"
+                            ? "success"
+                            : inv.status === "PENDING"
+                            ? "warning"
+                            : "danger"
+                        }
+                        size="sm"
+                      >
+                        {inv.status}
+                      </Badge>
+                    </div>
+                    {isOwnerOrAdmin && isPendingInvite && (
+                      <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleResendInvite(inv.id)}
+                          disabled={isPending}
+                          className="text-xs flex-1"
+                        >
+                          Resend
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenConfirm("revoke_invite", inv.id, inv.email)}
+                          disabled={isPending}
+                          className="text-xs text-rose-600 border-rose-200 hover:bg-rose-50 flex-1"
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Invites Table */}
+          <div className="hidden sm:block bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-xs w-full max-w-full min-w-0">
+            <div className="w-full overflow-x-auto touch-pan-x">
+              <table className="w-full min-w-[640px] text-left text-xs text-[#263238]">
               <thead className="bg-[#F8FAFC] text-[11px] uppercase tracking-wider text-[#64748B] font-bold border-b border-[#E5E7EB]">
                 <tr>
                   <th className="px-5 py-3.5">Invitee Email</th>
@@ -667,7 +821,8 @@ export function TeamManagementClient({
             </table>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* TAB 3: ROLES & PERMISSIONS MATRIX */}
       {activeTab === "roles" && (
@@ -735,14 +890,38 @@ export function TeamManagementClient({
 
       {/* TAB 4: ACTIVITY AUDIT LOG */}
       {activeTab === "audit" && (
-        <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-[#E5E7EB] bg-[#F8FAFC]">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
-              Team Security & Authorization Trail
-            </h3>
+        <div className="space-y-3">
+          {/* Mobile Audit Cards */}
+          <div className="sm:hidden space-y-2.5">
+            {auditLogs.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 bg-white border border-[#E5E7EB] rounded-xl">
+                No security audit events recorded yet.
+              </div>
+            ) : (
+              auditLogs.map((log) => (
+                <div key={log.id} className="bg-white border border-[#E5E7EB] rounded-xl p-3.5 space-y-1 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-[#D95524]">{log.action}</span>
+                    <span className="font-mono text-[10px] text-slate-400">
+                      {new Date(log.createdAt).toLocaleDateString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#263238] font-medium">{log.userName}</div>
+                  <div className="text-[11px] text-[#64748B] break-words">{log.details}</div>
+                </div>
+              ))
+            )}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-[#263238]">
+
+          {/* Desktop Audit Table */}
+          <div className="hidden sm:block bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-xs w-full max-w-full min-w-0">
+            <div className="p-4 border-b border-[#E5E7EB] bg-[#F8FAFC]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
+                Team Security & Authorization Trail
+              </h3>
+            </div>
+            <div className="w-full overflow-x-auto touch-pan-x">
+              <table className="w-full min-w-[600px] text-left text-xs text-[#263238]">
               <thead className="bg-[#F8FAFC] text-[11px] uppercase tracking-wider text-[#64748B] font-bold border-b border-[#E5E7EB]">
                 <tr>
                   <th className="px-5 py-3.5">Action Event</th>
@@ -785,7 +964,8 @@ export function TeamManagementClient({
             </table>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* MODAL 1: INVITE TEAM MEMBER */}
       <Modal

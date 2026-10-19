@@ -16,7 +16,7 @@ export function AuthAwareShell({ children }: { children: React.ReactNode }) {
 
   if (isAuthRoute) {
     return (
-      <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden min-w-0 bg-slate-50 flex items-center justify-center p-4">
         {children}
       </div>
     );
@@ -32,7 +32,7 @@ export function AuthAwareShell({ children }: { children: React.ReactNode }) {
 
   if (isPublicMarketingRoute) {
     return (
-      <div className="min-h-screen w-full bg-white text-slate-900 font-sans antialiased">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden min-w-0 bg-white text-slate-900 font-sans antialiased">
         {children}
       </div>
     );

@@ -37,10 +37,12 @@ export default async function AutomationsPage() {
   const outboxEvents = outboxRes.success && outboxRes.data ? outboxRes.data : [];
 
   return (
-    <AutomationsClient
-      initialWorkflows={serializeForClient(workflows) as any}
-      initialOutboxEvents={serializeForClient(outboxEvents) as any}
-      stats={serializeForClient(stats)}
-    />
+    <div className="flex-1 w-full max-w-full min-w-0 overflow-x-hidden">
+      <AutomationsClient
+        initialWorkflows={serializeForClient(workflows) as any}
+        initialOutboxEvents={serializeForClient(outboxEvents) as any}
+        stats={serializeForClient(stats)}
+      />
+    </div>
   );
 }

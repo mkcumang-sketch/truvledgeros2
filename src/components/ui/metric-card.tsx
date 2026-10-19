@@ -42,14 +42,14 @@ export function MetricCard({
         {icon && <div className="text-graphite-400 flex-shrink-0">{icon}</div>}
       </div>
 
-      <div className="mt-3 flex items-baseline justify-between gap-2">
-        <span className="text-2xl font-bold tracking-tight text-graphite-900 tabular-nums">
+      <div className="mt-3 flex items-baseline justify-between gap-1.5 flex-wrap">
+        <span className="text-lg sm:text-2xl font-bold tracking-tight text-graphite-900 tabular-nums break-words">
           {value}
         </span>
         {badge && (
           <span
             className={cn(
-              "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+              "text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0",
               badgeStyles[badgeVariant]
             )}
           >

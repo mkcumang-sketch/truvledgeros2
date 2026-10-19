@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -116,11 +117,17 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Keep ref of values for event listeners
   const isDraggingRef = useRef(false);
   const widthRef = useRef(width);
   const isCollapsedRef = useRef(isCollapsed);
+  const prevPathnameRef = useRef(pathname);
 
   widthRef.current = width;
   isCollapsedRef.current = isCollapsed;
@@ -172,10 +179,13 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
       .catch(() => null);
   }, []);
 
-  // Close mobile sidebar on route change
+  // Close mobile sidebar on route change only
   useEffect(() => {
-    if (isMobileOpen && onCloseMobile) {
-      onCloseMobile();
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname;
+      if (isMobileOpen && onCloseMobile) {
+        onCloseMobile();
+      }
     }
   }, [pathname, isMobileOpen, onCloseMobile]);
 
@@ -204,6 +214,7 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
 
   // Drag to Resize Handling
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) return;
     e.preventDefault();
     setIsDragging(true);
     isDraggingRef.current = true;
@@ -466,22 +477,32 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
         />
       </aside>
 
-      {/* Mobile Drawer (Always Full Width) */}
-      {isMobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
+      {/* Mobile Drawer rendered in isolated Portal */}
+      {isMobileOpen &&
+        mounted &&
+        createPortal(
           <div
-            className="fixed inset-0 bg-graphite-900/50 backdrop-blur-xs transition-opacity"
-            onClick={onCloseMobile}
-            aria-hidden="true"
-          />
+            className="lg:hidden fixed inset-0 z-50 flex pointer-events-auto"
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Backdrop with explicit z-40 */}
+            <div
+              className="fixed inset-0 z-40 bg-graphite-900/50 backdrop-blur-xs transition-opacity"
+              onClick={onCloseMobile}
+              aria-hidden="true"
+            />
 
-          {/* Drawer Panel */}
-          <div className="relative w-72 max-w-[85vw] h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
-            {renderSidebarContent(false, true)}
-          </div>
-        </div>
-      )}
+            {/* Drawer Panel with explicit z-50 & stopPropagation */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative z-50 w-72 max-w-[85vw] h-full shadow-2xl flex flex-col bg-white animate-in slide-in-from-left duration-200"
+            >
+              {renderSidebarContent(false, true)}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

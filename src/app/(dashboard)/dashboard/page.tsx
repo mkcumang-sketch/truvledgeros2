@@ -116,11 +116,11 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full max-w-full min-w-0 overflow-x-hidden">
       {/* Welcome Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-graphite-900">
+          <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-graphite-900 break-words">
             Practice Overview
           </h1>
           <p className="text-xs sm:text-sm text-graphite-500 mt-0.5">
@@ -144,7 +144,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Active Practice Clients"
           value={clientCount}

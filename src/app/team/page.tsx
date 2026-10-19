@@ -100,7 +100,7 @@ export default async function TeamPage() {
   });
 
   return (
-    <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full max-w-full min-w-0 overflow-x-hidden">
       <TeamManagementClient
         members={serializedMembers}
         invitations={serializedInvites}
