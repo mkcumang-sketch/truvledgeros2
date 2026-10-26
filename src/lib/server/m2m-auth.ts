@@ -176,7 +176,7 @@ export async function authorizeM2MRequest(
     }
 
     // Check system-level secret first
-    const systemSecret = process.env.N8N_WEBHOOK_SECRET?.trim();
+    const systemSecret = (process.env.M2M_WEBHOOK_SECRET || process.env.CRON_SECRET)?.trim();
     let isSignatureValid = false;
     let authScope: "TENANT" | "SYSTEM" = "SYSTEM";
     let matchedIntegrationId: string | undefined;
@@ -303,7 +303,7 @@ export async function authorizeM2MRequest(
     }
 
     // 1. Check if token matches system-level CRON_SECRET
-    const systemCronSecret = (process.env.CRON_SECRET || process.env.N8N_WEBHOOK_SECRET)?.trim();
+    const systemCronSecret = process.env.CRON_SECRET?.trim();
     const isSystemAuthorized =
       systemCronSecret && timingSafeEqualCompare(providedToken, systemCronSecret);
 

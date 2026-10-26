@@ -200,6 +200,8 @@ export function GstClient({ returns, gstClients }: Props) {
                         returnId={r.id}
                         status={r.status}
                         arnNumber={r.arnNumber}
+                        clientId={r.client.id}
+                        clientName={r.client.name}
                       />
                     </td>
                   </tr>

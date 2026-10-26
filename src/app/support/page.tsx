@@ -36,6 +36,7 @@ export default function SupportDeskPage() {
       text: "Hello CA Priya. I am your TRUV AI Practice Co-pilot trained on the Income Tax Act, GSTN circulars, and ICAI auditing standards. How can I assist you with your filings or client advisories today?",
     },
   ]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -60,10 +61,13 @@ export default function SupportDeskPage() {
       const res = await fetch("/api/ai-chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query }),
+        body: JSON.stringify({ message: query, conversationId }),
       });
 
       const data = await res.json();
+      if (data.conversationId) {
+        setConversationId(data.conversationId);
+      }
 
       const botMsg: ChatMessage = {
         id: `msg-${Date.now() + 1}`,

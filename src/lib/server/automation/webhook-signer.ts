@@ -51,7 +51,7 @@ export function verifyWebhookSignature(params: {
   } = params;
 
   if (!secret) {
-    return { valid: false, error: "N8N_WEBHOOK_SECRET is not configured on server" };
+    return { valid: false, error: "Webhook signing secret is not configured on server" };
   }
 
   if (!signatureHeader || !timestampHeader) {

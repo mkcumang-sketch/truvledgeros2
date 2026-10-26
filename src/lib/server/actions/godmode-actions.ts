@@ -223,3 +223,107 @@ export async function togglePlatformFeatureFlagAction(params: {
     return { success: false, error: error.message || "Failed to toggle platform flag." };
   }
 }
+
+// =========================================================================
+// 5. PRODUCTION BLANK SLATE RESET ACTION
+// =========================================================================
+
+export async function resetPracticeDataAction(params?: { targetTenantId?: string }): Promise<ActionResult> {
+  try {
+    const context = await assertGodmodePrivilege();
+
+    const [
+      delMessages,
+      delConversations,
+      delCommunications,
+      delTasks,
+      delInvoiceItems,
+      delPayments,
+      delInvoices,
+      delGstReturns,
+      delGstProfiles,
+      delDocuments,
+      delDocRequests,
+      delAutomationRuns,
+      delAutomationEvents,
+      delContacts,
+      delClients,
+    ] = await db.$transaction([
+      db.message.deleteMany({}),
+      db.conversation.deleteMany({}),
+      db.communication.deleteMany({}),
+      db.task.deleteMany({}),
+      db.invoiceItem.deleteMany({}),
+      db.payment.deleteMany({}),
+      db.invoice.deleteMany({}),
+      db.gstReturn.deleteMany({}),
+      db.gstProfile.deleteMany({}),
+      db.document.deleteMany({}),
+      db.documentRequest.deleteMany({}),
+      db.automationRun.deleteMany({}),
+      db.automationEvent.deleteMany({}),
+      db.contact.deleteMany({}),
+      db.client.deleteMany({}),
+    ]);
+
+    // Clean demo non-admin test users
+    const demoUsers = await db.user.findMany({
+      where: {
+        OR: [
+          { email: { contains: "example.com" } },
+          { email: { contains: "sharma-traders" } },
+          { memberships: { some: { role: "CLIENT" } } },
+        ],
+        isSuperAdmin: false,
+      },
+      select: { id: true },
+    });
+
+    if (demoUsers.length > 0) {
+      const ids = demoUsers.map((u) => u.id);
+      await db.session.deleteMany({ where: { userId: { in: ids } } });
+      await db.membership.deleteMany({ where: { userId: { in: ids } } });
+      await db.user.deleteMany({ where: { id: { in: ids } } });
+    }
+
+    await logSecurityEvent({
+      tenantId: params?.targetTenantId || null,
+      userId: context.user.id,
+      action: "PLATFORM_DATA_PURGED" as any,
+      entityType: "DATABASE",
+      entityId: "ALL_TRANSACTIONAL_DATA",
+      newValue: {
+        actor: context.user.name,
+        email: context.user.email,
+        timestamp: new Date().toISOString(),
+        clientsPurged: delClients.count,
+        invoicesPurged: delInvoices.count,
+      },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/clients");
+    revalidatePath("/invoices");
+    revalidatePath("/payments");
+    revalidatePath("/gst");
+    revalidatePath("/documents");
+    revalidatePath("/tasks");
+    revalidatePath("/communications");
+    revalidatePath("/reports");
+    revalidatePath("/godmode");
+
+    return {
+      success: true,
+      data: {
+        clientsPurged: delClients.count,
+        invoicesPurged: delInvoices.count,
+        paymentsPurged: delPayments.count,
+        documentsPurged: delDocuments.count,
+        communicationsPurged: delCommunications.count,
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to reset practice data." };
+  }
+  }
+

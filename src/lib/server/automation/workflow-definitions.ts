@@ -1,4 +1,4 @@
-// Definition of the 6 canonical TRUV LedgerOS Workflows
+// Definition of the 10 canonical TRUV LedgerOS Workflows (Core Operations + Production AI Suites)
 export const CORE_WORKFLOWS = [
   {
     code: "ONBOARDING",
@@ -6,6 +6,8 @@ export const CORE_WORKFLOWS = [
     description: "Triggers on client creation or bulk import to initialize statutory KYC verification, portal credential auditing, and prior period tasks.",
     trigger: "client.created / clients.bulk_imported",
     category: "Client 360°",
+    isAi: false,
+    isVoice: false,
   },
   {
     code: "GST_COMPLIANCE",
@@ -13,6 +15,8 @@ export const CORE_WORKFLOWS = [
     description: "Scheduled check against live compliance obligations in Asia/Kolkata timezone. Evaluates real filing statuses without false statutory assumptions.",
     trigger: "Scheduled Cron (0 9 * * *)",
     category: "GST & Tax",
+    isAi: false,
+    isVoice: false,
   },
   {
     code: "DOC_COLLECTION",
@@ -20,6 +24,8 @@ export const CORE_WORKFLOWS = [
     description: "Monitors outstanding document requests. Automatically increments reminder count and escalates to partners upon reaching the 3-reminder threshold.",
     trigger: "Scheduled / Event: doc.request.pending",
     category: "Document Vault",
+    isAi: false,
+    isVoice: false,
   },
   {
     code: "TASK_APPROVALS",
@@ -27,6 +33,8 @@ export const CORE_WORKFLOWS = [
     description: "Dispatches assignment notifications to responsible staff and routes review rejections back to preparers while maintaining full audit logs.",
     trigger: "task.assigned / task.rejected",
     category: "Practice Operations",
+    isAi: false,
+    isVoice: false,
   },
   {
     code: "INVOICE_REMINDERS",
@@ -34,6 +42,8 @@ export const CORE_WORKFLOWS = [
     description: "Evaluates due and overdue invoices. Rechecks authoritative PostgreSQL balance to suppress reminders for settled or voided invoices.",
     trigger: "invoice.issued / invoice.overdue",
     category: "Financial Engine",
+    isAi: false,
+    isVoice: false,
   },
   {
     code: "FAILURE_ALERTS",
@@ -41,5 +51,43 @@ export const CORE_WORKFLOWS = [
     description: "Captures terminal workflow errors with safe diagnostics and correlation IDs for partner investigation without exposing raw credentials.",
     trigger: "automation.dead_letter",
     category: "System Reliability",
+    isAi: false,
+    isVoice: false,
+  },
+  {
+    code: "AI_PAYMENT_RECOVERY",
+    name: "Workflow G — AI Dynamic Payment Recovery Drafter",
+    description: "Leverages Gemini AI to generate culturally persuasive, context-aware Hinglish & English WhatsApp/Email recovery drafts with partner review guardrails.",
+    trigger: "invoice.overdue / invoice.ai_recovery_draft",
+    category: "AI Intelligence",
+    isAi: true,
+    isVoice: false,
+  },
+  {
+    code: "AI_DOCUMENT_AUDIT",
+    name: "Workflow H — AI Bank & Document Anomaly Scanner",
+    description: "Autonomous audit intelligence scanning financial records for Section 43B(h) MSME overdue risks, Section 40A(3) cash exposure, and TDS mismatches.",
+    trigger: "document.verified / document.ai_anomaly_scan",
+    category: "AI Audit",
+    isAi: true,
+    isVoice: false,
+  },
+  {
+    code: "AI_TAX_NOTICE",
+    name: "Workflow I — AI Smart Tax Notice & Demand Drafter",
+    description: "Extracts statutory sections, demand numbers, and deadlines from notices (DRC-01, Sec 148, 143(1)) and drafts formal ICAI-compliant legal rebuttals.",
+    trigger: "notice.uploaded / notice.ai_draft_response",
+    category: "AI Compliance",
+    isAi: true,
+    isVoice: false,
+  },
+  {
+    code: "AI_VOICE_AGENT",
+    name: "Workflow J — Autonomous AI Voice Calling Agent",
+    description: "Outbound conversational voice agent for payment follow-ups and statutory reminders. Generates dynamic bilingual scripts with automated partner fallback.",
+    trigger: "voice.outbound_call_dispatch / invoice.overdue",
+    category: "Autonomous Voice",
+    isAi: true,
+    isVoice: true,
   },
 ];

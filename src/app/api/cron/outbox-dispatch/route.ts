@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processOutboxQueue } from "@/lib/server/automation/outbox-dispatcher";
+import { processPendingAutomations } from "@/lib/server/automation/native-engine";
 import { timingSafeEqualCompare } from "@/lib/server/m2m-auth";
 import {
   rateLimiter,
@@ -8,12 +8,13 @@ import {
   RATE_LIMIT_TIERS,
 } from "@/lib/server/security/rate-limiter";
 import { withTimeout } from "@/lib/server/security/request-validator";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "nodejs";
 
 /**
- * Scheduled Cron Endpoint to drain the transactional outbox queue.
- * Strictly protected by CRON_SECRET or N8N_WEBHOOK_SECRET via constant-time verification.
+ * Scheduled Cron Endpoint to drain the transactional outbox queue using the native in-process engine.
+ * Strictly protected by CRON_SECRET via constant-time verification.
  * Fails closed in all environments if secret is missing or invalid.
  */
 export async function GET(req: NextRequest) {
@@ -26,12 +27,12 @@ export async function GET(req: NextRequest) {
 
     const authHeader = req.headers.get("authorization");
     const cronSecretHeader = req.headers.get("x-cron-secret");
-    const configuredSecret = (process.env.CRON_SECRET || process.env.N8N_WEBHOOK_SECRET)?.trim();
+    const configuredSecret = process.env.CRON_SECRET?.trim();
 
     // 1. Fail closed if server secret is not configured
     if (!configuredSecret) {
       return NextResponse.json(
-        { error: "Unauthorized: Cron execution secret is not configured on server.", code: "UNCONFIGURED_SECRET" },
+        { error: "Unauthorized: CRON_SECRET is not configured on server.", code: "UNCONFIGURED_SECRET" },
         { status: 401 }
       );
     }
@@ -56,19 +57,26 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 4. Execute outbox dispatch with 10-second timeout
+    // 4. Execute native in-process dispatch with 15-second timeout
     const summary = await withTimeout(
-      processOutboxQueue({
+      processPendingAutomations({
         batchSize: 50,
         forceDispatch: true,
       }),
-      10000,
-      "Cron outbox dispatch timed out after 10000ms"
+      15000,
+      "Cron outbox dispatch timed out after 15000ms"
     );
+
+    try {
+      revalidatePath("/automations");
+      revalidatePath("/invoices");
+      revalidatePath("/tasks");
+    } catch {}
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
+      engine: "native-in-process",
       summary,
     });
   } catch (err: any) {

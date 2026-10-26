@@ -50,7 +50,11 @@ const ServerEnvSchema = z.object({
   TOKEN_PEPPER: z.string().optional(),
   TOKEN_PEPPER_PRIMARY_VERSION: z.string().optional().default("1"),
 
-  // 5. Transactional Email (Resend)
+  // 5. Transactional Email (Direct Gmail SMTP / Resend)
+  SMTP_HOST: z.string().optional().default("smtp.gmail.com"),
+  SMTP_PORT: z.string().optional().default("465"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional().default("TRUV LedgerOS <notifications@truvledgeros.in>"),
 
@@ -80,16 +84,12 @@ const ServerEnvSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
 
-  // 11. Cron & Background Processing
+  // 11. Cron & Native Background Processing
   CRON_SECRET: z.string().optional(),
   ENABLE_INPROCESS_OUTBOX_WORKER: z.string().optional().default("false"),
   OUTBOX_POLL_INTERVAL_MS: z.string().optional().default("10000"),
 
-  // 12. Automation Engine & Internal Webhooks (n8n)
-  N8N_BASE_URL: z.string().optional(),
-  N8N_WEBHOOK_SECRET: z.string().optional(),
-
-  // 13. Rate Limiter (Redis)
+  // 12. Rate Limiter (Redis)
   REDIS_URL: z.string().optional(),
   RATE_LIMIT_REDIS_TIMEOUT_MS: z.string().optional().default("1000"),
 });
@@ -136,13 +136,16 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
     }
   }
 
-  // Check Email Provider Status
+  // Check Email Provider Status (Direct Gmail SMTP / Resend)
+  const smtpConfigured = !!(envToValidate.SMTP_USER?.trim() && envToValidate.SMTP_PASS?.trim());
   const resendConfigured = !!envToValidate.RESEND_API_KEY?.trim();
   providers.push({
-    name: "Transactional Email (Resend)",
-    configured: resendConfigured,
-    mode: resendConfigured ? "ACTIVE" : "STANDBY",
-    detail: resendConfigured
+    name: "Transactional Email (SMTP / Resend)",
+    configured: smtpConfigured || resendConfigured,
+    mode: smtpConfigured ? "ACTIVE" : resendConfigured ? "ACTIVE" : "STANDBY",
+    detail: smtpConfigured
+      ? "Direct Gmail SMTP configured (smtp.gmail.com:465)"
+      : resendConfigured
       ? "Live Resend API key configured"
       : "Operating in safe STANDBY_MODE (logs delivery intent, does not throw error)",
   });
@@ -214,18 +217,12 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
       : "Unconfigured; falling back to in-memory sliding window rate limiter",
   });
 
-  // Check Automation Engine (n8n)
-  const n8nConfigured = !!(
-    envToValidate.N8N_BASE_URL?.trim() &&
-    envToValidate.N8N_WEBHOOK_SECRET?.trim()
-  );
+  // Check Native Automation Engine
   providers.push({
-    name: "Automation Engine (n8n Webhooks)",
-    configured: n8nConfigured,
-    mode: n8nConfigured ? "ACTIVE" : "STANDBY",
-    detail: n8nConfigured
-      ? "n8n webhook endpoint configured"
-      : "Kept deferred on standby per governance rules. Transactional outbox records events.",
+    name: "Automation Engine (Native In-Process)",
+    configured: true,
+    mode: "ACTIVE",
+    detail: "100% self-contained Node.js & Railway PostgreSQL transactional automation engine active.",
   });
 
   return {
@@ -251,13 +248,13 @@ export function getSanitizedConfigSummary(): Record<string, string> {
     DATABASE_URL: env.DATABASE_URL ? "postgresql://●●●●●●:●●●●●●@... [CONFIGURED]" : "[UNSET]",
     DIRECT_URL: mask(env.DIRECT_URL),
     ENCRYPTION_KEY: mask(env.ENCRYPTION_KEY || env.ENCRYPTION_KEY_M2M),
+    SMTP: env.SMTP_USER ? `smtp.gmail.com (${env.SMTP_USER}) [CONFIGURED]` : "[UNSET]",
     RESEND_API_KEY: mask(env.RESEND_API_KEY),
     AWS_S3: mask(env.AWS_ACCESS_KEY_ID),
     RAZORPAY: mask(env.RAZORPAY_KEY_ID),
     WHATSAPP: mask(env.WHATSAPP_ACCESS_TOKEN),
     GSTN_API: mask(env.GSTN_CLIENT_ID),
     REDIS_URL: mask(env.REDIS_URL),
-    N8N_WEBHOOK: mask(env.N8N_WEBHOOK_SECRET),
     CRON_SECRET: mask(env.CRON_SECRET),
   };
 }

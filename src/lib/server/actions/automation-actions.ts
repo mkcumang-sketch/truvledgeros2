@@ -3,11 +3,12 @@
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
-import { EventStatus, Role } from "@prisma/client";
-import { processOutboxQueue } from "@/lib/server/automation/outbox-dispatcher";
+import { EventStatus, Role, CommunicationChannel, CommunicationDirection, TaskType, TaskStatus } from "@prisma/client";
+import { generateAiPaymentRecoveryDraft, AiPaymentRecoveryDraft } from "@/lib/server/ai/gemini-client";
+import { initiateOutboundVoiceCall, VoiceCallResult } from "@/lib/server/voice/calling-agent";
+import { processPendingAutomations, dispatchNativeEvent } from "@/lib/server/automation/native-engine";
 import { ActionResult } from "@/lib/types/action-result";
 import { serializeForClient } from "@/lib/serialization";
-
 import { CORE_WORKFLOWS } from "@/lib/server/automation/workflow-definitions";
 
 /**
@@ -82,8 +83,9 @@ export async function getTenantAutomationsAction() {
           pendingOutbox: pendingCount,
           processedOutbox: processedCount,
           failedOutbox: failedCount,
-          n8nConfigured: Boolean(process.env.N8N_BASE_URL && process.env.N8N_WEBHOOK_SECRET),
-          webhookBaseUrl: process.env.N8N_BASE_URL || "Standby / Not Configured",
+          isNativeEngine: true,
+          engineMode: "NATIVE_IN_PROCESS",
+          engineName: "Native In-Process Node.js / PostgreSQL",
         },
       }),
     };
@@ -205,22 +207,309 @@ export async function retryOutboxEventAction(eventId: string) {
 }
 
 /**
- * Manually triggers the outbox processor for pending events.
+ * Manually triggers the native in-process automation engine for pending events.
  */
-export async function triggerOutboxDispatchAction() {
+export async function triggerAutomationsAction() {
   try {
     const session = await requireTenant();
     const tenantId = session.membership.tenantId;
 
-    const summary = await processOutboxQueue({
+    const summary = await processPendingAutomations({
       tenantId,
       forceDispatch: true,
       batchSize: 25,
     });
 
     revalidatePath("/automations");
+    revalidatePath("/invoices");
+    revalidatePath("/tasks");
+    revalidatePath("/clients");
     return { success: true, data: serializeForClient(summary) };
   } catch (err: any) {
-    return { success: false, error: err.message || "Failed to trigger dispatch" };
+    return { success: false, error: err.message || "Failed to trigger automations" };
   }
 }
+
+/**
+ * Backwards compatibility alias for triggerAutomationsAction
+ */
+export async function triggerOutboxDispatchAction() {
+  return await triggerAutomationsAction();
+}
+
+/**
+ * Triggers an autonomous AI voice call test for the tenant.
+ */
+export async function triggerAiVoiceCallTestAction(clientId?: string) {
+  try {
+    const session = await requireTenant();
+    const tenantId = session.membership.tenantId;
+
+    let targetClient = null;
+    if (clientId) {
+      targetClient = await db.client.findFirst({ where: { id: clientId, tenantId } });
+    } else {
+      targetClient = await db.client.findFirst({ where: { tenantId }, orderBy: { createdAt: "desc" } });
+    }
+
+    if (!targetClient) {
+      return { success: false, error: "No client available for AI voice calling." };
+    }
+
+    const invoice = await db.invoice.findFirst({
+      where: { clientId: targetClient.id, tenantId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    await dispatchNativeEvent({
+      tenantId,
+      eventType: "voice.outbound_call_dispatch",
+      entityType: "CLIENT",
+      entityId: targetClient.id,
+      payload: {
+        clientId: targetClient.id,
+        invoiceId: invoice?.id,
+        reason: "PAYMENT_RECOVERY",
+        forceSimulated: true,
+      },
+    });
+
+    const summary = await processPendingAutomations({
+      tenantId,
+      forceDispatch: true,
+      batchSize: 10,
+    });
+
+    revalidatePath("/automations");
+    revalidatePath("/tasks");
+    return { success: true, data: serializeForClient(summary) };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to trigger AI voice call test" };
+  }
+}
+
+/**
+ * Triggers an AI document & bank anomaly audit scan test.
+ */
+export async function triggerAiAuditScanTestAction(documentId?: string) {
+  try {
+    const session = await requireTenant();
+    const tenantId = session.membership.tenantId;
+
+    let targetDoc = null;
+    if (documentId) {
+      targetDoc = await db.document.findFirst({ where: { id: documentId, tenantId }, include: { client: true } });
+    } else {
+      targetDoc = await db.document.findFirst({ where: { tenantId }, include: { client: true } });
+    }
+
+    const docId = targetDoc?.id || "doc_demo_audit_scan";
+    const clientName = targetDoc?.client?.name || "Premier Industrial Fabrics Pvt Ltd";
+
+    await dispatchNativeEvent({
+      tenantId,
+      eventType: "document.ai_anomaly_scan",
+      entityType: "DOCUMENT",
+      entityId: docId,
+      payload: {
+        documentName: targetDoc?.name || "HDFC Bank Statement FY26 Q3",
+        category: "Bank Statement",
+        clientName,
+        summary: "Audit sample: 12 supplier payments > 45 days pending to MSME vendors; 2 round-sum cash withdrawals of Rs 2,50,000; TDS deducted at 1% instead of 2% on contract payments.",
+      },
+    });
+
+    const summary = await processPendingAutomations({
+      tenantId,
+      forceDispatch: true,
+      batchSize: 10,
+    });
+
+    revalidatePath("/automations");
+    revalidatePath("/tasks");
+    return { success: true, data: serializeForClient(summary) };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to trigger AI audit scan" };
+  }
+}
+
+/**
+ * Workflow G Action: Generates context-aware Hinglish & English payment recovery drafts
+ * calibrated to invoice ageing using Google Gemini.
+ */
+export async function generateInvoiceAiPaymentDraftAction(
+  invoiceId: string
+): Promise<ActionResult<AiPaymentRecoveryDraft>> {
+  try {
+    const session = await requireTenant();
+    const tenantId = session.membership.tenantId;
+
+    if (!invoiceId?.trim()) {
+      return { success: false, error: "Invoice ID is required." };
+    }
+
+    const [invoice, tenant] = await Promise.all([
+      db.invoice.findFirst({
+        where: { id: invoiceId.trim(), tenantId },
+        include: {
+          client: true,
+          payments: true,
+        },
+      }),
+      db.tenant.findUnique({
+        where: { id: tenantId },
+      }),
+    ]);
+
+    if (!invoice) {
+      return { success: false, error: "Invoice not found in this practice firm." };
+    }
+
+    const firmName = tenant?.name || "TRUV Chartered Accountants";
+    const paid = invoice.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const remaining = Number(invoice.totalAmount) - paid;
+
+    const now = new Date();
+    const dueTime = new Date(invoice.dueDate).getTime();
+    const daysOverdue = Math.max(0, Math.ceil((now.getTime() - dueTime) / (1000 * 60 * 60 * 24)));
+
+    let stage: "GENTLE" | "FIRM" | "FINAL_NOTICE" = "GENTLE";
+    if (daysOverdue > 30) stage = "FINAL_NOTICE";
+    else if (daysOverdue > 10) stage = "FIRM";
+
+    // Call live Google Gemini client
+    const draft = await generateAiPaymentRecoveryDraft({
+      clientName: invoice.client.name,
+      firmName,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: remaining > 0 ? remaining : Number(invoice.totalAmount),
+      dueDate: new Date(invoice.dueDate).toLocaleDateString("en-IN"),
+      daysOverdue,
+      stage,
+      historyContext: `Client GSTIN: ${invoice.client.gstin || "N/A"}. Total billed: INR ${Number(invoice.totalAmount)}.`,
+    });
+
+    // Save draft communication to database
+    await db.communication.create({
+      data: {
+        tenantId,
+        clientId: invoice.clientId,
+        invoiceId: invoice.id,
+        channel: CommunicationChannel.WHATSAPP,
+        direction: CommunicationDirection.OUTBOUND,
+        purpose: "RECOVERY",
+        category: "RECOVERY_DRAFT",
+        recipient: invoice.client.phone || invoice.client.email || "Primary Contact",
+        subject: draft.emailSubject,
+        content: `[WhatsApp Hinglish]\n${draft.whatsappHinglish}\n\n[WhatsApp English]\n${draft.whatsappEnglish}\n\n[Email Body]\n${draft.emailBodyHtml}`,
+        status: "DELIVERED",
+      },
+    });
+
+    // If escalation recommended, create partner task
+    if (draft.escalationRecommended) {
+      await db.task.create({
+        data: {
+          tenantId,
+          clientId: invoice.clientId,
+          invoiceId: invoice.id,
+          type: TaskType.PAYMENT_ESCALATION,
+          title: `Overdue Payment Escalation: ${invoice.client.name} (#${invoice.invoiceNumber})`,
+          detail: `AI Recovery Agent flagged invoice #${invoice.invoiceNumber} (${daysOverdue} days overdue, ₹${remaining.toLocaleString("en-IN")} pending) for partner intervention.\nRationale: ${draft.rationale}`,
+          priority: "URGENT",
+          status: TaskStatus.OPEN,
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Update invoice last recovery stage
+    await db.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        lastRecoveryStage: stage,
+        lastReminderAt: new Date(),
+      },
+    });
+
+    revalidatePath("/payments");
+    revalidatePath("/payments/recovery");
+    revalidatePath("/invoices");
+
+    return {
+      success: true,
+      data: serializeForClient(draft),
+    };
+  } catch (err: any) {
+    console.error("[generateInvoiceAiPaymentDraftAction Error]", err);
+    return { success: false, error: err.message || "Failed to generate AI recovery draft." };
+  }
+}
+
+/**
+ * Workflow J Action: Initiates an autonomous AI outbound voice call for an overdue invoice.
+ */
+export async function dispatchAutonomousVoiceCallAction(params: {
+  invoiceId: string;
+  clientId: string;
+}): Promise<ActionResult<VoiceCallResult>> {
+  try {
+    const session = await requireTenant();
+    const tenantId = session.membership.tenantId;
+
+    const [invoice, client] = await Promise.all([
+      db.invoice.findFirst({
+        where: { id: params.invoiceId, tenantId },
+        include: { payments: true },
+      }),
+      db.client.findFirst({
+        where: { id: params.clientId, tenantId },
+        include: {
+          contacts: { where: { isPrimary: true }, take: 1 },
+        },
+      }),
+    ]);
+
+    if (!client) {
+      return { success: false, error: "Client not found in this practice firm." };
+    }
+    if (!invoice) {
+      return { success: false, error: "Invoice not found in this practice firm." };
+    }
+
+    const paid = invoice.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const remaining = Number(invoice.totalAmount) - paid;
+    const phone = client.contacts[0]?.phone || client.phone;
+
+    if (!phone) {
+      return { success: false, error: "Client contact phone number missing for voice call." };
+    }
+
+    // Initiate voice calling agent
+    const callResult = await initiateOutboundVoiceCall({
+      tenantId,
+      clientId: client.id,
+      recipientPhone: phone,
+      clientName: client.name,
+      reason: "PAYMENT_RECOVERY",
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: remaining > 0 ? remaining : Number(invoice.totalAmount),
+      dueDate: new Date(invoice.dueDate).toLocaleDateString("en-IN"),
+      forceSimulated: true, // Graceful simulation fallback if telephony trunk not dialed
+    });
+
+    revalidatePath("/payments");
+    revalidatePath("/payments/recovery");
+    revalidatePath("/tasks");
+
+    return {
+      success: true,
+      data: serializeForClient(callResult),
+    };
+  } catch (err: any) {
+    console.error("[dispatchAutonomousVoiceCallAction Error]", err);
+    return { success: false, error: err.message || "Failed to dispatch voice call." };
+  }
+}
+

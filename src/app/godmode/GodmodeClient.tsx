@@ -34,12 +34,14 @@ import {
   Shield,
   LifeBuoy,
   ClipboardList,
+  Trash2,
 } from "lucide-react";
 import {
   toggleTenantSuspensionAction,
   createInternalServiceTaskAction,
   createAuthorizedSupportNoteAction,
   togglePlatformFeatureFlagAction,
+  resetPracticeDataAction,
 } from "@/lib/server/actions/godmode-actions";
 import { FeatureFlagState } from "@/lib/server/feature-flags";
 
@@ -233,6 +235,32 @@ export function GodmodeClient({
   >("overview");
 
   const [tenants, setTenants] = useState<TenantSummary[]>(initialTenants);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetFeedback, setResetFeedback] = useState<string | null>(null);
+
+  const handleExecutePracticeReset = async () => {
+    try {
+      setIsResetting(true);
+      setResetFeedback(null);
+      const res = await resetPracticeDataAction();
+      if (!res.success) {
+        setResetFeedback(res.error || "Failed to reset practice data");
+        return;
+      }
+      setResetFeedback("Practice data reset to blank state successfully.");
+      setTimeout(() => {
+        setShowResetConfirmModal(false);
+        setResetFeedback(null);
+        window.location.reload();
+      }, 1200);
+    } catch (e: any) {
+      setResetFeedback(e?.message || "Failed to reset practice data");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const [tenantFilter, setTenantFilter] = useState<"ALL" | "ACTIVE" | "SUSPENDED">("ALL");
   const [selectedTenant, setSelectedTenant] = useState<TenantSummary | null>(null);
@@ -1027,6 +1055,29 @@ export function GodmodeClient({
             </div>
           </div>
 
+          {/* Practice Data Management & Production Reset */}
+          <div className="bg-white border border-rose-200 p-6 rounded-xl shadow-xs mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-rose-900 uppercase tracking-wider flex items-center gap-2 mb-1">
+                  <Trash2 className="h-4 w-4 text-rose-600" />
+                  Production Practice Reset & Data Clean-Up
+                </h2>
+                <p className="text-xs text-slate-500 max-w-xl">
+                  Eradicate all mock/dummy test records, fake transactions, demo clients, and sample communications across the database. Firm tenant configurations, superadmin accounts, and active partner profiles are strictly preserved.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowResetConfirmModal(true)}
+                className="px-4 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition flex items-center gap-1.5 shrink-0"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Reset Practice Data to Blank State
+              </button>
+            </div>
+          </div>
+
           <div className="bg-white border border-[#E2E8F0] p-6 rounded-xl shadow-xs">
             <h2 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider mb-2">
               Platform vs Customer Setting Boundaries
@@ -1472,6 +1523,56 @@ export function GodmodeClient({
           </div>
         </div>
       )}
-    </div>
+    
+      {/* =========================================================================
+          MODAL: RESET PRACTICE DATA TO BLANK STATE CONFIRMATION
+      ========================================================================== */}
+      {showResetConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl border border-rose-200 shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-rose-50 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Reset Practice Data to Blank State
+                </h3>
+                <p className="text-xs text-slate-500">Authorized Partner Confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+              This will permanently delete all mock/test invoices, payments, clients, tasks, documents, and communication logs. Your firm tenant and partner login credentials will remain intact.
+            </p>
+
+            {resetFeedback && (
+              <div className="mt-3 p-2.5 rounded bg-slate-100 text-xs font-medium text-slate-800">
+                {resetFeedback}
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirmModal(false)}
+                disabled={isResetting}
+                className="px-3.5 py-1.5 text-xs text-slate-600 hover:text-slate-800 rounded font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecutePracticeReset}
+                disabled={isResetting}
+                className="px-4 py-1.5 text-xs bg-rose-600 hover:bg-rose-700 text-white rounded font-bold transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isResetting ? "Purging Data..." : "Confirm & Wipe Practice Data"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   );
 }

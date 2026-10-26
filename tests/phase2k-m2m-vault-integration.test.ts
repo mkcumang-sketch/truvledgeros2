@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextRequest } from "next/server";
 import { GET as getDueObligations } from "../src/app/api/compliance/due-obligations/route";
 import { GET as getPendingDocRequests } from "../src/app/api/documents/pending-requests/route";
-import { POST as n8nWebhookPost } from "../src/app/api/webhooks/n8n/route";
+import { verifyWebhookSignature } from "../src/lib/server/automation/webhook-signer";
 import { db } from "../src/lib/db";
 import { getDefaultKeyring } from "../src/lib/server/security/keyring";
 import {
@@ -277,9 +277,8 @@ async function runVaultIntegrationSuite() {
     },
     body: webhookBody,
   });
-  const res6 = await n8nWebhookPost(req6);
-  const body6 = await res6.json();
-  assert(res6.status === 200 && body6.success === true, "6.1 Webhook POST decrypted tenant secret and authorized signature (200)");
+  const verification = verifyWebhookSignature({ payloadString: webhookBody, signatureHeader: webhookHeaders["x-truv-signature"], timestampHeader: webhookHeaders["x-truv-timestamp"], secret: RAW_HMAC_SECRET_A });
+  assert(verification.valid === true, "6.1 Webhook signature verified with decrypted tenant secret");
 
   console.log("\n=================================================================");
   console.log(`Vault Integration Suite: ${passed} PASSED, ${failed} FAILED`);

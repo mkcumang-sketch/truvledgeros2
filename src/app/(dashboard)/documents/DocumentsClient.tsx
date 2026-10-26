@@ -17,6 +17,9 @@ import {
   XCircle,
   AlertCircle,
   FileCheck,
+  Sparkles,
+  ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,8 +33,10 @@ import {
   createDocumentAction,
   createDocumentRequestAction,
   updateDocumentStatusAction,
+  runAiDocumentAnomalyScanAction,
 } from "@/lib/server/actions/document-actions";
 import { DocumentStatus } from "@prisma/client";
+import { AiAnomalyScanResult } from "@/lib/server/ai/gemini-client";
 
 interface DocumentItem {
   id: string;
@@ -77,6 +82,31 @@ export function DocumentsClient({ documents, clients }: Props) {
   const [requestTitle, setRequestTitle] = useState("");
   const [requestDesc, setRequestDesc] = useState("");
   const [requestError, setRequestError] = useState<string | null>(null);
+
+  // AI Scan State
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [scanningDocId, setScanningDocId] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<AiAnomalyScanResult | null>(null);
+  const [selectedDocName, setSelectedDocName] = useState<string>("");
+
+  const handleRunAiScan = async (doc: DocumentItem) => {
+    try {
+      setScanningDocId(doc.id);
+      setSelectedDocName(doc.name);
+      const res = await runAiDocumentAnomalyScanAction(doc.id);
+      if (!res.success) {
+        toast.error(res.error || "Failed to execute AI audit scan.");
+        return;
+      }
+      setScanResult(res.data);
+      setIsScanModalOpen(true);
+      toast.success("AI statutory audit scan completed.");
+    } catch (e: any) {
+      toast.error(e?.message || "Error running AI audit scan.");
+    } finally {
+      setScanningDocId(null);
+    }
+  };
 
   // Status Action Message
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
@@ -375,6 +405,20 @@ export function DocumentsClient({ documents, clients }: Props) {
                             <span className="hidden sm:inline">Reject</span>
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleRunAiScan(doc)}
+                          disabled={scanningDocId === doc.id}
+                          title="Statutory AI Anomaly Audit (Sec 43B(h), 40A(3), TDS)"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-purple-700 hover:bg-purple-800 text-white rounded-md font-medium shadow-xs transition-colors disabled:opacity-50"
+                        >
+                          {scanningDocId === doc.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          )}
+                          <span className="hidden sm:inline">AI Audit</span>
+                        </button>
                         <Link
                           href={`/clients/${doc.client.id}`}
                           className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 ml-1"
@@ -470,6 +514,8 @@ export function DocumentsClient({ documents, clients }: Props) {
         </form>
       </Modal>
 
+
+
       {/* 2. Formal Client Document Request Modal */}
       <Modal
         isOpen={isRequestModalOpen}
@@ -544,6 +590,91 @@ export function DocumentsClient({ documents, clients }: Props) {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* 3. AI Statutory Audit Scan Findings Modal */}
+      <Modal
+        isOpen={isScanModalOpen}
+        onClose={() => setIsScanModalOpen(false)}
+        title="AI Statutory Audit Findings"
+        description={`Statutory review of ${selectedDocName} powered by Google Gemini`}
+        maxWidth="lg"
+      >
+        {scanResult && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-2.5 rounded-lg ${
+                    scanResult.overallHealthScore >= 80
+                      ? "bg-emerald-100 text-emerald-700"
+                      : scanResult.overallHealthScore >= 50
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-xs uppercase font-semibold text-slate-500">Statutory Health Score</div>
+                  <div className="text-2xl font-bold text-slate-900">{scanResult.overallHealthScore} / 100</div>
+                </div>
+              </div>
+
+              <div>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                    scanResult.riskLevel === "CRITICAL"
+                      ? "bg-rose-100 text-rose-800 border border-rose-300"
+                      : scanResult.riskLevel === "HIGH"
+                      ? "bg-amber-100 text-amber-800 border border-amber-300"
+                      : scanResult.riskLevel === "MEDIUM"
+                      ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
+                      : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  }`}
+                >
+                  {scanResult.riskLevel} RISK
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-lg bg-purple-50/50 border border-purple-200/60 text-xs text-purple-950">
+              <span className="font-semibold text-purple-900 block mb-1">Partner Statutory Summary:</span>
+              <p className="leading-relaxed">{scanResult.partnerSummary}</p>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Detected Anomalies ({scanResult.anomaliesDetected.length})
+              </h4>
+              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                {scanResult.anomaliesDetected.map((anomaly, idx) => (
+                  <div key={idx} className="p-3 rounded-lg border border-slate-200 bg-white text-xs space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-900">{anomaly.title}</span>
+                      {anomaly.estimatedExposureInr ? (
+                        <span className="text-[11px] font-mono font-medium text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                          Est. Exposure: ₹{anomaly.estimatedExposureInr.toLocaleString("en-IN")}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-slate-600">{anomaly.description}</p>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+                      <span className="font-mono text-slate-500">{anomaly.statutoryReference}</span>
+                      <span className="text-purple-700 font-medium">{anomaly.recommendedAction}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-200">
+              <Button type="button" variant="primary" onClick={() => setIsScanModalOpen(false)}>
+                Acknowledge Findings
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

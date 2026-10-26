@@ -3,7 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTenant } from "@/lib/auth/session";
-import { DocumentStatus } from "@prisma/client";
+import {
+  DocumentStatus,
+  TaskType,
+  TaskStatus,
+  CommunicationChannel,
+  CommunicationDirection,
+} from "@prisma/client";
+import {
+  generateAiAnomalyAuditScan,
+  AiAnomalyScanResult,
+} from "@/lib/server/ai/gemini-client";
 import { logSecurityEvent } from "@/lib/server/audit";
 import { ActionResult } from "@/lib/types/action-result";
 import { serializeForClient } from "@/lib/serialization";
@@ -229,5 +239,129 @@ export async function updateDocumentStatusAction(params: {
     return { success: true, data: serializeForClient(updated) };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update document status." };
+  }
+}
+
+/**
+ * Executes a statutory AI anomaly audit scan on a client vault document using Google Gemini.
+ * Identifies Section 43B(h) MSME overdue risks, Section 40A(3) cash transactions, and TDS mismatches.
+ * Automatically persists the audit finding and escalates high-risk anomalies to firm partners.
+ */
+export async function runAiDocumentAnomalyScanAction(
+  documentId: string
+): Promise<ActionResult<AiAnomalyScanResult>> {
+  try {
+    const context = await requireTenant();
+    const tenantId = context.membership.tenantId;
+
+    if (!documentId?.trim()) {
+      return { success: false, error: "Document ID is required for AI audit scan." };
+    }
+
+    const doc = await db.document.findFirst({
+      where: { id: documentId.trim(), tenantId },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            businessName: true,
+            email: true,
+            phone: true,
+            gstin: true,
+            pan: true,
+          },
+        },
+      },
+    });
+
+    if (!doc) {
+      return { success: false, error: "Document not found in this practice firm." };
+    }
+
+    // Prepare contextual audit summary
+    const sampleData = `Document: ${doc.name}
+Category: ${doc.category}
+Client: ${doc.client.name} (GSTIN: ${doc.client.gstin || "Unregistered"}, PAN: ${doc.client.pan || "N/A"})
+Status: ${doc.status}
+Uploaded: ${doc.createdAt.toISOString()}
+File Size: ${doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : "Standard Scan"}`;
+
+    // Execute live Gemini statutory scan
+    const scanResult = await generateAiAnomalyAuditScan({
+      documentName: doc.name,
+      category: doc.category,
+      clientName: doc.client.name,
+      sampleDataOrSummary: sampleData,
+    });
+
+    // 1. Record audit scan report in Communication table
+    await db.communication.create({
+      data: {
+        tenantId,
+        clientId: doc.clientId,
+        channel: CommunicationChannel.PORTAL,
+        direction: CommunicationDirection.OUTBOUND,
+        purpose: "AI_AUDIT",
+        category: "AI_AUDIT_REPORT",
+        recipient: doc.client.email || doc.client.phone || "Vault",
+        subject: `AI Audit Scan: ${doc.name} (Health: ${scanResult.overallHealthScore}/100)`,
+        content: `Statutory Risk Level: ${scanResult.riskLevel}
+Health Score: ${scanResult.overallHealthScore}/100
+Partner Summary: ${scanResult.partnerSummary}
+
+Anomalies Detected:
+${scanResult.anomaliesDetected
+  .map(
+    (a, i) =>
+      `${i + 1}. [${a.category}] ${a.title} (${a.statutoryReference}) - Exposure: INR ${a.estimatedExposureInr || 0}\nAction: ${a.recommendedAction}`
+  )
+  .join("\n\n")}`,
+        status: "DELIVERED",
+      },
+    });
+
+    // 2. If Risk is Critical or High, create an escalation task for CA Partner review
+    if (scanResult.riskLevel === "CRITICAL" || scanResult.riskLevel === "HIGH") {
+      const topAnomaly = scanResult.anomaliesDetected[0];
+      await db.task.create({
+        data: {
+          tenantId,
+          clientId: doc.clientId,
+          type: TaskType.DOCUMENT_CALL,
+          title: `[AI Audit Alert] ${scanResult.riskLevel} Risk: ${doc.name}`,
+          detail: `${scanResult.partnerSummary}\n\nTop Anomaly: ${topAnomaly?.title || "Review required"} (${topAnomaly?.statutoryReference || "Statutory Check"}). Recommended: ${topAnomaly?.recommendedAction || "Investigate voucher"}`,
+          priority: scanResult.riskLevel === "CRITICAL" ? "URGENT" : "HIGH",
+          status: TaskStatus.OPEN,
+          referenceId: doc.id,
+          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
+        },
+      });
+    }
+
+    // 3. Log security and compliance audit event
+    await logSecurityEvent({
+      tenantId,
+      userId: context.user.id,
+      action: "CLIENT_UPDATED",
+      entityType: "DOCUMENT",
+      entityId: doc.id,
+      newValue: {
+        event: "AI_ANOMALY_SCAN_COMPLETED",
+        riskLevel: scanResult.riskLevel,
+        overallHealthScore: scanResult.overallHealthScore,
+      },
+    });
+
+    revalidatePath("/documents");
+    revalidatePath(`/clients/${doc.clientId}`);
+
+    return {
+      success: true,
+      data: serializeForClient(scanResult),
+    };
+  } catch (error: any) {
+    console.error("[runAiDocumentAnomalyScanAction Error]", error);
+    return { success: false, error: error.message || "Failed to execute AI anomaly audit scan." };
   }
 }

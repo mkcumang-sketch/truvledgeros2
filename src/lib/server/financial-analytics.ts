@@ -9,9 +9,8 @@ export const AGEING_BUCKETS = {
   BUCKET_OVER_30: "30+ days",
 } as const;
 
-export async function getDashboardFinancialMetrics() {
-  const context = await requireTenant();
-  const tenantId = context.membership.tenantId;
+export async function getDashboardFinancialMetrics(tenantIdOverride?: string) {
+  const tenantId = tenantIdOverride || (await requireTenant()).membership.tenantId;
 
   const now = new Date();
 
@@ -69,9 +68,8 @@ export async function getDashboardFinancialMetrics() {
   };
 }
 
-export async function getPaymentRecoveryList() {
-  const context = await requireTenant();
-  const tenantId = context.membership.tenantId;
+export async function getPaymentRecoveryList(tenantIdOverride?: string) {
+  const tenantId = tenantIdOverride || (await requireTenant()).membership.tenantId;
 
   const now = new Date();
 
@@ -105,6 +103,7 @@ export async function getPaymentRecoveryList() {
 
     return {
       invoiceId: inv.id,
+      clientId: inv.clientId,
       invoiceNumber: inv.invoiceNumber,
       clientName: inv.client.name,
       primaryContact: inv.client.contacts[0]?.name || "N/A",

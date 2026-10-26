@@ -120,58 +120,58 @@ enum SubscriptionTier {
 // ==========================================
 
 model Tenant {
-  id                 String   @id @default(cuid())
-  name               String
-  slug               String   @unique
-  gstin              String?
-  pan                String?
-  email              String
-  phone              String
-  address            String?  @db.Text
-  city               String?
-  state              String?
-  pincode            String?
-  logoUrl            String?  @db.Text
-  active             Boolean  @default(true)
-  isSuspended        Boolean  @default(false)
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  gstin       String?
+  pan         String?
+  email       String
+  phone       String
+  address     String? @db.Text
+  city        String?
+  state       String?
+  pincode     String?
+  logoUrl     String? @db.Text
+  active      Boolean @default(true)
+  isSuspended Boolean @default(false)
 
   // Practice Configuration
-  approvalThreshold  Decimal  @default(50000.00) @db.Decimal(12, 2)
-  defaultGstRate     Decimal  @default(18.00) @db.Decimal(5, 2)
-  defaultDueDays     Int      @default(15)
-  recoveryGentleDays Int      @default(7)
-  recoveryFirmDays   Int      @default(15)
-  recoveryFinalDays  Int      @default(30)
-  docReminderLimit   Int      @default(3)
+  approvalThreshold  Decimal @default(50000.00) @db.Decimal(12, 2)
+  defaultGstRate     Decimal @default(18.00) @db.Decimal(5, 2)
+  defaultDueDays     Int     @default(15)
+  recoveryGentleDays Int     @default(7)
+  recoveryFirmDays   Int     @default(15)
+  recoveryFinalDays  Int     @default(30)
+  docReminderLimit   Int     @default(3)
   paymentLinkBase    String?
   uploadLinkBase     String?
-  accountingSoftware String   @default("ZOHO_BOOKS")
+  accountingSoftware String  @default("ZOHO_BOOKS")
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  memberships        Membership[]
-  sessions           Session[]    // <-- yeh line add karein
-  clients            Client[]
-  contacts           Contact[]
-  invoices           Invoice[]
-  payments           Payment[]
-  gstProfiles        GstProfile[]
-  gstReturns         GstReturn[]
-  documents          Document[]
-  docRequests        DocumentRequest[]
-  tasks              Task[]
-  communications     Communication[]
-  conversations      Conversation[]
-  automations        Automation[]
-  automationEvents   AutomationEvent[]
-  knowledgeBases     KnowledgeBase[]
-  subscription       Subscription?
-  usageRecords       UsageRecord[]
-  auditLogs          AuditLog[]
-  notifications      Notification[]
-  integrations       Integration[]
-  invitations        Invitation[]
+  memberships      Membership[]
+  sessions         Session[] // <-- yeh line add karein
+  clients          Client[]
+  contacts         Contact[]
+  invoices         Invoice[]
+  payments         Payment[]
+  gstProfiles      GstProfile[]
+  gstReturns       GstReturn[]
+  documents        Document[]
+  docRequests      DocumentRequest[]
+  tasks            Task[]
+  communications   Communication[]
+  conversations    Conversation[]
+  automations      Automation[]
+  automationEvents AutomationEvent[]
+  knowledgeBases   KnowledgeBase[]
+  subscription     Subscription?
+  usageRecords     UsageRecord[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  integrations     Integration[]
+  invitations      Invitation[]
 
   @@index([slug])
   @@index([active])
@@ -182,25 +182,25 @@ model Tenant {
 // ==========================================
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  passwordHash  String?
-  phone         String?
-  avatarUrl     String?   @db.Text
-  isSuperAdmin  Boolean   @default(false)
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  phone        String?
+  avatarUrl    String?  @db.Text
+  isSuperAdmin Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  memberships   Membership[]
-  sessions      Session[]
+  memberships         Membership[]
+  sessions            Session[]
   passwordResetTokens PasswordResetToken[]
-  invitationsSent     Invitation[] @relation("InvitationsSent")
-  tasksAssigned Task[]    @relation("TaskAssignee")
-  tasksCreated  Task[]    @relation("TaskCreator")
-  auditLogs     AuditLog[]
-  notifications Notification[]
+  invitationsSent     Invitation[]         @relation("InvitationsSent")
+  tasksAssigned       Task[]               @relation("TaskAssignee")
+  tasksCreated        Task[]               @relation("TaskCreator")
+  auditLogs           AuditLog[]
+  notifications       Notification[]
 
   @@index([email])
 }
@@ -210,17 +210,17 @@ model User {
 // ==========================================
 
 model Session {
-  id           String    @id @default(cuid())
-  sessionToken String    @unique
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
   userId       String
   tenantId     String?
   ipAddress    String?
-  userAgent    String?   @db.Text
+  userAgent    String?  @db.Text
   expiresAt    DateTime
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime @default(now())
 
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tenantId])
@@ -239,7 +239,7 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -263,8 +263,8 @@ model Invitation {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invitedBy   User             @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: Cascade)
 
   @@index([tenantId, email])
   @@index([tokenHash])
@@ -285,36 +285,37 @@ model Membership {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId])
   @@index([tenantId, role])
   @@index([userId])
 }
+
 // ==========================================
 // 4. CLIENT
 // ==========================================
 
 model Client {
-  id             String            @id @default(cuid())
-  tenantId       String
-  name           String
-  businessName   String?
-  gstin          String?
-  pan            String?
-  email          String
-  phone          String
-  city           String?
-  state          String?
-  pincode        String?
-  planName       String?
-  monthlyFee     Decimal           @default(0.00) @db.Decimal(12, 2)
-  active         Boolean           @default(true)
-  notes          String?           @db.Text
-  portalUserId   String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  businessName String?
+  gstin        String?
+  pan          String?
+  email        String
+  phone        String
+  city         String?
+  state        String?
+  pincode      String?
+  planName     String?
+  monthlyFee   Decimal  @default(0.00) @db.Decimal(12, 2)
+  active       Boolean  @default(true)
+  notes        String?  @db.Text
+  portalUserId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contacts       Contact[]
@@ -348,8 +349,8 @@ model Contact {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, clientId])
 }
@@ -359,40 +360,40 @@ model Contact {
 // ==========================================
 
 model Invoice {
-  id                  String                @id @default(cuid())
-  tenantId            String
-  clientId            String
-  invoiceNumber       String
-  serviceDescription  String                @db.Text
-  subtotal            Decimal               @db.Decimal(12, 2)
-  gstRate             Decimal               @default(18.00) @db.Decimal(5, 2)
-  cgstAmount          Decimal               @default(0.00) @db.Decimal(12, 2)
-  sgstAmount          Decimal               @default(0.00) @db.Decimal(12, 2)
-  igstAmount          Decimal               @default(0.00) @db.Decimal(12, 2)
-  totalAmount         Decimal               @db.Decimal(12, 2)
-  issuedDate          DateTime              @default(now())
-  dueDate             DateTime
-  status              InvoiceStatus         @default(DRAFT)
-  paidAt              DateTime?
-  lastReminderAt      DateTime?
-  lastRecoveryStage   PaymentRecoveryStage?
-  promiseToPayDate    DateTime?
-  syncedToBooks       Boolean               @default(false)
-  accountingRefId     String?
-  paymentLinkUrl      String?               @db.Text
-  pdfUrl              String?               @db.Text
-  createdById         String?
-  approvedById        String?
-  rejectionReason     String?               @db.Text
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  id                 String                @id @default(cuid())
+  tenantId           String
+  clientId           String
+  invoiceNumber      String
+  serviceDescription String                @db.Text
+  subtotal           Decimal               @db.Decimal(12, 2)
+  gstRate            Decimal               @default(18.00) @db.Decimal(5, 2)
+  cgstAmount         Decimal               @default(0.00) @db.Decimal(12, 2)
+  sgstAmount         Decimal               @default(0.00) @db.Decimal(12, 2)
+  igstAmount         Decimal               @default(0.00) @db.Decimal(12, 2)
+  totalAmount        Decimal               @db.Decimal(12, 2)
+  issuedDate         DateTime              @default(now())
+  dueDate            DateTime
+  status             InvoiceStatus         @default(DRAFT)
+  paidAt             DateTime?
+  lastReminderAt     DateTime?
+  lastRecoveryStage  PaymentRecoveryStage?
+  promiseToPayDate   DateTime?
+  syncedToBooks      Boolean               @default(false)
+  accountingRefId    String?
+  paymentLinkUrl     String?               @db.Text
+  pdfUrl             String?               @db.Text
+  createdById        String?
+  approvedById       String?
+  rejectionReason    String?               @db.Text
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
-  tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client              Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  items               InvoiceItem[]
-  payments            Payment[]
-  tasks               Task[]
-  communications      Communication[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items          InvoiceItem[]
+  payments       Payment[]
+  tasks          Task[]
+  communications Communication[]
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId, status])
@@ -402,15 +403,15 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   invoiceId   String
-  description String   @db.Text
+  description String  @db.Text
   hsnSacCode  String?
-  quantity    Decimal  @default(1.00) @db.Decimal(10, 2)
-  unitPrice   Decimal  @db.Decimal(12, 2)
-  total       Decimal  @db.Decimal(12, 2)
+  quantity    Decimal @default(1.00) @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  total       Decimal @db.Decimal(12, 2)
 
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
 }
@@ -424,13 +425,13 @@ model Payment {
   tenantId    String
   invoiceId   String
   amount      Decimal  @db.Decimal(12, 2)
-  paymentMode String   // UPI, NEFT, RTGS, CHEQUE, CASH, GATEWAY
+  paymentMode String // UPI, NEFT, RTGS, CHEQUE, CASH, GATEWAY
   referenceNo String?
   receivedAt  DateTime @default(now())
   notes       String?  @db.Text
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, invoiceId])
 }
@@ -450,8 +451,8 @@ model GstProfile {
   filingFrequency  String    @default("MONTHLY") // MONTHLY, QUARTERLY (QRMP)
   gstPortalUser    String?
 
-  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client           Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, gstin])
 }
@@ -461,8 +462,8 @@ model GstReturn {
   tenantId        String
   clientId        String
   returnType      GstReturnType
-  period          String          // e.g. "Sep 2026", "Q2 FY27"
-  financialYear   String          // e.g. "2026-2027"
+  period          String // e.g. "Sep 2026", "Q2 FY27"
+  financialYear   String // e.g. "2026-2027"
   dueDate         DateTime
   dataReceived    Boolean         @default(false)
   outputTax       Decimal         @default(0.00) @db.Decimal(12, 2)
@@ -477,8 +478,8 @@ model GstReturn {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, clientId, returnType, period])
   @@index([tenantId, status])
@@ -502,34 +503,34 @@ model DocumentRequest {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client         Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  documents      Document[]
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  documents Document[]
 
   @@index([tenantId, clientId])
   @@index([tenantId, status])
 }
 
 model Document {
-  id              String          @id @default(cuid())
+  id              String         @id @default(cuid())
   tenantId        String
   clientId        String
   requestId       String?
   name            String
-  fileUrl         String?         @db.Text
+  fileUrl         String?        @db.Text
   fileSize        Int?
   mimeType        String?
-  category        String          // Bank Statement, Sales Register, Purchase Register, TDS, etc.
-  status          DocumentStatus  @default(PENDING)
+  category        String // Bank Statement, Sales Register, Purchase Register, TDS, etc.
+  status          DocumentStatus @default(PENDING)
   verifiedAt      DateTime?
   verifiedById    String?
-  rejectionReason String?         @db.Text
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  rejectionReason String?        @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  request         DocumentRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client  Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  request DocumentRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, clientId])
   @@index([tenantId, status])
@@ -558,11 +559,11 @@ model Task {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client         Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  invoice        Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  assignedTo     User?      @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  createdBy      User?      @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client     Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  invoice    Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  assignedTo User?    @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy  User?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, status])
   @@index([tenantId, type])
@@ -580,19 +581,19 @@ model Communication {
   invoiceId   String?
   channel     CommunicationChannel
   direction   CommunicationDirection @default(OUTBOUND)
-  purpose     String                 // INVOICE, RECOVERY, GST_DATA, GST_SUMMARY, DOCS, SUPPORT
+  purpose     String // INVOICE, RECOVERY, GST_DATA, GST_SUMMARY, DOCS, SUPPORT
   category    String
   recipient   String
   cc          String?
   subject     String?
   content     String                 @db.Text
-  status      String                 // DELIVERED, ANSWERED, VOICEMAIL, NO_ANSWER, FAILED, INTERNAL
+  status      String // DELIVERED, ANSWERED, VOICEMAIL, NO_ANSWER, FAILED, INTERNAL
   externalRef String?
   createdAt   DateTime               @default(now())
 
-  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client      Client?                @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  invoice     Invoice?               @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, channel])
   @@index([tenantId, purpose])
@@ -611,25 +612,25 @@ model Conversation {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
-  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client        Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  messages      Message[]
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client   Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  messages Message[]
 
   @@index([tenantId, status])
   @@index([tenantId, channel])
 }
 
 model Message {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   conversationId String
-  senderType     String       // CLIENT, AI, TEAM
+  senderType     String // CLIENT, AI, TEAM
   senderName     String?
-  content        String       @db.Text
-  language       String?      // hi, en, hinglish
+  content        String   @db.Text
+  language       String? // hi, en, hinglish
   toolInvoked    String?
-  sentAt         DateTime     @default(now())
+  sentAt         DateTime @default(now())
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, sentAt])
 }
@@ -645,7 +646,7 @@ model KnowledgeBase {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, active])
 }
@@ -655,35 +656,35 @@ model KnowledgeBase {
 // ==========================================
 
 model Automation {
-  id           String          @id @default(cuid())
+  id           String    @id @default(cuid())
   tenantId     String
-  code         String          // INVOICE, RECOVERY, GST, DOCS, SUPPORT
+  code         String // INVOICE, RECOVERY, GST, DOCS, SUPPORT
   name         String
-  description  String?         @db.Text
+  description  String?   @db.Text
   cronSchedule String?
-  enabled      Boolean         @default(true)
-  totalRuns    Int             @default(0)
+  enabled      Boolean   @default(true)
+  totalRuns    Int       @default(0)
   lastRunAt    DateTime?
   config       Json?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  runs         AutomationRun[]
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs   AutomationRun[]
 
   @@unique([tenantId, code])
   @@index([tenantId, enabled])
 }
 
 model AutomationRun {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   automationId String
-  triggeredAt  DateTime   @default(now())
-  status       String     // SUCCESS, FAILED, RUNNING
-  summary      String?    @db.Text
-  errorDetails String?    @db.Text
+  triggeredAt  DateTime @default(now())
+  status       String // SUCCESS, FAILED, RUNNING
+  summary      String?  @db.Text
+  errorDetails String?  @db.Text
 
-  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
 
   @@index([automationId, triggeredAt])
 }
@@ -691,8 +692,8 @@ model AutomationRun {
 model AutomationEvent {
   id             String      @id @default(cuid())
   tenantId       String
-  eventType      String      // invoice.created, invoice.approval_required, etc.
-  entityType     String      // INVOICE, GST_RETURN, DOCUMENT, CHAT
+  eventType      String // invoice.created, invoice.approval_required, etc.
+  entityType     String // INVOICE, GST_RETURN, DOCUMENT, CHAT
   entityId       String
   payload        Json
   status         EventStatus @default(PENDING)
@@ -702,7 +703,7 @@ model AutomationEvent {
   createdAt      DateTime    @default(now())
   processedAt    DateTime?
 
-  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
   @@index([tenantId, eventType])
@@ -728,17 +729,17 @@ model Subscription {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model UsageRecord {
   id         String   @id @default(cuid())
   tenantId   String
-  metric     String   // AI_MESSAGE, VOICE_MINUTE, WHATSAPP_MESSAGE, STORAGE_MB
+  metric     String // AI_MESSAGE, VOICE_MINUTE, WHATSAPP_MESSAGE, STORAGE_MB
   quantity   Decimal  @default(1.00) @db.Decimal(10, 2)
   recordedAt DateTime @default(now())
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, metric, recordedAt])
 }
@@ -750,7 +751,7 @@ model UsageRecord {
 model Integration {
   id                   String    @id @default(cuid())
   tenantId             String
-  provider             String    // ZOHO_BOOKS, TALLY, QUICKBOOKS, WHATSAPP, SARVAM_VOICE, SMTP, OPENAI
+  provider             String // ZOHO_BOOKS, TALLY, QUICKBOOKS, WHATSAPP, SARVAM_VOICE, SMTP, OPENAI
   encryptedCredentials String    @db.Text
   iv                   String
   authTag              String
@@ -759,7 +760,7 @@ model Integration {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, provider])
 }
@@ -777,8 +778,8 @@ model AuditLog {
   userAgent  String?  @db.Text
   createdAt  DateTime @default(now())
 
-  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([userId, createdAt])
@@ -794,8 +795,8 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId, isRead])
 }

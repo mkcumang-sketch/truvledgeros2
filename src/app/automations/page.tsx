@@ -10,8 +10,8 @@ import { serializeForClient } from "@/lib/serialization";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "6-Suite Automations & n8n Engine — TRUV LedgerOS",
-  description: "Enterprise workflow automation, transactional outbox ledger, and compliance scheduling.",
+  title: "10-Suite Automations & AI Practice Engine — TRUV LedgerOS",
+  description: "Enterprise workflow automation, Section 43B(h) audit scanner, tax notice drafter, and AI voice calling.",
 };
 
 export default async function AutomationsPage() {
@@ -30,8 +30,9 @@ export default async function AutomationsPage() {
         pendingOutbox: 0,
         processedOutbox: 0,
         failedOutbox: 0,
-        n8nConfigured: false,
-        webhookBaseUrl: "Standby",
+        isNativeEngine: true,
+        engineMode: "NATIVE_IN_PROCESS",
+        engineName: "Native In-Process Node.js / PostgreSQL",
       };
 
   const outboxEvents = outboxRes.success && outboxRes.data ? outboxRes.data : [];
