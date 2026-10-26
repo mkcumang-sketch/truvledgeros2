@@ -247,66 +247,70 @@ export async function updateDocumentStatusAction(params: {
  * Identifies Section 43B(h) MSME overdue risks, Section 40A(3) cash transactions, and TDS mismatches.
  * Automatically persists the audit finding and escalates high-risk anomalies to firm partners.
  */
-export async function runAiDocumentAnomalyScanAction(
-  documentId: string
-): Promise<ActionResult<AiAnomalyScanResult>> {
-  try {
-    const context = await requireTenant();
-    const tenantId = context.membership.tenantId;
+/**
+ * Internal core implementation of document anomaly audit scan.
+ * Can be invoked by both server actions (UI) and the autonomous daily background daemon.
+ */
+export async function runAiDocumentAnomalyScanInternal(params: {
+  tenantId: string;
+  documentId: string;
+  userId?: string;
+}): Promise<AiAnomalyScanResult> {
+  const { tenantId, documentId, userId } = params;
 
-    if (!documentId?.trim()) {
-      return { success: false, error: "Document ID is required for AI audit scan." };
-    }
+  if (!documentId?.trim()) {
+    throw new Error("Document ID is required for AI audit scan.");
+  }
 
-    const doc = await db.document.findFirst({
-      where: { id: documentId.trim(), tenantId },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            businessName: true,
-            email: true,
-            phone: true,
-            gstin: true,
-            pan: true,
-          },
+  const doc = await db.document.findFirst({
+    where: { id: documentId.trim(), tenantId },
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          businessName: true,
+          email: true,
+          phone: true,
+          gstin: true,
+          pan: true,
         },
       },
-    });
+    },
+  });
 
-    if (!doc) {
-      return { success: false, error: "Document not found in this practice firm." };
-    }
+  if (!doc) {
+    throw new Error("Document not found in this practice firm.");
+  }
 
-    // Prepare contextual audit summary
-    const sampleData = `Document: ${doc.name}
+  // Prepare contextual audit summary
+  const sampleData = `Document: ${doc.name}
 Category: ${doc.category}
 Client: ${doc.client.name} (GSTIN: ${doc.client.gstin || "Unregistered"}, PAN: ${doc.client.pan || "N/A"})
 Status: ${doc.status}
 Uploaded: ${doc.createdAt.toISOString()}
 File Size: ${doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : "Standard Scan"}`;
 
-    // Execute live Gemini statutory scan
-    const scanResult = await generateAiAnomalyAuditScan({
-      documentName: doc.name,
-      category: doc.category,
-      clientName: doc.client.name,
-      sampleDataOrSummary: sampleData,
-    });
+  // Execute live Gemini statutory scan
+  const scanResult = await generateAiAnomalyAuditScan({
+    documentName: doc.name,
+    category: doc.category,
+    clientName: doc.client.name,
+    sampleDataOrSummary: sampleData,
+  });
 
-    // 1. Record audit scan report in Communication table
-    await db.communication.create({
-      data: {
-        tenantId,
-        clientId: doc.clientId,
-        channel: CommunicationChannel.PORTAL,
-        direction: CommunicationDirection.OUTBOUND,
-        purpose: "AI_AUDIT",
-        category: "AI_AUDIT_REPORT",
-        recipient: doc.client.email || doc.client.phone || "Vault",
-        subject: `AI Audit Scan: ${doc.name} (Health: ${scanResult.overallHealthScore}/100)`,
-        content: `Statutory Risk Level: ${scanResult.riskLevel}
+  // 1. Record audit scan report in Communication table
+  await db.communication.create({
+    data: {
+      tenantId,
+      clientId: doc.clientId,
+      channel: CommunicationChannel.PORTAL,
+      direction: CommunicationDirection.OUTBOUND,
+      purpose: "AI_AUDIT",
+      category: "AI_AUDIT_REPORT",
+      recipient: doc.client.email || doc.client.phone || "Vault",
+      subject: `AI Audit Scan: ${doc.name} (Health: ${scanResult.overallHealthScore}/100)`,
+      content: `Statutory Risk Level: ${scanResult.riskLevel}
 Health Score: ${scanResult.overallHealthScore}/100
 Partner Summary: ${scanResult.partnerSummary}
 
@@ -317,32 +321,57 @@ ${scanResult.anomaliesDetected
       `${i + 1}. [${a.category}] ${a.title} (${a.statutoryReference}) - Exposure: INR ${a.estimatedExposureInr || 0}\nAction: ${a.recommendedAction}`
   )
   .join("\n\n")}`,
-        status: "DELIVERED",
+      status: "DELIVERED",
+    },
+  });
+
+  // 2. If Risk is Critical or High, or 43B(h)/cash issues are flagged, create an escalation task for CA Partner review
+  const has43BhOrCash = scanResult.anomaliesDetected.some(
+    (a) =>
+      a.category === "SECTION_43B_H_MSME" ||
+      a.category === "ROUND_SUM_CASH" ||
+      a.title.includes("43B") ||
+      a.title.includes("40A(3)")
+  );
+
+  if (scanResult.riskLevel === "CRITICAL" || scanResult.riskLevel === "HIGH" || has43BhOrCash) {
+    const topAnomaly = scanResult.anomaliesDetected[0];
+    const taskPriority = scanResult.riskLevel === "CRITICAL" ? "URGENT" : "HIGH";
+    const taskTitle = has43BhOrCash
+      ? `[STATUTORY_AUDIT] Section 43B(h) / Cash Risk: ${doc.name} (${doc.client.name})`
+      : `[AI Audit Alert] ${scanResult.riskLevel} Risk: ${doc.name}`;
+
+    const existingTask = await db.task.findFirst({
+      where: {
+        tenantId,
+        clientId: doc.clientId,
+        title: taskTitle,
+        status: TaskStatus.OPEN,
       },
     });
 
-    // 2. If Risk is Critical or High, create an escalation task for CA Partner review
-    if (scanResult.riskLevel === "CRITICAL" || scanResult.riskLevel === "HIGH") {
-      const topAnomaly = scanResult.anomaliesDetected[0];
+    if (!existingTask) {
       await db.task.create({
         data: {
           tenantId,
           clientId: doc.clientId,
           type: TaskType.DOCUMENT_CALL,
-          title: `[AI Audit Alert] ${scanResult.riskLevel} Risk: ${doc.name}`,
+          title: taskTitle,
           detail: `${scanResult.partnerSummary}\n\nTop Anomaly: ${topAnomaly?.title || "Review required"} (${topAnomaly?.statutoryReference || "Statutory Check"}). Recommended: ${topAnomaly?.recommendedAction || "Investigate voucher"}`,
-          priority: scanResult.riskLevel === "CRITICAL" ? "URGENT" : "HIGH",
+          priority: taskPriority,
           status: TaskStatus.OPEN,
           referenceId: doc.id,
           dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
         },
       });
     }
+  }
 
-    // 3. Log security and compliance audit event
+  // 3. Log security and compliance audit event if userId is present
+  if (userId) {
     await logSecurityEvent({
       tenantId,
-      userId: context.user.id,
+      userId,
       action: "CLIENT_UPDATED",
       entityType: "DOCUMENT",
       entityId: doc.id,
@@ -352,9 +381,31 @@ ${scanResult.anomaliesDetected
         overallHealthScore: scanResult.overallHealthScore,
       },
     });
+  }
+
+  return scanResult;
+}
+
+/**
+ * Executes a statutory AI anomaly audit scan on a client vault document using Google Gemini.
+ * Identifies Section 43B(h) MSME overdue risks, Section 40A(3) cash transactions, and TDS mismatches.
+ * Automatically persists the audit finding and escalates high-risk anomalies to firm partners.
+ */
+export async function runAiDocumentAnomalyScanAction(
+  documentId: string
+): Promise<ActionResult<AiAnomalyScanResult>> {
+  try {
+    const context = await requireTenant();
+    const tenantId = context.membership.tenantId;
+
+    const scanResult = await runAiDocumentAnomalyScanInternal({
+      tenantId,
+      documentId,
+      userId: context.user.id,
+    });
 
     revalidatePath("/documents");
-    revalidatePath(`/clients/${doc.clientId}`);
+    revalidatePath(`/documents/${documentId}`);
 
     return {
       success: true,
@@ -363,5 +414,132 @@ ${scanResult.anomaliesDetected
   } catch (error: any) {
     console.error("[runAiDocumentAnomalyScanAction Error]", error);
     return { success: false, error: error.message || "Failed to execute AI anomaly audit scan." };
+  }
+}
+
+/**
+ * Approves a triaged document and marks it verified / posted to ledger.
+ */
+export async function approveAndPostToLedgerAction(
+  documentId: string
+): Promise<ActionResult<{ documentId: string }>> {
+  try {
+    const context = await requireTenant();
+    const tenantId = context.membership.tenantId;
+
+    if (!documentId?.trim()) {
+      return { success: false, error: "Document ID is required." };
+    }
+
+    const doc = await db.document.findFirst({
+      where: { id: documentId.trim(), tenantId },
+    });
+
+    if (!doc) {
+      return { success: false, error: "Document not found or unauthorized." };
+    }
+
+    await db.document.update({
+      where: { id: doc.id },
+      data: {
+        status: DocumentStatus.VERIFIED,
+        verifiedAt: new Date(),
+        verifiedById: context.user.id,
+      },
+    });
+
+    await logSecurityEvent({
+      tenantId,
+      userId: context.user.id,
+      action: "CLIENT_UPDATED",
+      entityType: "DOCUMENT",
+      entityId: doc.id,
+      newValue: { event: "DOCUMENT_APPROVED_AND_POSTED_TO_LEDGER" },
+    });
+
+    revalidatePath("/documents");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      data: serializeForClient({ documentId: doc.id }),
+    };
+  } catch (err: any) {
+    console.error("[approveAndPostToLedgerAction Error]", err);
+    return { success: false, error: err.message || "Failed to approve document." };
+  }
+}
+
+/**
+ * Dispatches an automated or customized partner reply to a client via WhatsApp or Email
+ * based on the AI document triage findings.
+ */
+export async function sendClientTriageReplyAction(params: {
+  documentId: string;
+  message: string;
+  channel?: "WHATSAPP" | "EMAIL";
+}): Promise<ActionResult<{ communicationId: string }>> {
+  try {
+    const context = await requireTenant();
+    const tenantId = context.membership.tenantId;
+    const { documentId, message, channel = "WHATSAPP" } = params;
+
+    const doc = await db.document.findFirst({
+      where: { id: documentId, tenantId },
+      include: {
+        client: {
+          include: {
+            contacts: { where: { isPrimary: true }, take: 1 },
+          },
+        },
+      },
+    });
+
+    if (!doc) {
+      return { success: false, error: "Document not found." };
+    }
+
+    const clientPhone = doc.client.contacts[0]?.phone || doc.client.phone || "";
+    const clientEmail = doc.client.contacts[0]?.email || doc.client.email || "";
+    const recipient = channel === "WHATSAPP" ? clientPhone : clientEmail;
+
+    if (channel === "EMAIL" && clientEmail) {
+      const { sendEmail } = await import("@/lib/server/email/email-service");
+      await sendEmail({
+        to: clientEmail,
+        subject: `Update on your document: ${doc.name} — ${context.tenant.name}`,
+        html: `<p>${message.replace(/\n/g, "<br/>")}</p>`,
+        text: message,
+        tenantId,
+        category: "NOTIFICATION",
+      });
+    }
+
+    const comm = await db.communication.create({
+      data: {
+        tenantId,
+        clientId: doc.clientId,
+        channel: channel === "WHATSAPP" ? CommunicationChannel.WHATSAPP : CommunicationChannel.EMAIL,
+        direction: CommunicationDirection.OUTBOUND,
+        purpose: "DOCS",
+        category: "TRIAGE_FOLLOWUP",
+        recipient: recipient || "Unspecified",
+        subject: `Document Triage Follow-Up: ${doc.name}`,
+        content: message,
+        status: "DELIVERED",
+        externalRef: doc.id,
+      },
+    });
+
+    revalidatePath("/documents");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      data: serializeForClient({ communicationId: comm.id }),
+    };
+  } catch (err: any) {
+    console.error("[sendClientTriageReplyAction Error]", err);
+    return { success: false, error: err.message || "Failed to dispatch client reply." };
   }
 }

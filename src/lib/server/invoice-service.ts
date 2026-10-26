@@ -1,3 +1,4 @@
+import { saveAndAttachInvoicePdf } from "@/lib/server/pdf/tax-invoice-generator";
 import { db } from "@/lib/db";
 import { requireTenant, requireRole } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/server/rbac/permissions";
@@ -75,6 +76,13 @@ export async function createDraftInvoice(input: z.infer<typeof CreateInvoiceSche
       include: { items: true },
     });
   });
+
+  // Generate and attach Rule 46 Tax Invoice PDF
+  try {
+    await saveAndAttachInvoicePdf({ invoiceId: invoice.id, tenantId });
+  } catch (pdfErr: any) {
+    console.warn("[ISSUE-INVOICE-PDF-ATTACH-WARN]", pdfErr.message);
+  }
 
   await logSecurityEvent({
     tenantId,

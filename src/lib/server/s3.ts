@@ -140,3 +140,48 @@ export async function getDownloadPresignedUrl(params: {
 
   return await getSignedUrl(s3Client, command, { expiresIn: 900 });
 }
+
+/**
+ * Directly uploads a buffer to S3 (used for server-generated documents like Invoice PDFs).
+ * Falls back to local directory persistence if AWS credentials are not active or in standby.
+ */
+export async function uploadBufferToS3(params: {
+  key: string;
+  buffer: Buffer;
+  contentType: string;
+}): Promise<{ url: string; provider: "s3" | "local" }> {
+  const { key, buffer, contentType } = params;
+  const bucket = process.env.S3_BUCKET_NAME || "truv-vault";
+  const hasS3Config = Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+
+  if (hasS3Config) {
+    try {
+      const command = new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+      });
+      await s3Client.send(command);
+
+      const endpoint = process.env.AWS_ENDPOINT_URL_S3;
+      const url = endpoint
+        ? `${endpoint.replace(/\/$/, "")}/${bucket}/${key}`
+        : `https://${bucket}.s3.${process.env.AWS_REGION || "us-east-2"}.amazonaws.com/${key}`;
+
+      return { url, provider: "s3" };
+    } catch (err: any) {
+      console.warn("[S3-UPLOAD-FALLBACK] S3 upload failed, using local storage:", err.message);
+    }
+  }
+
+  // Graceful local fallback for local development or standby mode
+  const fs = await import("fs");
+  const path = await import("path");
+  const localDir = path.join(process.cwd(), ".data", "storage", path.dirname(key));
+  fs.mkdirSync(localDir, { recursive: true });
+  const localPath = path.join(process.cwd(), ".data", "storage", key);
+  fs.writeFileSync(localPath, buffer);
+
+  return { url: `/api/storage/${key}`, provider: "local" };
+}

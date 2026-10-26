@@ -1,6 +1,12 @@
 import nodemailer from "nodemailer";
 import { logSecurityEvent } from "@/lib/server/audit";
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+}
+
 export interface SendEmailParams {
   to: string;
   subject: string;
@@ -9,6 +15,7 @@ export interface SendEmailParams {
   tenantId?: string;
   userId?: string;
   category?: "INVITATION" | "PASSWORD_RESET" | "SECURITY_ALERT" | "NOTIFICATION";
+  attachments?: EmailAttachment[];
 }
 
 export type EmailDeliveryStatus = 
@@ -122,6 +129,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
         subject: params.subject,
         html: params.html,
         text: params.text,
+        attachments: params.attachments,
       });
 
       console.log(">>> [SMTP-DISPATCH] Sent email to:", params.to);

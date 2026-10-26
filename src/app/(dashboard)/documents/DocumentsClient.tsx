@@ -1,3 +1,4 @@
+import { AiDocumentTriageFeed } from "@/components/documents/AiDocumentTriageFeed";
 "use client";
 
 import React, { useState, useTransition } from "react";
@@ -300,6 +301,9 @@ export function DocumentsClient({ documents, clients }: Props) {
           icon={<Building className="w-4 h-4 text-graphite-500" />}
         />
       </div>
+
+      {/* AI Omnichannel Triage Feed */}
+      <AiDocumentTriageFeed items={documents as any} />
 
       {/* Vault Directory */}
       <Card>

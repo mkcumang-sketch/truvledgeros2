@@ -525,6 +525,7 @@ model Document {
   verifiedAt      DateTime?
   verifiedById    String?
   rejectionReason String?        @db.Text
+  metadata        Json?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

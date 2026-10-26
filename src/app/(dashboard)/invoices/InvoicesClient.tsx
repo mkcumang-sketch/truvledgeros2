@@ -16,6 +16,7 @@ import {
   X,
   CreditCard,
   Building,
+  FileDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -295,12 +296,23 @@ export function InvoicesClient({ invoices, clients }: Props) {
                       </Badge>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <Link
-                        href={`/invoices/${inv.id}`}
-                        className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1"
-                      >
-                        View <ExternalLink className="w-3 h-3" />
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        <a
+                          href={`/api/invoices/${inv.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Download Rule 46 Tax Invoice PDF"
+                          className="text-xs font-semibold text-sky-700 hover:text-sky-900 inline-flex items-center gap-1 hover:underline"
+                        >
+                          <FileDown className="w-3.5 h-3.5" /> PDF
+                        </a>
+                        <Link
+                          href={`/invoices/${inv.id}`}
+                          className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1"
+                        >
+                          View <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

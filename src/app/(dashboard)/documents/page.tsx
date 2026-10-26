@@ -17,13 +17,13 @@ export default async function DocumentsPage() {
     db.document.findMany({
       where: { tenantId },
       include: {
-        client: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true, phone: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
     db.client.findMany({
       where: { tenantId, active: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, phone: true, email: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -31,7 +31,7 @@ export default async function DocumentsPage() {
   return (
     <DocumentsClient
       documents={serializeForClient(documents) as any}
-      clients={serializeForClient(clients)}
+      clients={serializeForClient(clients) as any}
     />
   );
 }

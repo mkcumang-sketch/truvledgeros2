@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { formatINR } from "@/lib/financial/math";
 import { recordPayment } from "@/lib/server/payment-service";
 import { issueInvoice, voidInvoice } from "@/lib/server/invoice-service";
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, FileDown } from "lucide-react";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
@@ -101,6 +101,14 @@ export default async function InvoiceDetailPage({
 
         {/* State Machine Action Controls */}
         <div className="flex items-center gap-2">
+          <a
+            href={`/api/invoices/${params.invoiceId}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium rounded-lg transition-colors border border-slate-700 shadow-sm"
+          >
+            <FileDown className="w-4 h-4 text-sky-400" /> Download Tax Invoice (PDF)
+          </a>
           {invoice.status === "DRAFT" && (
             <form action={handleIssue}>
               <button

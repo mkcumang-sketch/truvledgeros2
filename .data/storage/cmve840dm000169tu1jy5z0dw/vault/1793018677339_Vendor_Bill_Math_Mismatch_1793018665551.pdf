@@ -1,0 +1,6 @@
+%PDF-1.4 TAX INVOICE #INV-DISCREPANCY-1793018665551
+Supplier: Vendor Engineering Works (GSTIN: 27AABCV1234F1Z5)
+Buyer: Apex Precision Machineries [TRIAGE-TEST-1793018665551]
+Line Item 1: CNC Milling Spares ₹50,000 @ 18% GST
+CGST: ₹4,500, SGST: ₹4,500
+Wrong Total: ₹62,000 (Math Mismatch of ₹3,000)

@@ -1,3 +1,5 @@
+import { AiDocumentTriageFeed } from "@/components/documents/AiDocumentTriageFeed";
+import { serializeForClient } from "@/lib/serialization";
 import React from "react";
 import Link from "next/link";
 import { db } from "@/lib/db";
@@ -60,6 +62,7 @@ export default async function DashboardPage() {
   let recentClients: any[] = [];
   let recentInvoices: any[] = [];
   let openTasksCount = 0;
+  let triagedDocuments: any[] = [];
 
   try {
     const results = await Promise.all([
@@ -103,6 +106,7 @@ export default async function DashboardPage() {
         })
         .catch(() => []),
       db.task.count({ where: { tenantId, status: "OPEN" } }).catch(() => 0),
+      db.document.findMany({ where: { tenantId }, take: 4, orderBy: { createdAt: "desc" }, include: { client: { select: { id: true, name: true, phone: true, email: true } } } }).catch(() => []),
     ]);
 
     clientCount = results[0];
@@ -111,6 +115,7 @@ export default async function DashboardPage() {
     recentClients = results[3];
     recentInvoices = results[4];
     openTasksCount = results[5];
+    triagedDocuments = results[6] || [];
   } catch (dataErr) {
     console.error("[DashboardPage] Data fetching error:", dataErr);
   }
@@ -178,6 +183,9 @@ export default async function DashboardPage() {
           icon={<ListTodo className="w-4 h-4 text-graphite-500" />}
         />
       </div>
+
+      {/* AI Omnichannel Document Triage Feed */}
+      <AiDocumentTriageFeed items={serializeForClient(triagedDocuments) as any} />
 
       {/* Main Grid: Recent Clients & Invoices */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

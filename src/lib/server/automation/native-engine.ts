@@ -1,3 +1,4 @@
+import { generateTaxInvoicePdf } from "@/lib/server/pdf/tax-invoice-generator";
 import { db } from "@/lib/db";
 import {
   EventStatus,
@@ -683,6 +684,14 @@ async function handleInvoiceIssuedOrCreated(
     const text = `Dear ${client.name},\n\nTax Invoice #${invoice.invoiceNumber} has been issued for ${formattedAmount}. Due Date: ${dueDateStr}.\n\nThank you,\n${tenant.name}`;
 
     try {
+      let pdfAttachment;
+      try {
+        const pdfBuf = await generateTaxInvoicePdf(invoice.id, tenantId);
+        pdfAttachment = [{ filename: `Invoice-${invoice.invoiceNumber}.pdf`, content: pdfBuf, contentType: "application/pdf" }];
+      } catch (pdfErr: any) {
+        console.warn("[PDF-ATTACH-WARN]", pdfErr.message);
+      }
+
       const emailRes = await sendEmail({
         to: recipientEmail,
         subject,
@@ -690,6 +699,7 @@ async function handleInvoiceIssuedOrCreated(
         text,
         tenantId,
         category: "NOTIFICATION",
+        attachments: pdfAttachment,
       });
       emailDelivered = emailRes.success;
     } catch (err: any) {
