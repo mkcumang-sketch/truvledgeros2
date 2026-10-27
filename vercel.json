@@ -1,13 +1,8 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/autonomous-daily",
-      "schedule": "30 4 * * *"
-    },
-    {
-      "path": "/api/cron/process-automations",
-      "schedule": "*/15 * * * *"
+      "path": "/api/automations/audit-feed",
+      "schedule": "0 4 * * *"
     }
   ]
 }
