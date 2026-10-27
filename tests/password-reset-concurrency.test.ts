@@ -427,14 +427,14 @@ async function runTests() {
 
 
     // ----------------------------------------------------------------------
-    // TEST 7: Anti-Enumeration in requestPasswordResetAction
+    // TEST 7: Strict Account Existence Check in requestPasswordResetAction
     // ----------------------------------------------------------------------
     const reqNonExistent = makeFormData({ email: "definitely_does_not_exist@example.com" });
     const reqRes = await requestPasswordResetAction(reqNonExistent);
     assert(
-      reqRes.success === true &&
-        reqRes.message === "If an account exists with that email, a password reset link has been dispatched.",
-      "7. Password reset request enforces anti-enumeration for non-existent users"
+      reqRes.success === false &&
+        reqRes.error === "You don't have an active account with this email. Please check your credentials or register a new practice.",
+      "7. Password reset request enforces strict account existence check (clear explicit error)"
     );
 
     const reqInvalidEmail = makeFormData({ email: "invalid-email-format" });

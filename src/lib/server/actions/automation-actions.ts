@@ -513,3 +513,4 @@ export async function dispatchAutonomousVoiceCallAction(params: {
   }
 }
 
+export { sendWhatsAppMessage } from "@/lib/server/whatsapp/whatsapp-service";

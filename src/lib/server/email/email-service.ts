@@ -62,7 +62,7 @@ export function getAppBaseUrl(): string {
  * Base layout template for TRUV LedgerOS branded transactional emails.
  * Primary Orange: #F26B38, Dark Charcoal: #263238, Warm Off-White: #F7F8FA
  */
-function wrapEmailTemplate(contentHtml: string, title: string): string {
+export function wrapEmailTemplate(contentHtml: string, title: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

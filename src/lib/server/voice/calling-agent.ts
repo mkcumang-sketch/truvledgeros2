@@ -6,7 +6,7 @@
  * 2. Urgent Statutory Document Reminders
  * 
  * Integrations:
- * - Live Providers: Twilio Voice / Bland AI / Sarvam AI
+ * - Live Providers: Sarvam AI (Primary) / Twilio Voice / Bland AI
  * - High-Fidelity Simulation Mode: Activated when telephony gateway keys are in standby
  * - Gemini AI Script Generation: Dynamic personalized Indian CA bilingual script
  * - Full audit trail logged to PostgreSQL Communication & Task tables
@@ -18,9 +18,11 @@ import {
   CommunicationDirection,
   TaskType,
   TaskStatus,
+  Role,
 } from "@prisma/client";
 import { generateGeminiContent } from "@/lib/server/ai/gemini-client";
 import { generateSecureToken } from "@/lib/auth/password";
+import { getAppBaseUrl } from "@/lib/server/email/email-service";
 
 export interface OutboundVoiceCallOptions {
   tenantId: string;
@@ -41,7 +43,7 @@ export interface VoiceCallResult {
   success: boolean;
   callSid: string;
   status: "INITIATED" | "ANSWERED" | "COMPLETED" | "NO_ANSWER" | "BUSY" | "FAILED";
-  provider: "TWILIO" | "BLAND_AI" | "SARVAM_AI" | "SIMULATED_VOICE_AGENT";
+  provider: "SARVAM_AI" | "TWILIO" | "BLAND_AI" | "SIMULATED_VOICE_AGENT";
   durationSeconds: number;
   recordingUrl?: string;
   transcript: string;
@@ -113,7 +115,6 @@ Guidelines:
     });
     return { script: generated.trim(), promptSummary: `Script for ${params.reason} (${params.clientName})` };
   } catch (err: any) {
-    // Deterministic fallback script
     const fallbackScript = params.reason === "PAYMENT_RECOVERY"
       ? `Namaste ${params.clientName} ji. This is an automated notification from ${params.firmName}. We are following up on Tax Invoice #${params.invoiceNumber} for ${formattedAmount}, which is currently pending. Please arrange payment today via UPI or Net Banking to keep your statutory filings up to date. If you need any assistance, our office is at your service. Dhanyawad.`
       : `Namaste ${params.clientName} ji. This is an automated reminder from ${params.firmName}. We urgently require your ${params.documentTitle || "documents"} to complete your statutory GST filing before the portal deadline. Please upload them to our client portal today. Thank you.`;
@@ -124,7 +125,7 @@ Guidelines:
 
 /**
  * Initiates an outbound automated voice call.
- * Uses Twilio / Bland / Sarvam API if configured, otherwise executes high-fidelity simulation mode.
+ * Prioritizes Sarvam AI voice agent with strict variable binding, falling back to Twilio/Bland/Simulation.
  */
 export async function initiateOutboundVoiceCall(
   options: OutboundVoiceCallOptions
@@ -143,34 +144,58 @@ export async function initiateOutboundVoiceCall(
     forceSimulated = false,
   } = options;
 
-  // 1. Fetch practice details
+  // 1. Fetch practice details, handling partner, and invoice info
   const tenant = await db.tenant.findUnique({
     where: { id: tenantId },
+    include: {
+      memberships: {
+        where: {
+          role: { in: [Role.FIRM_OWNER, Role.PARTNER, Role.FIRM_ADMIN] },
+          status: "ACTIVE",
+        },
+        include: { user: true },
+        take: 1,
+      },
+    },
   });
 
   const firmName = tenant?.name || "TRUV Chartered Accountants";
+  const handlingPartner = tenant?.memberships?.[0]?.user?.name || "Handling Partner";
 
-  // 2. Generate dynamic call script
+  let invoiceRecord: any = null;
+  if (invoiceId) {
+    invoiceRecord = await db.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { items: { take: 1 } },
+    });
+  }
+
+  // 2. Generate dynamic fallback call script via Gemini
   const { script } = await generateDynamicCallScript({
     clientName,
     firmName,
     reason,
-    invoiceNumber,
-    amount,
-    dueDate,
+    invoiceNumber: invoiceNumber || invoiceRecord?.invoiceNumber,
+    amount: amount || Number(invoiceRecord?.totalAmount || 0),
+    dueDate: dueDate || invoiceRecord?.dueDate?.toISOString().slice(0, 10),
     documentTitle,
     languagePreference: options.languagePreference,
   });
 
-  // 3. Check for external telephony provider keys
+  // 3. Normalize phone number (E.164 with +91 prefix)
+  let cleanedPhone = recipientPhone.replace(/\D/g, "");
+  if (cleanedPhone.length === 10) {
+    cleanedPhone = `91${cleanedPhone}`;
+  }
+  const formattedPhone = `+${cleanedPhone}`;
+
+  // 4. Telephony credentials inspection
+  const sarvamApiKey = process.env.SARVAM_API_KEY?.trim() || process.env.VOICE_PROVIDER_API_KEY?.trim();
+  const sarvamAgentId = process.env.SARVAM_AGENT_ID?.trim() || process.env.VOICE_AGENT_ID?.trim();
   const twilioSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const twilioToken = process.env.TWILIO_AUTH_TOKEN?.trim();
   const twilioPhone = process.env.TWILIO_PHONE_NUMBER?.trim();
   const blandApiKey = process.env.BLAND_AI_API_KEY?.trim();
-
-  const isLiveProviderAvailable = !forceSimulated && (
-    (twilioSid && twilioToken && twilioPhone) || blandApiKey
-  );
 
   let callSid = `call_${Date.now()}_${generateSecureToken(8)}`;
   let provider: VoiceCallResult["provider"] = "SIMULATED_VOICE_AGENT";
@@ -179,15 +204,63 @@ export async function initiateOutboundVoiceCall(
   let sentiment: VoiceCallResult["customerSentiment"] = "PROMISED_TO_PAY";
   let recordingUrl = `https://truv-vault.s3.amazonaws.com/recordings/${callSid}.mp3`;
 
-  if (!recipientPhone || recipientPhone.length < 8) {
+  if (!recipientPhone || cleanedPhone.length < 10) {
     status = "NO_ANSWER";
     durationSeconds = 0;
     sentiment = "UNRESPONSIVE";
   }
 
-  // 4. Live dispatch if provider configured
-  if (isLiveProviderAvailable) {
-    if (blandApiKey) {
+  // 5. Provider Dispatch Logic (Sarvam AI as primary provider)
+  if (!forceSimulated && cleanedPhone.length >= 10) {
+    // --- SARVAM AI DISPATCH ---
+    if (sarvamApiKey && sarvamAgentId) {
+      provider = "SARVAM_AI";
+      const baseUrl = getAppBaseUrl();
+      const resolvedAmount = amount ?? Number(invoiceRecord?.totalAmount ?? 0);
+      const resolvedDueDate = dueDate ?? (invoiceRecord?.dueDate ? new Date(invoiceRecord.dueDate).toLocaleDateString("en-IN") : "01-11-2026");
+      const paymentLink = invoiceRecord?.paymentLinkUrl || `${baseUrl}/pay/${invoiceId || ""}`;
+      const serviceDescription = invoiceRecord?.items?.[0]?.description || documentTitle || "Professional CA Retainer & Tax Compliance Services";
+
+      // Exact variable names matching the Sarvam Agent dashboard
+      const sarvamPayload = {
+        agent_id: sarvamAgentId,
+        phone_number: formattedPhone,
+        variables: {
+          ca_firm_name: firmName,
+          due_date: resolvedDueDate,
+          handling_partner_name: handlingPartner,
+          invoice_amount: `₹${Number(resolvedAmount).toLocaleString("en-IN")}`,
+          invoice_number: invoiceNumber || invoiceRecord?.invoiceNumber || "INV-PENDING",
+          payment_link_url: paymentLink,
+          service_description: serviceDescription,
+          user_name: clientName,
+        },
+      };
+
+      try {
+        const sarvamRes = await fetch("https://api.sarvam.ai/voice/agent/calls", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "api-subscription-key": sarvamApiKey,
+          },
+          body: JSON.stringify(sarvamPayload),
+        });
+
+        const sarvamData = await sarvamRes.json();
+        if (sarvamRes.ok && (sarvamData.call_id || sarvamData.id || sarvamData.callSid)) {
+          callSid = sarvamData.call_id || sarvamData.id || sarvamData.callSid;
+          status = "INITIATED";
+        } else {
+          console.warn("[SARVAM-AI-DISPATCH-NOTICE]", sarvamData);
+        }
+      } catch (err: any) {
+        console.error("[SARVAM-AI-API-ERROR]", err.message);
+        provider = "SIMULATED_VOICE_AGENT";
+      }
+    }
+    // --- BLAND AI FALLBACK ---
+    else if (blandApiKey) {
       try {
         provider = "BLAND_AI";
         const blandRes = await fetch("https://api.bland.ai/v1/calls", {
@@ -197,7 +270,7 @@ export async function initiateOutboundVoiceCall(
             authorization: blandApiKey,
           },
           body: JSON.stringify({
-            phone_number: recipientPhone,
+            phone_number: formattedPhone,
             task: script,
             voice: "nat",
             language: "hi-IN",
@@ -215,14 +288,16 @@ export async function initiateOutboundVoiceCall(
         console.warn("[BLAND-AI-VOICE-FALLBACK]", err.message);
         provider = "SIMULATED_VOICE_AGENT";
       }
-    } else if (twilioSid && twilioToken && twilioPhone) {
+    }
+    // --- TWILIO FALLBACK ---
+    else if (twilioSid && twilioToken && twilioPhone) {
       try {
         provider = "TWILIO";
         const twilioEndpoint = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Calls.json`;
         const twiml = `<Response><Say voice="Polly.Aditi" language="hi-IN">${script}</Say></Response>`;
 
         const formData = new URLSearchParams();
-        formData.append("To", recipientPhone);
+        formData.append("To", formattedPhone);
         formData.append("From", twilioPhone);
         formData.append("Twiml", twiml);
 
@@ -247,7 +322,7 @@ export async function initiateOutboundVoiceCall(
     }
   }
 
-  // 5. Log call record in Communication table
+  // 6. Authoritative PostgreSQL Ledger Logging
   const commRecord = await db.communication.create({
     data: {
       tenantId,
@@ -257,15 +332,15 @@ export async function initiateOutboundVoiceCall(
       direction: CommunicationDirection.OUTBOUND,
       purpose: reason === "PAYMENT_RECOVERY" ? "RECOVERY" : "DOCS",
       category: "AUTONOMOUS_VOICE_CALL",
-      recipient: recipientPhone,
-      subject: `Outbound AI Call: ${reason} (${clientName})`,
-      content: `[VOICE SCRIPT]: ${script}\n\n[STATUS]: ${status} | [DURATION]: ${durationSeconds}s | [SENTIMENT]: ${sentiment}\n[RECORDING]: ${recordingUrl}`,
+      recipient: formattedPhone,
+      subject: `Outbound AI Call: ${reason} (${clientName}) [${provider}]`,
+      content: `[PROVIDER]: ${provider}\n[SCRIPT/CONTEXT]: ${script}\n\n[STATUS]: ${status} | [DURATION]: ${durationSeconds}s | [SENTIMENT]: ${sentiment}\n[RECORDING]: ${recordingUrl}`,
       status: status === "COMPLETED" ? "ANSWERED" : "SENT",
       externalRef: callSid,
     },
   });
 
-  // 6. If call failed or was unanswered in live mode, automatically escalate to CA partner
+  // 7. Auto-escalate to CA partner if call failed or was unanswered
   let partnerTaskCreated = false;
   const isFailedStatus = (s: string) => s === "NO_ANSWER" || s === "BUSY" || s === "FAILED";
   if (isFailedStatus(status)) {
@@ -288,7 +363,7 @@ export async function initiateOutboundVoiceCall(
           invoiceId,
           type: reason === "PAYMENT_RECOVERY" ? TaskType.PAYMENT_ESCALATION : TaskType.DOCUMENT_CALL,
           title: taskTitle,
-          detail: `Autonomous AI voice call to ${recipientPhone} was ${status}. Immediate partner phone follow-up required.`,
+          detail: `Autonomous AI voice call (${provider}) to ${formattedPhone} was ${status}. Immediate partner phone follow-up required.`,
           priority: "HIGH",
           status: TaskStatus.OPEN,
         },
@@ -312,7 +387,7 @@ export async function initiateOutboundVoiceCall(
 }
 
 /**
- * Handles inbound webhook callbacks from voice providers (Twilio, Bland AI, Sarvam AI).
+ * Handles inbound webhook callbacks from voice providers (Sarvam AI, Twilio, Bland AI).
  */
 export async function processVoiceCallWebhook(event: VoiceWebhookEvent): Promise<{
   updated: boolean;
@@ -344,7 +419,6 @@ export async function processVoiceCallWebhook(event: VoiceWebhookEvent): Promise
   });
 
   let escalated = false;
-  // If call was not answered or disputed, create escalation task
   if (event.status === "no-answer" || event.status === "busy" || event.sentiment === "DISPUTING") {
     const existing = await db.task.findFirst({
       where: {
