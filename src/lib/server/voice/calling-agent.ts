@@ -23,6 +23,7 @@ import {
 import { generateGeminiContent } from "@/lib/server/ai/gemini-client";
 import { generateSecureToken } from "@/lib/auth/password";
 import { getAppBaseUrl } from "@/lib/server/email/email-service";
+import { dispatchSarvamVoiceAgentCall } from "@/lib/server/voice/sarvam-telephony";
 
 export interface OutboundVoiceCallOptions {
   tenantId: string;
@@ -214,50 +215,38 @@ export async function initiateOutboundVoiceCall(
   if (!forceSimulated && cleanedPhone.length >= 10) {
     // --- SARVAM AI DISPATCH ---
     if (sarvamApiKey && sarvamAgentId) {
-      provider = "SARVAM_AI";
       const baseUrl = getAppBaseUrl();
       const resolvedAmount = amount ?? Number(invoiceRecord?.totalAmount ?? 0);
-      const resolvedDueDate = dueDate ?? (invoiceRecord?.dueDate ? new Date(invoiceRecord.dueDate).toLocaleDateString("en-IN") : "01-11-2026");
+      const resolvedDueDate = dueDate ?? (invoiceRecord?.dueDate ? invoiceRecord.dueDate : undefined);
       const paymentLink = invoiceRecord?.paymentLinkUrl || `${baseUrl}/pay/${invoiceId || ""}`;
-      const serviceDescription = invoiceRecord?.items?.[0]?.description || documentTitle || "Professional CA Retainer & Tax Compliance Services";
+      const serviceDescription = invoiceRecord?.items?.[0]?.description || documentTitle || "Quarterly CA Retainer & GST Tax Compliance";
 
-      // Exact variable names matching the Sarvam Agent dashboard
-      const sarvamPayload = {
-        agent_id: sarvamAgentId,
-        phone_number: formattedPhone,
-        variables: {
-          ca_firm_name: firmName,
-          due_date: resolvedDueDate,
-          handling_partner_name: handlingPartner,
-          invoice_amount: `₹${Number(resolvedAmount).toLocaleString("en-IN")}`,
-          invoice_number: invoiceNumber || invoiceRecord?.invoiceNumber || "INV-PENDING",
-          payment_link_url: paymentLink,
-          service_description: serviceDescription,
-          user_name: clientName,
-        },
+      const sarvamResult = await dispatchSarvamVoiceAgentCall({
+        phone: formattedPhone,
+        clientName,
+        amount: resolvedAmount,
+        invoiceNumber: invoiceNumber || invoiceRecord?.invoiceNumber || "INV-PENDING",
+        dueDate: resolvedDueDate,
+        handlingPartnerName: handlingPartner,
+        caFirmName: firmName,
+        paymentLinkUrl: paymentLink,
+        serviceDescription: serviceDescription,
+        tenantId,
+        clientId,
+        invoiceId,
+      });
+
+      return {
+        success: sarvamResult.success,
+        callSid: sarvamResult.callSid,
+        status: sarvamResult.status === "INITIATED" ? "INITIATED" : "FAILED",
+        provider: "SARVAM_AI",
+        durationSeconds: 0,
+        transcript: script,
+        customerSentiment: "PROMISED_TO_PAY",
+        communicationId: sarvamResult.communicationId || "",
+        partnerTaskCreated: false,
       };
-
-      try {
-        const sarvamRes = await fetch("https://api.sarvam.ai/voice/agent/calls", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "api-subscription-key": sarvamApiKey,
-          },
-          body: JSON.stringify(sarvamPayload),
-        });
-
-        const sarvamData = await sarvamRes.json();
-        if (sarvamRes.ok && (sarvamData.call_id || sarvamData.id || sarvamData.callSid)) {
-          callSid = sarvamData.call_id || sarvamData.id || sarvamData.callSid;
-          status = "INITIATED";
-        } else {
-          console.warn("[SARVAM-AI-DISPATCH-NOTICE]", sarvamData);
-        }
-      } catch (err: any) {
-        console.error("[SARVAM-AI-API-ERROR]", err.message);
-        provider = "SIMULATED_VOICE_AGENT";
-      }
     }
     // --- BLAND AI FALLBACK ---
     else if (blandApiKey) {

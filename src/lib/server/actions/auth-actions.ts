@@ -6,8 +6,24 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
 // 1. Password Reset Request
-export async function requestPasswordResetAction(email: string) {
+export async function requestPasswordResetAction(input: string | FormData | { email: string }) {
   try {
+    let email = "";
+    if (typeof input === "string") {
+      email = input.trim().toLowerCase();
+    } else if (input instanceof FormData || (input && typeof (input as any).get === "function")) {
+      email = ((input as FormData).get("email") as string)?.trim().toLowerCase() || "";
+    } else if (input && typeof (input as any).email === "string") {
+      email = (input as any).email.trim().toLowerCase();
+    }
+
+    if (!email) {
+      return {
+        success: false,
+        error: "Valid practice email is required.",
+      };
+    }
+
     const cleanEmail = email.trim().toLowerCase();
     const user = await db.user.findUnique({
       where: { email: cleanEmail },
@@ -101,10 +117,37 @@ export async function requestPasswordResetAction(email: string) {
 }
 
 // 2. Set New Password
-export async function resetPasswordAction(token: string, email: string, newPassword: string) {
+export async function resetPasswordAction(
+  tokenOrInput: string | FormData | { token: string; email?: string; newPassword?: string },
+  emailParam?: string,
+  newPasswordParam?: string
+) {
   try {
+    let token = "";
+    let email = "";
+    let newPassword = "";
+
+    if (typeof tokenOrInput === "string") {
+      token = tokenOrInput;
+      email = emailParam || "";
+      newPassword = newPasswordParam || "";
+    } else if (tokenOrInput instanceof FormData || (tokenOrInput && typeof (tokenOrInput as any).get === "function")) {
+      const fd = tokenOrInput as FormData;
+      token = (fd.get("token") as string) || "";
+      email = (fd.get("email") as string) || "";
+      newPassword = (fd.get("newPassword") as string) || (fd.get("password") as string) || "";
+    } else if (tokenOrInput && typeof tokenOrInput === "object") {
+      token = tokenOrInput.token || "";
+      email = tokenOrInput.email || emailParam || "";
+      newPassword = tokenOrInput.newPassword || newPasswordParam || "";
+    }
+
+    if (!token) {
+      return { success: false, error: "Reset token is required." };
+    }
+
     if (!newPassword || newPassword.length < 8) {
-      return { success: false, error: "Password must be at least 8 characters" };
+      return { success: false, error: "Password must be at least 8 characters long." };
     }
 
     const cleanEmail = email.trim().toLowerCase();
