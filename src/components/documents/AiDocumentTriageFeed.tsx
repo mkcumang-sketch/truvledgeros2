@@ -268,7 +268,7 @@ export function AiDocumentTriageFeed({
                 {/* Partner Executive Summary (if clean) */}
                 {errors.length === 0 && meta?.partnerSummary && (
                   <p className="text-xs text-graphite-600 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 italic">
-                    "{meta.partnerSummary}"
+                    &quot;{meta.partnerSummary}&quot;
                   </p>
                 )}
 
