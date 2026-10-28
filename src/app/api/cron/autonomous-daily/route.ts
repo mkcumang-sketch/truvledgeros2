@@ -30,7 +30,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // Allow up to 5 minutes on serverless/node
 
-export interface TenantSweepSummary {
+interface TenantSweepSummary {
   tenantId: string;
   tenantName: string;
   invoicesOverdueProcessed: number;
@@ -49,13 +49,9 @@ export interface TenantSweepSummary {
 
 /**
  * Executes a full zero-touch autonomous daily practice sweep for a single tenant.
- * Consists of:
- * - Pass 1: Overdue Invoicing & Voice Calling Agent (Hinglish/English drafts, voice calls, legal escalations)
- * - Pass 2: GST Filing Review & Sign-Off Dispatches (Data pending alerts with one-click verification links)
- * - Pass 3: Nightly Document & Section 43B(h) MSME Sweep (Auto-anomaly audit & task escalation)
- * - Final: Executive CA Morning Briefing Email to Practice Partner via Direct Gmail SMTP
+ * Note: Internal helper function — not exported to comply with Next.js App Router route constraints.
  */
-export async function executeAutonomousDailySweepForTenant(
+async function executeAutonomousDailySweepForTenant(
   tenantId: string
 ): Promise<TenantSweepSummary> {
   const now = new Date();
@@ -459,7 +455,7 @@ export async function executeAutonomousDailySweepForTenant(
 
       const verifyUrl = `${baseUrl}/gst?period=${encodeURIComponent(ret.period)}&returnType=${ret.returnType}&client=${ret.clientId}`;
 
-      const gstWhatsAppMessage = `Namaste ${ret.client.name} ji,\n\nTRUV CA Practice GST Compliance Alert:\nYour ${ret.returnType} filing for ${ret.period} is ready for client review and sign-off.\n\n• Output Tax Liability: ₹${outputTax.toLocaleString("en-IN")}\n• Input Tax Credit (ITC): ₹${itc.toLocaleString("en-IN")}\n• Net Tax Payable: ₹${netPayable.toLocaleString("en-IN")}\n\nKindly review and approve your return to ensure timely filing before the statutory deadline:\n👉 ${verifyUrl}\n\nWarm regards,\n${tenant.name}`;
+      const gstWhatsAppMessage = `Namaste ${ret.client.name} ji,\n\nTRUV CA Practice GST Compliance Alert:\nYour ${ret.returnType} filing for ${ret.period} is ready for client review and sign-off.\n\nOutput Tax Liability: ₹${outputTax.toLocaleString("en-IN")}\nInput Tax Credit (ITC): ₹${itc.toLocaleString("en-IN")}\nNet Tax Payable: ₹${netPayable.toLocaleString("en-IN")}\n\nKindly review and approve your return to ensure timely filing before the statutory deadline:\n👉 ${verifyUrl}\n\nWarm regards,\n${tenant.name}`;
 
       const gstEmailSubject = `Urgent: ${ret.returnType} Filing Sign-Off Required for ${ret.period} — ${tenant.name}`;
       const gstEmailHtml = `<div style="font-family: sans-serif; color: #1e293b; max-width: 600px; line-height: 1.6;">
