@@ -1,6 +1,6 @@
-import { AiDocumentTriageFeed } from "@/components/documents/AiDocumentTriageFeed";
 "use client";
 
+import { AiDocumentTriageFeed } from "@/components/documents/AiDocumentTriageFeed";
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
