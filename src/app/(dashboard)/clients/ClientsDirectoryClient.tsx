@@ -49,6 +49,12 @@ import {
 import { formatINR } from "@/lib/financial/math";
 import { CLIENT_TYPES, PAN_REGEX, GSTIN_REGEX } from "@/lib/constants/clients";
 
+function getActionErrorMessage(res: any, fallback = "Operation failed. Please try again."): string {
+  if (res && !res.success && typeof res.error === "string") {
+    return res.error;
+  }
+  return fallback;
+}
 const INDIAN_STATES = [
   "Andhra Pradesh",
   "Arunachal Pradesh",
@@ -291,7 +297,7 @@ export function ClientsDirectoryClient({
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
-        setFormGeneralError(res.error || "We couldn't save this client. Please check the information and try again.");
+       setFormGeneralError(getActionErrorMessage(res, "We couldn't save this client. Please check the information and try again."));
       }
     });
   };
@@ -327,7 +333,7 @@ export function ClientsDirectoryClient({
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
-        setFormGeneralError(res.error || "We couldn't update this client. Please try again.");
+        setFormGeneralError(getActionErrorMessage(res, "Failed to update client. Please try again."));
       }
     });
   };
@@ -344,7 +350,7 @@ export function ClientsDirectoryClient({
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
-        toast.error(res.error || "Unable to archive client.");
+        toast.error(getActionErrorMessage(res, "Failed to perform action."));
       }
     });
   };
@@ -361,7 +367,7 @@ export function ClientsDirectoryClient({
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
-        toast.error(res.error || "Unable to restore client.");
+        toast.error(getActionErrorMessage(res, "Failed to delete/archive client."));
       }
     });
   };
