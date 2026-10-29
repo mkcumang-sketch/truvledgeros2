@@ -13,6 +13,7 @@ import {
   FolderDown,
   ListTodo,
   MessagesSquare,
+  PhoneCall,
   Cpu,
   Bot,
   BarChart3,
@@ -53,7 +54,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "Practice Management",
     items: [
-      { label: "Clients 360°", href: "/clients", icon: Building2 },
+      { label: "Clients 360", href: "/clients", icon: Building2 },
       { label: "Invoices", href: "/invoices", icon: FileText, badge: "Active", badgeVariant: "amber" },
       { label: "Payments & Recovery", href: "/payments", icon: CreditCard, badge: "Live", badgeVariant: "rose" },
       { label: "GST Compliance", href: "/gst", icon: Landmark, badge: "GSTR", badgeVariant: "teal" },
@@ -66,7 +67,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "AI Practice Bot", href: "/support", icon: Bot },
       { label: "Outreach & Comms", href: "/communications", icon: MessagesSquare },
-      { label: "6-Suite Automations", href: "/automations", icon: Cpu, badge: "Auto", badgeVariant: "emerald" },
+      { label: "Calling Operations", href: "/communications/campaigns", icon: PhoneCall, badge: "AI", badgeVariant: "gold" },
+      { label: "Automation Center", href: "/automations", icon: Cpu, badge: "Auto", badgeVariant: "emerald" },
       { label: "Reports & Analytics", href: "/reports", icon: BarChart3 },
     ],
   },

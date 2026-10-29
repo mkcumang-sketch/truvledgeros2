@@ -1,6 +1,6 @@
 export type ActionResult<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string; code?: string };
+  | { success: true; data: T; error?: undefined }
+  | { success: false; error: string; code?: string; data?: undefined };
 
 export function successResult<T>(data: T): ActionResult<T> {
   return { success: true, data };

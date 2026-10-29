@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "next lint",
-    "test": "ts-node -r tsconfig-paths/register tests/security.test.ts && ts-node -r tsconfig-paths/register tests/phase2a-security-remediation.test.ts && ts-node -r tsconfig-paths/register tests/password-reset-concurrency.test.ts && ts-node -r tsconfig-paths/register tests/phase3-financial.test.ts && ts-node -r tsconfig-paths/register tests/client-360.test.ts && ts-node -r tsconfig-paths/register tests/bulk-import.test.ts && ts-node -r tsconfig-paths/register tests/accounting-workflows.test.ts && ts-node -r tsconfig-paths/register tests/automation-engine.test.ts && ts-node -r tsconfig-paths/register tests/workflow-schema-validation.test.ts && ts-node -r tsconfig-paths/register tests/phase4-e2e-automation.test.ts && ts-node -r tsconfig-paths/register tests/login-security-hotfix.test.ts && ts-node -r tsconfig-paths/register tests/team-rbac-invitation.test.ts && ts-node -r tsconfig-paths/register tests/role-hierarchy-tenant-isolation.test.ts && ts-node -r tsconfig-paths/register tests/e2e-ca-practice-scenarios.test.ts && ts-node -r tsconfig-paths/register tests/invitation-standby-safety.test.ts && ts-node -r tsconfig-paths/register tests/env-validation.test.ts && ts-node -r tsconfig-paths/register tests/db-readiness-guard.test.ts",
+    "test": "node scripts/run-all-tests.js",
     "test:db-guard": "ts-node -r tsconfig-paths/register tests/db-readiness-guard.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",

@@ -5,7 +5,7 @@ import { serializeForClient } from "@/lib/serialization";
 import { SubscriptionClient, SubscriptionData } from "./SubscriptionClient";
 
 export const metadata = {
-  title: "Subscription & Usage — TRUV LedgerOS",
+  title: "Subscription & Usage • TRUV LedgerOS",
   description: "Firm subscription plan, practice storage quota, and active team seats.",
 };
 

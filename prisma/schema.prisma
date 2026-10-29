@@ -86,6 +86,8 @@ enum CommunicationDirection {
 }
 
 enum CommunicationStatus {
+  DRAFT
+  ANSWERED
   QUEUED
   INITIATED
   SENT
@@ -182,6 +184,8 @@ model Tenant {
   notifications    Notification[]
   integrations     Integration[]
   invitations      Invitation[]
+  callingCampaigns CallingCampaign[]
+  scheduledCalls   ScheduledCall[]
 
   @@index([slug])
   @@index([active])
@@ -213,6 +217,9 @@ model User {
   tasksCreated        Task[]               @relation("TaskCreator")
   auditLogs           AuditLog[]
   notifications       Notification[]
+  campaignsAssigned   CallingCampaign[]    @relation("CampaignAssignedOwner")
+  campaignsCreated    CallingCampaign[]    @relation("CampaignCreator")
+  scheduledCallsAssigned ScheduledCall[]  @relation("ScheduledCallOwner")
 
   @@index([email])
 }
@@ -339,6 +346,7 @@ model Client {
   tasks          Task[]
   communications Communication[]
   conversations  Conversation[]
+  scheduledCalls ScheduledCall[]
 
   @@index([tenantId, name])
   @@index([tenantId, gstin])
@@ -594,7 +602,7 @@ model Communication {
   invoiceId       String?
   channel         CommunicationChannel
   direction       CommunicationDirection @default(OUTBOUND)
-  status          CommunicationStatus    @default(QUEUED)
+  status          CommunicationStatus    @default(STANDBY)
   purpose         String?                // INVOICE, RECOVERY, GST_DATA, GST_SUMMARY, DOCS, SUPPORT
   category        String?
   recipient       String
@@ -818,4 +826,73 @@ model Notification {
   user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId, isRead])
+}
+
+// ==========================================
+// 15. AI CALLING CAMPAIGNS & SCHEDULING
+// ==========================================
+
+model CallingCampaign {
+  id                   String           @id @default(cuid())
+  tenantId             String
+  name                 String
+  purpose              String           // PAYMENT_RECOVERY, DOCUMENT_COLLECTION, GST_DEADLINE, CLIENT_CHECKIN, CUSTOM
+  description          String?          @db.Text
+  status               String           @default("DRAFT") // DRAFT, SCHEDULED, ACTIVE, PAUSED, COMPLETED, CANCELLED
+  scheduledAt          DateTime?
+  callingWindowStart   String           @default("10:00")
+  callingWindowEnd     String           @default("18:00")
+  timezone             String           @default("Asia/Kolkata")
+  frequency            String           @default("ONCE") // ONCE, DAILY, WEEKLY
+  targetCount          Int              @default(0)
+  completedCount       Int              @default(0)
+  answeredCount        Int              @default(0)
+  failedCount          Int              @default(0)
+  retryLimit           Int              @default(2)
+  retryIntervalMinutes Int              @default(120)
+  languagePreference   String           @default("HINGLISH") // HINGLISH, HINDI, ENGLISH
+  scriptTemplate       String?          @db.Text
+  assignedOwnerId      String?
+  createdById          String?
+  config               Json?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedOwner User?           @relation("CampaignAssignedOwner", fields: [assignedOwnerId], references: [id], onDelete: SetNull)
+  createdBy     User?           @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  scheduledCalls ScheduledCall[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, scheduledAt])
+  @@index([tenantId, createdAt])
+}
+
+model ScheduledCall {
+  id              String           @id @default(cuid())
+  tenantId        String
+  campaignId      String?
+  clientId        String
+  invoiceId       String?
+  scheduledFor    DateTime
+  status          String           @default("SCHEDULED") // SCHEDULED, QUEUED, DISPATCHING, COMPLETED, CANCELLED, PAUSED, FAILED
+  attemptCount    Int              @default(0)
+  maxAttempts     Int              @default(3)
+  lastAttemptAt   DateTime?
+  lastOutcome     String?          // ANSWERED, NO_ANSWER, BUSY, FAILED, CANCELLED
+  nextAction      String?          // RETRY_PENDING, FOLLOW_UP_REQUIRED, CALLBACK_SCHEDULED, RESOLVED
+  assignedOwnerId String?
+  idempotencyKey  String           @unique
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign      CallingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedOwner User?            @relation("ScheduledCallOwner", fields: [assignedOwnerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, scheduledFor])
+  @@index([tenantId, clientId])
+  @@index([campaignId])
 }

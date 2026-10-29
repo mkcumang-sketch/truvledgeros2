@@ -19,6 +19,7 @@ import {
   TaskType,
   TaskStatus,
   Role,
+  CommunicationStatus,
 } from "@prisma/client";
 import { generateGeminiContent } from "@/lib/server/ai/gemini-client";
 import { generateSecureToken } from "@/lib/auth/password";
@@ -89,10 +90,10 @@ export async function generateDynamicCallScript(params: {
 - Language: Professional ${params.languagePreference || "Hinglish"}
 
 Guidelines:
-- Keep opening polite: "Namaste ${params.clientName} ji, I am calling from ${params.firmName}'s accounts office."
+- Transparently identify as an automated AI assistant: "Namaste! Main ${params.firmName} ki automated AI accounts assistant bol rahi hoon. Kya meri baat ${params.clientName} ji se ho rahi hai?"
 - Clearly specify the pending invoice amount (${formattedAmount}) and request confirmation on payment status.
 - Provide options: "If you have already paid, press 1 or say Paid. If you will pay today by UPI or Net Banking, press 2."
-- Tone: Respectful, professional, warm, yet firm about maintaining active GST billing status.`;
+- Tone: Respectful, professional, warm, and cooperative. Strictly identify as an AI assistant and avoid aggressive recovery language or legal threats.`;
   } else if (params.reason === "DOCUMENT_COLLECTION") {
     prompt = `Create an automated AI voice agent script requesting urgent tax audit workpapers:
 - Client: ${params.clientName}
@@ -117,7 +118,7 @@ Guidelines:
     return { script: generated.trim(), promptSummary: `Script for ${params.reason} (${params.clientName})` };
   } catch (err: any) {
     const fallbackScript = params.reason === "PAYMENT_RECOVERY"
-      ? `Namaste ${params.clientName} ji. This is an automated notification from ${params.firmName}. We are following up on Tax Invoice #${params.invoiceNumber} for ${formattedAmount}, which is currently pending. Please arrange payment today via UPI or Net Banking to keep your statutory filings up to date. If you need any assistance, our office is at your service. Dhanyawad.`
+      ? `Namaste ${params.clientName} ji! Main ${params.firmName} ki automated AI accounts desk se bol rahi hoon. Hum aapke tax invoice #${params.invoiceNumber || "pending"} baare mein connect kar rahe hain, jiska amount ${formattedAmount} due hai. Kripya isey UPI ya Net Banking se clear karne mein madad karein taaki aapka GST credit aur filing regular rahe. Agar aap busy hain toh callback bol dijiye, ya link WhatsApp par bhejne ke liye 1 dabayein. Dhanyawad.`
       : `Namaste ${params.clientName} ji. This is an automated reminder from ${params.firmName}. We urgently require your ${params.documentTitle || "documents"} to complete your statutory GST filing before the portal deadline. Please upload them to our client portal today. Thank you.`;
 
     return { script: fallbackScript, promptSummary: `Fallback script for ${params.reason}` };
@@ -324,7 +325,7 @@ export async function initiateOutboundVoiceCall(
       recipient: formattedPhone,
       subject: `Outbound AI Call: ${reason} (${clientName}) [${provider}]`,
       content: `[PROVIDER]: ${provider}\n[SCRIPT/CONTEXT]: ${script}\n\n[STATUS]: ${status} | [DURATION]: ${durationSeconds}s | [SENTIMENT]: ${sentiment}\n[RECORDING]: ${recordingUrl}`,
-      status: status === "COMPLETED" ? "ANSWERED" : "SENT",
+      status: status === "COMPLETED" ? CommunicationStatus.DELIVERED : CommunicationStatus.SENT,
       externalRef: callSid,
     },
   });
@@ -391,11 +392,7 @@ export async function processVoiceCallWebhook(event: VoiceWebhookEvent): Promise
     return { updated: false, escalated: false };
   }
 
-  const updatedStatus = event.status === "completed" || event.status === "answered"
-    ? "ANSWERED"
-    : event.status === "no-answer"
-    ? "NO_ANSWER"
-    : "FAILED";
+  const updatedStatus: CommunicationStatus = (event.status === "completed" || event.status === "answered") ? CommunicationStatus.DELIVERED : CommunicationStatus.FAILED;
 
   const updatedContent = `${comm.content}\n\n[WEBHOOK UPDATE]: Status: ${event.status} | Duration: ${event.duration || 0}s\n[TRANSCRIPT]: ${event.transcript || "N/A"}\n[SENTIMENT]: ${event.sentiment || "N/A"}`;
 
@@ -434,6 +431,50 @@ export async function processVoiceCallWebhook(event: VoiceWebhookEvent): Promise
       });
       escalated = true;
     }
+  }
+
+  // Reconcile ScheduledCall status if associated with campaign
+  try {
+    const sc = await db.scheduledCall.findFirst({
+      where: {
+        OR: [
+          { metadata: { path: ["callSid"], equals: event.callSid } },
+          ...(comm.clientId ? [{ clientId: comm.clientId, status: { in: ["IN_FLIGHT", "DISPATCHING"] } }] : []),
+        ],
+      },
+      include: { campaign: true },
+    });
+
+    if (sc) {
+      const isCompleted = event.status === "completed" || event.status === "answered";
+      if (isCompleted) {
+        await db.scheduledCall.update({
+          where: { id: sc.id },
+          data: {
+            status: "COMPLETED",
+            lastOutcome: "ANSWERED",
+            nextAction: "RESOLVED",
+            metadata: {
+              ...((sc.metadata as any) || {}),
+              callSid: event.callSid,
+              durationSeconds: event.duration || 0,
+              sentiment: event.sentiment,
+            },
+          },
+        });
+        if (sc.campaignId) {
+          await db.callingCampaign.update({
+            where: { id: sc.campaignId },
+            data: {
+              completedCount: { increment: 1 },
+              answeredCount: { increment: 1 },
+            },
+          }).catch(() => null);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("[VOICE-WEBHOOK] Failed to sync ScheduledCall:", err.message);
   }
 
   return { updated: true, communicationId: comm.id, escalated };

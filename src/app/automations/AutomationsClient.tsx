@@ -109,7 +109,6 @@ interface AutomationsClientProps {
     isNativeEngine?: boolean;
     engineMode?: string;
     engineName?: string;
-    [key: string]: any;
   };
 }
 
@@ -118,17 +117,16 @@ export function AutomationsClient({
   initialOutboxEvents,
   initialTelemetry,
   initialOutboxFeed = [],
-  stats: initialStats,
+  stats,
 }: AutomationsClientProps) {
   const [workflows, setWorkflows] = useState<WorkflowItem[]>(initialWorkflows);
   const [outboxEvents, setOutboxEvents] = useState<OutboxEventItem[]>(initialOutboxEvents);
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(initialTelemetry || null);
-  const [stats, setStats] = useState(initialStats);
-  const [activeTab, setActiveTab] = useState<"workflows" | "live_outbox" | "outbox_ledger" | "diagnostics">("workflows");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [outboxFilter, setOutboxFilter] = useState("all");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<"workflows" | "live_outbox" | "outbox_ledger" | "diagnostics">("workflows");
+  const [outboxFilter, setOutboxFilter] = useState<string>("all");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Omnichannel Console Modal State
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
@@ -136,115 +134,106 @@ export function AutomationsClient({
   const [consoleChannel, setConsoleChannel] = useState<"WHATSAPP" | "EMAIL" | "VOICE">("WHATSAPP");
   const [consoleWorkflowName, setConsoleWorkflowName] = useState<string | undefined>(undefined);
 
-  // Refresh Telemetry
-  const refreshTelemetry = () => {
-    startTransition(async () => {
-      try {
-        const res = await getWorkflowTelemetryStatsAction();
-        if (res.success && res.data) {
-          setTelemetry(res.data as TelemetryData);
-        }
-      } catch {
-        // Silent recovery
-      }
-    });
-  };
-
+  // Auto-refresh telemetry stats every 30s
   useEffect(() => {
-    if (!telemetry) {
+    const timer = setInterval(() => {
       refreshTelemetry();
-    }
+    }, 30000);
+    return () => clearInterval(timer);
   }, []);
 
-  // Toggle automation enabled/disabled
+  const refreshTelemetry = async () => {
+    try {
+      const res = await getWorkflowTelemetryStatsAction();
+      if (res.success && res.data) {
+        setTelemetry(res.data as TelemetryData);
+      }
+    } catch {
+      // Background poll failure silent
+    }
+  };
+
   const handleToggle = (code: string, currentEnabled: boolean) => {
-    const nextEnabled = !currentEnabled;
+    const targetState = !currentEnabled;
+
+    // Optimistic UI update
     setWorkflows((prev) =>
-      prev.map((w) => (w.code === code ? { ...w, enabled: nextEnabled } : w))
+      prev.map((w) => (w.code === code ? { ...w, enabled: targetState } : w))
     );
 
     startTransition(async () => {
-      const res = await toggleAutomationAction(code, nextEnabled);
-      if (!res.success) {
+      const res = await toggleAutomationAction(code, targetState);
+      if (res.success) {
+        toast.success(`Workflow ${code} ${targetState ? "enabled" : "paused"}.`);
+        refreshTelemetry();
+      } else {
+        // Rollback
         setWorkflows((prev) =>
           prev.map((w) => (w.code === code ? { ...w, enabled: currentEnabled } : w))
         );
         const err =
           !res.success && "error" in res && typeof (res as any).error === "string"
             ? (res as any).error
-            : "Failed to toggle workflow.";
-        setStatusMessage(`Error: ${err}`);
-      } else {
-        setStatusMessage(`Workflow ${code} updated to ${nextEnabled ? "Active" : "Paused"}.`);
-        setTimeout(() => setStatusMessage(null), 4000);
+            : "Failed to toggle.";
+        toast.error(err);
       }
     });
   };
 
-  // Retry outbox event
   const handleRetryEvent = (eventId: string) => {
     startTransition(async () => {
       const res = await retryOutboxEventAction(eventId);
       if (res.success) {
+        toast.success("Outbox event queued for atomic redelivery.");
         setOutboxEvents((prev) =>
-          prev.map((e) =>
-            e.id === eventId
-              ? { ...e, status: "PENDING", retryCount: 0, errorMessage: null }
-              : e
-          )
+          prev.map((e) => (e.id === eventId ? { ...e, status: "PENDING" } : e))
         );
-        setStatusMessage(`Event re-queued for native processing.`);
-        setTimeout(() => setStatusMessage(null), 4000);
       } else {
         const err =
           !res.success && "error" in res && typeof (res as any).error === "string"
             ? (res as any).error
-            : "Failed to retry.";
-        setStatusMessage(`Failed to retry: ${err}`);
+            : "Retry failed.";
+        toast.error(err);
       }
     });
   };
 
-  // Trigger dispatch manually
   const handleTriggerDispatch = () => {
     startTransition(async () => {
-      setStatusMessage("Running native automation engine...");
       const res = await triggerAutomationsAction();
-      if (res.success && res.data) {
-        setStatusMessage(
-          `Engine run complete: ${res.data.succeeded} succeeded, ${res.data.retried} retried, ${res.data.failed} failed, ${res.data.skipped} skipped.`
-        );
-        refreshTelemetry();
-        setTimeout(() => setStatusMessage(null), 5000);
-      } else {
-        setStatusMessage(`Automation run completed.`);
-      }
-    });
-  };
-
-  // Trigger AI Voice Call Test
-  const handleTriggerVoiceCall = () => {
-    startTransition(async () => {
-      setStatusMessage("Initiating Autonomous AI Voice Call dispatch...");
-      const res = await triggerAiVoiceCallTestAction();
       if (res.success) {
-        setStatusMessage("Autonomous AI Voice Call successfully generated and logged in Communications ledger.");
+        const count = (res.data as any)?.processed ?? 0;
+        toast.success(`Outbox dispatch cycle executed. Processed: ${count} events.`);
         refreshTelemetry();
-        setTimeout(() => setStatusMessage(null), 5000);
       } else {
         const err =
           !res.success && "error" in res && typeof (res as any).error === "string"
             ? (res as any).error
-            : "Voice call error.";
-        setStatusMessage(`Voice call error: ${err}`);
+            : "Dispatch failed.";
+        toast.error(err);
       }
     });
   };
 
-  // Trigger AI Audit Scan Test
+  const handleTriggerVoiceCall = () => {
+    startTransition(async () => {
+      const res = await triggerAiVoiceCallTestAction();
+      if (res.success) {
+        const processed = (res.data as any)?.processed ?? 1;
+        setStatusMessage(`Voice Dispatch Active: Processed ${processed} queue events for regional client outreach.`);
+        setTimeout(() => setStatusMessage(null), 6000);
+      } else {
+        const err =
+          !res.success && "error" in res && typeof (res as any).error === "string"
+            ? (res as any).error
+            : "Telephony error.";
+        setStatusMessage(`Telephony error: ${err}`);
+      }
+    });
+  };
+
   const handleTriggerAuditScan = () => {
     startTransition(async () => {
-      setStatusMessage("Initiating AI Bank & Document Anomaly Scanner (Section 43B(h), round cash, TDS)...");
       const res = await triggerAiAuditScanTestAction();
       if (res.success) {
         setStatusMessage("AI Audit Scan completed! Findings and statutory advisory alerts created.");
@@ -292,7 +281,6 @@ export function AutomationsClient({
     return true;
   });
 
-  // Calculate live metric badge values
   const getWorkflowLiveRuns = (code: string, fallback: number) => {
     if (telemetry?.workflowStats && telemetry.workflowStats[code]) {
       return telemetry.workflowStats[code].totalRuns;
@@ -308,31 +296,30 @@ export function AutomationsClient({
     return "Standby";
   };
 
-  // Engine state badge indicator
   const engineState = telemetry?.engineState || "ACTIVE";
 
   return (
-    <div className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8 w-full max-w-full min-w-0 overflow-x-hidden bg-[#070A11] text-slate-100 min-h-screen">
+    <div className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8 w-full max-w-full min-w-0 overflow-x-hidden bg-ivory text-[#263238] min-h-screen">
       {/* Top Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
-              <Radio className="h-4 w-4 animate-pulse" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF4EE] text-[#F26B38] border border-[#F26B38]/30 shrink-0">
+              <Cpu className="h-5 w-5" />
             </span>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white break-words">
-              Tier-1 Omnichannel Practice Dispatch Command Center
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#263238] break-words">
+              Automation Center & Dispatch Command
             </h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-950/60 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Live PostgreSQL Telemetry
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-950/60 px-2.5 py-0.5 text-xs font-semibold text-indigo-300 border border-indigo-500/30">
-              <PhoneCall className="h-3 w-3 text-indigo-400" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4EE] px-2.5 py-1 text-xs font-semibold text-[#D95524] border border-[#F26B38]/30">
+              <PhoneCall className="h-3 w-3 text-[#F26B38]" />
               Sarvam AI Telephony
             </span>
           </div>
-          <p className="mt-1 text-xs sm:text-sm text-slate-400">
+          <p className="mt-1 text-xs sm:text-sm text-slate-500">
             Real-time execution telemetry, 1-click manual overrides, Sarvam AI outbound voice dialing, and calendar-aligned automated triggers.
           </p>
         </div>
@@ -341,7 +328,7 @@ export function AutomationsClient({
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={() => handleOpenConsole("Manual Dispatch")}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 text-xs font-semibold shadow-lg shadow-indigo-600/20 transition active:scale-[0.98]"
+            className="flex items-center gap-2 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white px-4 py-2 text-xs font-bold shadow-2xs transition-colors active:scale-[0.98] cursor-pointer"
           >
             <Send className="h-3.5 w-3.5" />
             Omnichannel Console
@@ -350,27 +337,27 @@ export function AutomationsClient({
           <button
             onClick={handleTriggerVoiceCall}
             disabled={isPending}
-            className="flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 px-3.5 py-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2 text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
           >
-            <PhoneCall className={`h-3.5 w-3.5 text-indigo-400 ${isPending ? "animate-pulse" : ""}`} />
+            <PhoneCall className={`h-3.5 w-3.5 text-[#F26B38] ${isPending ? "animate-pulse" : ""}`} />
             Quick Voice Dial
           </button>
 
           <button
             onClick={handleTriggerAuditScan}
             disabled={isPending}
-            className="flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 px-3.5 py-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2 text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
           >
-            <Sparkles className={`h-3.5 w-3.5 text-purple-400 ${isPending ? "animate-spin" : ""}`} />
+            <Sparkles className={`h-3.5 w-3.5 text-purple-600 ${isPending ? "animate-spin" : ""}`} />
             Run AI Audit
           </button>
 
           <button
             onClick={handleTriggerDispatch}
             disabled={isPending}
-            className="flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 px-3.5 py-2.5 text-xs font-semibold transition active:scale-[0.98] disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2 text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
           >
-            <RotateCw className={`h-3.5 w-3.5 text-emerald-400 ${isPending ? "animate-spin" : ""}`} />
+            <RotateCw className={`h-3.5 w-3.5 text-emerald-600 ${isPending ? "animate-spin" : ""}`} />
             Drain Outbox
           </button>
         </div>
@@ -378,14 +365,14 @@ export function AutomationsClient({
 
       {/* Notification Toast Banner */}
       {statusMessage && (
-        <div className="rounded-xl bg-indigo-950/40 border border-indigo-500/30 px-4 py-3 text-xs font-medium text-indigo-200 flex items-center justify-between shadow-lg animate-in fade-in">
+        <div className="rounded-xl bg-[#FFF4EE] border border-[#F26B38]/30 px-4 py-3 text-xs font-medium text-[#D95524] flex items-center justify-between shadow-2xs animate-in fade-in">
           <div className="flex items-center gap-2">
-            <Info className="h-4 w-4 text-indigo-400" />
+            <Info className="h-4 w-4 text-[#F26B38]" />
             <span>{statusMessage}</span>
           </div>
           <button
             onClick={() => setStatusMessage(null)}
-            className="text-indigo-400 hover:text-white text-xs font-bold"
+            className="text-[#D95524] hover:text-[#263238] text-xs font-bold"
           >
             &times;
           </button>
@@ -395,79 +382,79 @@ export function AutomationsClient({
       {/* Real-time Metric Cards Row */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {/* Total Practice Dispatches */}
-        <div className="rounded-2xl border border-slate-800 bg-[#090D16] p-4 shadow-xl">
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Total Dispatches
             </span>
-            <Send className="h-4 w-4 text-emerald-400" />
+            <Send className="h-4 w-4 text-emerald-600" />
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-white">
+          <div className="mt-2 text-2xl font-bold tracking-tight text-[#263238]">
             {telemetry?.channelCounts.total ?? stats.totalRuns}
           </div>
-          <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
-            <span className="text-emerald-400 font-medium">
+          <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+            <span className="text-emerald-700 font-semibold">
               WA: {telemetry?.channelCounts.whatsapp ?? 0}
             </span>
             <span>•</span>
-            <span className="text-indigo-400 font-medium">
+            <span className="text-[#D95524] font-semibold">
               Voice: {telemetry?.channelCounts.voice ?? 0}
             </span>
             <span>•</span>
-            <span className="text-sky-400 font-medium">
+            <span className="text-sky-700 font-semibold">
               Email: {telemetry?.channelCounts.email ?? 0}
             </span>
           </div>
         </div>
 
         {/* Delivery Success Rate */}
-        <div className="rounded-2xl border border-slate-800 bg-[#090D16] p-4 shadow-xl">
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Delivery Success
             </span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-400">
+          <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-700">
             {telemetry?.deliverySuccessRate ?? 98}%
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">Multi-channel SLA delivery metric</p>
+          <p className="mt-1 text-[11px] text-slate-500">Multi-channel SLA delivery metric</p>
         </div>
 
         {/* Operational State Indicator */}
-        <div className="rounded-2xl border border-slate-800 bg-[#090D16] p-4 shadow-xl">
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Operational State
             </span>
-            <Activity className="h-4 w-4 text-indigo-400" />
+            <Activity className="h-4 w-4 text-[#F26B38]" />
           </div>
-          <div className="mt-2 text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <div className="mt-2 text-xl font-bold tracking-tight text-[#263238] flex items-center gap-2">
             <span
               className={`w-2.5 h-2.5 rounded-full ${
                 engineState === "RUNNING"
                   ? "bg-blue-500 animate-ping"
                   : engineState === "ACTIVE"
-                  ? "bg-emerald-400 animate-pulse"
+                  ? "bg-emerald-500 animate-pulse"
                   : "bg-slate-400"
               }`}
             />
             {engineState}
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">
-            Pending outbox items: <span className="text-white font-mono">{stats.pendingOutbox}</span>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Pending outbox items: <span className="text-[#263238] font-mono font-bold">{stats.pendingOutbox}</span>
           </p>
         </div>
 
         {/* Calendar Trigger */}
-        <div className="rounded-2xl border border-slate-800 bg-[#090D16] p-4 shadow-xl">
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Next Scheduled Trigger
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Next Scheduled Sweep
             </span>
-            <Calendar className="h-4 w-4 text-indigo-400" />
+            <Calendar className="h-4 w-4 text-[#F26B38]" />
           </div>
-          <div className="mt-2 text-base font-bold tracking-tight text-slate-200">
+          <div className="mt-2 text-base font-bold tracking-tight text-[#263238]">
             {telemetry?.nextCronTrigger
               ? new Date(telemetry.nextCronTrigger).toLocaleTimeString("en-IN", {
                   hour: "2-digit",
@@ -476,69 +463,69 @@ export function AutomationsClient({
                 }) + " IST"
               : "09:00 AM IST"}
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">Daily Statutory Sweep & Reminders</p>
+          <p className="mt-1 text-[11px] text-slate-500">Daily Statutory Sweep & Reminders</p>
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-800 space-x-6 text-xs font-semibold">
+      <div className="flex border-b border-[#E5E7EB] space-x-6 text-xs font-bold">
         <button
           onClick={() => setActiveTab("workflows")}
-          className={`pb-3 pt-1 transition border-b-2 ${
+          className={`pb-3 pt-1 transition-colors border-b-2 cursor-pointer ${
             activeTab === "workflows"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-[#F26B38] text-[#D95524]"
+              : "border-transparent text-slate-500 hover:text-[#263238]"
           }`}
         >
           All 10 Workflows & AI Modules
         </button>
         <button
           onClick={() => setActiveTab("live_outbox")}
-          className={`pb-3 pt-1 transition border-b-2 flex items-center gap-1.5 ${
+          className={`pb-3 pt-1 transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
             activeTab === "live_outbox"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-[#F26B38] text-[#D95524]"
+              : "border-transparent text-slate-500 hover:text-[#263238]"
           }`}
         >
           <span>Live Outbox Audit Feed</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-500/20 text-indigo-300 font-mono">
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-orange-100 text-[#D95524] font-mono font-bold">
             Live
           </span>
         </button>
         <button
           onClick={() => setActiveTab("outbox_ledger")}
-          className={`pb-3 pt-1 transition border-b-2 ${
+          className={`pb-3 pt-1 transition-colors border-b-2 cursor-pointer ${
             activeTab === "outbox_ledger"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-[#F26B38] text-[#D95524]"
+              : "border-transparent text-slate-500 hover:text-[#263238]"
           }`}
         >
           Transactional Ledger ({stats.pendingOutbox} pending)
         </button>
         <button
           onClick={() => setActiveTab("diagnostics")}
-          className={`pb-3 pt-1 transition border-b-2 ${
+          className={`pb-3 pt-1 transition-colors border-b-2 cursor-pointer ${
             activeTab === "diagnostics"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-[#F26B38] text-[#D95524]"
+              : "border-transparent text-slate-500 hover:text-[#263238]"
           }`}
         >
-          AI Architecture & Telephony Health
+          Architecture & Gateway Health
         </button>
       </div>
 
-      {/* TAB 1: WORKFLOWS WITH 1-CLICK ACTION BARS */}
+      {/* TAB 1: ALL WORKFLOWS & AI MODULES */}
       {activeTab === "workflows" && (
         <div className="space-y-4">
-          {/* Search Filter Bar */}
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
+          {/* Search Bar */}
+          <div className="relative max-w-md">
+            <Search className="h-4 w-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search workflows by title, category, trigger (e.g. AI, voice, GST, onboarding, invoice)..."
+              placeholder="Search workflows by name, category, or trigger..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-[#090D16] pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none shadow-md"
+              className="w-full bg-white border border-[#E5E7EB] rounded-lg pl-9 pr-4 py-2 text-xs text-[#263238] placeholder:text-slate-400 focus:outline-hidden focus:border-[#F26B38] focus:ring-2 focus:ring-[#F26B38]/20 transition-colors shadow-2xs"
             />
           </div>
 
@@ -551,28 +538,28 @@ export function AutomationsClient({
               return (
                 <div
                   key={w.code}
-                  className={`flex flex-col justify-between rounded-2xl border p-5 shadow-xl transition-all duration-200 ${
+                  className={`flex flex-col justify-between rounded-xl border p-5 shadow-2xs transition-all duration-200 bg-white hover:border-[#F26B38]/40 ${
                     w.isVoice
-                      ? "border-indigo-500/40 bg-[#090D18]"
+                      ? "border-orange-200"
                       : w.isAi
-                      ? "border-purple-500/30 bg-[#0A0D18]"
-                      : "border-slate-800 bg-[#090D16]"
+                      ? "border-purple-200"
+                      : "border-[#E5E7EB]"
                   }`}
                 >
                   <div>
                     {/* Header: Category Badge & Status Dot */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="rounded-lg bg-slate-800/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-300 border border-slate-700/60">
+                        <span className="rounded-md bg-[#FAF9F5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-[#E5E7EB]">
                           {w.category}
                         </span>
                         {w.isVoice ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-500/20 px-2 py-0.5 text-[10px] font-bold text-indigo-300 border border-indigo-500/30">
-                            <PhoneCall className="h-3 w-3" /> Voice Agent
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[#FFF4EE] px-2 py-0.5 text-[10px] font-bold text-[#D95524] border border-[#F26B38]/30">
+                            <PhoneCall className="h-3 w-3 text-[#F26B38]" /> Voice Agent
                           </span>
                         ) : w.isAi ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg bg-purple-500/20 px-2 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/30">
-                            <Sparkles className="h-3 w-3" /> AI Powered
+                          <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                            <Sparkles className="h-3 w-3 text-purple-600" /> AI Powered
                           </span>
                         ) : null}
                       </div>
@@ -580,48 +567,45 @@ export function AutomationsClient({
                       {/* Toggle Switch */}
                       <button
                         onClick={() => handleToggle(w.code, w.enabled)}
-                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                           w.enabled
-                            ? w.isVoice
-                              ? "bg-indigo-600"
-                              : w.isAi
-                              ? "bg-purple-600"
-                              : "bg-emerald-600"
-                            : "bg-slate-800"
+                            ? "bg-[#F26B38]"
+                            : "bg-slate-200"
                         }`}
+                        title={w.enabled ? "Disable workflow" : "Enable workflow"}
                       >
                         <span
-                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
                             w.enabled ? "translate-x-4" : "translate-x-0"
                           }`}
                         />
                       </button>
                     </div>
 
-                    <h3 className="mt-3 text-sm font-semibold text-white">{w.name}</h3>
-                    <p className="mt-1 text-xs text-slate-400 line-clamp-3 leading-relaxed">
+                    <h3 className="mt-3 text-sm font-bold text-[#263238]">{w.name}</h3>
+                    <p className="mt-1 text-xs text-slate-500 line-clamp-3 leading-relaxed">
                       {w.description}
                     </p>
 
-                    <div className="mt-3 rounded-xl bg-slate-950/80 p-2.5 border border-slate-800/80 text-[11px] text-slate-300 font-mono">
-                      <span className="font-semibold text-indigo-400">Trigger:</span> {w.trigger}
+                    <div className="mt-3 rounded-lg bg-[#FAF9F5] p-2.5 border border-[#E5E7EB] text-[11px] text-[#263238] font-mono">
+                      <span className="font-bold text-[#D95524]">Trigger:</span> {w.trigger}
                     </div>
                   </div>
 
                   <div>
                     {/* Live Metric Badges */}
-                    <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                    <div className="mt-4 pt-3 border-t border-[#E5E7EB] flex items-center justify-between text-xs text-slate-500">
                       <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Runs: <strong className="text-white">{runs}</strong></span>
-                        <span className="text-slate-600">•</span>
-                        <span>Last: <span className="text-slate-300">{lastRun}</span></span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Runs: <strong className="text-[#263238]">{runs}</strong></span>
+                        <span className="text-slate-300">•</span>
+                        <span>Last: <span className="text-slate-700">{lastRun}</span></span>
                       </div>
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                           w.enabled
-                            ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/30"
-                            : "bg-slate-800 text-slate-400"
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            : "bg-[#F8FAFC] text-slate-600 border border-[#E5E7EB]"
                         }`}
                       >
                         {w.enabled ? "Active" : "Paused"}
@@ -629,34 +613,34 @@ export function AutomationsClient({
                     </div>
 
                     {/* 1-Click Action Bar */}
-                    <div className="mt-3 pt-3 border-t border-slate-800/60 grid grid-cols-3 gap-1.5">
+                    <div className="mt-3 pt-3 border-t border-[#E5E7EB] grid grid-cols-3 gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleQuickVoiceCall(w.name)}
-                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold transition"
+                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-[#FAF9F5] hover:bg-[#FFF4EE] hover:text-[#D95524] text-slate-700 border border-[#E5E7EB] text-[10px] font-semibold transition-colors cursor-pointer"
                         title="Dial Sarvam AI voice agent for client"
                       >
-                        <PhoneCall className="w-3 h-3 text-indigo-400" />
+                        <PhoneCall className="w-3 h-3 text-[#F26B38]" />
                         Quick Voice
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleQuickWhatsApp(w.name)}
-                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold transition"
+                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-[#FAF9F5] hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 border border-[#E5E7EB] text-[10px] font-semibold transition-colors cursor-pointer"
                         title="Open WhatsApp draft modal"
                       >
-                        <MessageSquare className="w-3 h-3 text-emerald-400" />
+                        <MessageSquare className="w-3 h-3 text-emerald-600" />
                         Quick WA
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleOpenConsole(w.name)}
-                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700/60 text-[10px] font-semibold transition"
+                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-[#FAF9F5] hover:bg-[#F8FAFC] text-slate-700 border border-[#E5E7EB] text-[10px] font-semibold transition-colors cursor-pointer"
                         title="Open full Omnichannel Dispatch Console"
                       >
-                        <Sliders className="w-3 h-3 text-slate-400" />
+                        <Sliders className="w-3 h-3 text-slate-500" />
                         Console
                       </button>
                     </div>
@@ -682,13 +666,13 @@ export function AutomationsClient({
 
       {/* TAB 3: TRANSACTIONAL OUTBOX LEDGER */}
       {activeTab === "outbox_ledger" && (
-        <div className="rounded-2xl border border-slate-800 bg-[#090D16] shadow-xl overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-800 p-4 sm:flex-row sm:items-center sm:justify-between bg-slate-900/40">
+        <div className="rounded-xl border border-[#E5E7EB] bg-white shadow-2xs overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-[#E5E7EB] p-4 sm:flex-row sm:items-center sm:justify-between bg-[#FAF9F5]">
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-bold text-[#263238]">
                 Transactional Outbox Ledger
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Guaranteed delivery events processed in-process via PostgreSQL transactional ledger.
               </p>
             </div>
@@ -698,10 +682,10 @@ export function AutomationsClient({
                 <button
                   key={f}
                   onClick={() => setOutboxFilter(f)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold uppercase transition ${
+                  className={`rounded-lg px-2.5 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${
                     outboxFilter === f
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white"
+                      ? "bg-[#F26B38] text-white shadow-2xs"
+                      : "bg-white border border-[#E5E7EB] text-slate-600 hover:bg-[#FAF9F5] hover:text-[#263238]"
                   }`}
                 >
                   {f}
@@ -711,8 +695,8 @@ export function AutomationsClient({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-800/80 text-left text-xs">
-              <thead className="bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+            <table className="min-w-full divide-y divide-[#E5E7EB] text-left text-xs">
+              <thead className="bg-[#FAF9F5] text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="px-4 py-3">Event Type</th>
                   <th className="px-4 py-3">Entity</th>
@@ -723,21 +707,21 @@ export function AutomationsClient({
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 bg-[#090D16] font-sans">
+              <tbody className="divide-y divide-[#E5E7EB] bg-white font-sans text-[#263238]">
                 {filteredOutbox.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                       No outbox events match the selected filter.
                     </td>
                   </tr>
                 ) : (
                   filteredOutbox.map((evt) => (
-                    <tr key={evt.id} className="hover:bg-slate-900/50 transition">
-                      <td className="px-4 py-3 font-mono font-medium text-slate-200">
+                    <tr key={evt.id} className="hover:bg-[#FAF9F5] transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-[#263238]">
                         {evt.eventType}
                       </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        <span className="rounded bg-slate-900 border border-slate-800 px-1.5 py-0.5 text-[10px] font-mono">
+                      <td className="px-4 py-3 text-slate-600">
+                        <span className="rounded bg-[#FAF9F5] border border-[#E5E7EB] px-1.5 py-0.5 text-[10px] font-mono">
                           {evt.entityType}:{evt.entityId.slice(0, 8)}...
                         </span>
                       </td>
@@ -745,26 +729,26 @@ export function AutomationsClient({
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             evt.status === "PROCESSED"
-                              ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/30"
+                              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                               : evt.status === "PENDING"
-                              ? "bg-amber-950/60 text-amber-300 border border-amber-500/30"
+                              ? "bg-amber-50 text-amber-800 border border-amber-200"
                               : evt.status === "PROCESSING"
-                              ? "bg-blue-950/60 text-blue-300 border border-blue-500/30"
-                              : "bg-rose-950/60 text-rose-400 border border-rose-500/30"
+                              ? "bg-sky-50 text-sky-800 border border-sky-200"
+                              : "bg-rose-50 text-rose-800 border border-rose-200"
                           }`}
                         >
                           {evt.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-300 font-mono">{evt.retryCount}</td>
-                      <td className="px-4 py-3 text-slate-400 font-mono text-[11px]">
+                      <td className="px-4 py-3 text-slate-700 font-mono font-semibold">{evt.retryCount}</td>
+                      <td className="px-4 py-3 text-slate-500 font-mono text-[11px]">
                         {new Date(evt.createdAt).toLocaleTimeString("en-IN", {
                           hour: "2-digit",
                           minute: "2-digit",
                           second: "2-digit",
                         })}
                       </td>
-                      <td className="px-4 py-3 text-slate-400 font-mono text-[11px]">
+                      <td className="px-4 py-3 text-slate-500 font-mono text-[11px]">
                         {evt.processedAt
                           ? new Date(evt.processedAt).toLocaleTimeString("en-IN", {
                               hour: "2-digit",
@@ -776,7 +760,7 @@ export function AutomationsClient({
                         {evt.status === "FAILED" && (
                           <button
                             onClick={() => handleRetryEvent(evt.id)}
-                            className="rounded-lg bg-rose-950/60 border border-rose-500/30 px-2.5 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-900/60 transition"
+                            className="rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
                           >
                             Retry
                           </button>
@@ -795,49 +779,49 @@ export function AutomationsClient({
       {activeTab === "diagnostics" && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Architecture Spec */}
-          <div className="rounded-2xl border border-slate-800 bg-[#090D16] p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 text-white font-semibold text-sm">
-              <Server className="h-4 w-4 text-indigo-400" />
+          <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-2xs space-y-4">
+            <div className="flex items-center gap-2 text-[#263238] font-bold text-sm">
+              <Server className="h-4 w-4 text-[#F26B38]" />
               <span>Native In-Process Engine & Sarvam Telephony Architecture</span>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-400">
-              <div className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800">
+            <div className="space-y-3 text-xs text-slate-600">
+              <div className="rounded-xl bg-[#FAF9F5] p-3.5 border border-[#E5E7EB]">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-200">Sarvam AI Telephony Gateway</span>
-                  <span className="font-mono text-indigo-400 font-bold">Dedicated Hinglish Agent</span>
+                  <span className="font-bold text-[#263238]">Sarvam AI Telephony Gateway</span>
+                  <span className="font-mono text-[#D95524] font-bold">Dedicated Hinglish Agent</span>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-slate-500">
                   Autonomous outbound voice dialing conforming to E.164 (+91) format. Automatic fallback to high-fidelity simulated agent if trunks are in standby.
                 </p>
               </div>
 
-              <div className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800">
+              <div className="rounded-xl bg-[#FAF9F5] p-3.5 border border-[#E5E7EB]">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-200">AI Intelligence Core</span>
-                  <span className="font-mono text-purple-400 font-bold">Google Gemini 3.5 Flash</span>
+                  <span className="font-bold text-[#263238]">AI Intelligence Core</span>
+                  <span className="font-mono text-purple-700 font-bold">Google Gemini 3.5 Flash</span>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-slate-500">
                   Pre-configured with CA tax law knowledge (Sec 43B(h), DRC-01, Sec 148). Dynamic bilingual prompt engineering with JSON response guarantees.
                 </p>
               </div>
 
-              <div className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800">
+              <div className="rounded-xl bg-[#FAF9F5] p-3.5 border border-[#E5E7EB]">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-200">Concurrency & Claiming</span>
-                  <span className="font-mono text-emerald-400 font-bold">Atomic Status Lock</span>
+                  <span className="font-bold text-[#263238]">Concurrency & Claiming</span>
+                  <span className="font-mono text-emerald-700 font-bold">Atomic Status Lock</span>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-slate-500">
                   Zero race conditions: Worker processes atomically claim pending events by transitioning status from <code>PENDING</code> to <code>PROCESSING</code>.
                 </p>
               </div>
 
-              <div className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800">
+              <div className="rounded-xl bg-[#FAF9F5] p-3.5 border border-[#E5E7EB]">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-200">Tenant Isolation</span>
-                  <span className="font-mono text-emerald-400 font-bold">STRICT (where: tenantId)</span>
+                  <span className="font-bold text-[#263238]">Tenant Isolation</span>
+                  <span className="font-mono text-emerald-700 font-bold">STRICT (where: tenantId)</span>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-slate-500">
                   Every query, AI prompt, communication log, and voice dispatch is strictly bounded to the calling tenant ID.
                 </p>
               </div>
@@ -845,49 +829,49 @@ export function AutomationsClient({
           </div>
 
           {/* Environment & Credentials Health */}
-          <div className="rounded-2xl border border-slate-800 bg-[#090D16] p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 text-white font-semibold text-sm">
-              <KeyRound className="h-4 w-4 text-indigo-400" />
+          <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-2xs space-y-4">
+            <div className="flex items-center gap-2 text-[#263238] font-bold text-sm">
+              <KeyRound className="h-4 w-4 text-[#F26B38]" />
               <span>AI & Telephony Service Status</span>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+              <div className="flex items-center justify-between rounded-xl border border-[#E5E7EB] bg-[#FAF9F5] p-3.5">
                 <div>
-                  <strong className="text-slate-200">Sarvam AI Telephony Engine</strong>
-                  <p className="font-mono text-[11px] text-indigo-400 font-bold">sarvam-105b-conversations / voice</p>
+                  <strong className="text-[#263238]">Sarvam AI Telephony Engine</strong>
+                  <p className="font-mono text-[11px] text-[#D95524] font-bold">sarvam-105b-conversations / voice</p>
                 </div>
-                <span className="rounded-full bg-indigo-950/60 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-300 border border-indigo-500/30">
+                <span className="rounded-full bg-[#FFF4EE] px-2.5 py-0.5 text-[10px] font-bold text-[#D95524] border border-[#F26B38]/30">
                   Active
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+              <div className="flex items-center justify-between rounded-xl border border-[#E5E7EB] bg-[#FAF9F5] p-3.5">
                 <div>
-                  <strong className="text-slate-200">Gemini AI Model</strong>
-                  <p className="font-mono text-[11px] text-purple-400 font-bold">gemini-3.5-flash</p>
+                  <strong className="text-[#263238]">Gemini AI Model</strong>
+                  <p className="font-mono text-[11px] text-purple-700 font-bold">gemini-3.5-flash</p>
                 </div>
-                <span className="rounded-full bg-purple-950/60 px-2.5 py-0.5 text-[10px] font-semibold text-purple-300 border border-purple-500/30">
+                <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
                   Active
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+              <div className="flex items-center justify-between rounded-xl border border-[#E5E7EB] bg-[#FAF9F5] p-3.5">
                 <div>
-                  <strong className="text-slate-200">Voice Inbound Webhook</strong>
-                  <p className="font-mono text-[11px] text-slate-400">/api/webhooks/voice</p>
+                  <strong className="text-[#263238]">Voice Inbound Webhook</strong>
+                  <p className="font-mono text-[11px] text-slate-500">/api/webhooks/voice</p>
                 </div>
-                <span className="rounded-full bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
                   Active
                 </span>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+              <div className="flex items-center justify-between rounded-xl border border-[#E5E7EB] bg-[#FAF9F5] p-3.5">
                 <div>
-                  <strong className="text-slate-200">Scheduled Cron Sweep</strong>
-                  <p className="font-mono text-[11px] text-slate-400">/api/cron/process-automations</p>
+                  <strong className="text-[#263238]">Scheduled Cron Sweep</strong>
+                  <p className="font-mono text-[11px] text-slate-500">/api/cron/process-automations</p>
                 </div>
-                <span className="rounded-full bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
                   Daily 09:00 IST
                 </span>
               </div>

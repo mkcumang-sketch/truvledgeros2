@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { TaskType, TaskStatus } from "@prisma/client";
+import { TaskType, TaskStatus, CommunicationStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { timingSafeEqualCompare } from "@/lib/server/m2m-auth";
+import { isWithinCallingWindow, getNextCallingWindowDate } from "@/lib/server/voice/campaign-service";
 
 export const runtime = "nodejs";
 
@@ -85,6 +87,20 @@ function extractTranscript(rawTranscript: any): string {
  */
 export async function POST(req: NextRequest) {
   try {
+    // 0. Verify Webhook Token / Authentication if secret is configured
+    const webhookSecret = process.env.SARVAM_WEBHOOK_SECRET?.trim() || process.env.VOICE_WEBHOOK_SECRET?.trim() || process.env.CRON_SECRET?.trim();
+    if (webhookSecret) {
+      const providedToken =
+        req.headers.get("x-webhook-token")?.trim() ||
+        req.headers.get("x-sarvam-token")?.trim() ||
+        req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")?.trim() ||
+        new URL(req.url).searchParams.get("token")?.trim();
+
+      if (!providedToken || !timingSafeEqualCompare(providedToken, webhookSecret)) {
+        return NextResponse.json({ error: "Unauthorized: Invalid webhook secret token" }, { status: 401 });
+      }
+    }
+
     let body: any = {};
     const contentType = req.headers.get("content-type") || "";
 
@@ -152,16 +168,12 @@ export async function POST(req: NextRequest) {
     });
 
     let communicationUpdated = false;
-    let mappedCommStatus = "SENT";
+    let mappedCommStatus: CommunicationStatus = CommunicationStatus.SENT;
 
     if (status === "completed" || status === "answered") {
-      mappedCommStatus = "ANSWERED";
-    } else if (status === "no-answer") {
-      mappedCommStatus = "NO_ANSWER";
-    } else if (status === "busy") {
-      mappedCommStatus = "BUSY";
-    } else {
-      mappedCommStatus = "FAILED";
+      mappedCommStatus = CommunicationStatus.DELIVERED;
+    } else if (status === "no-answer" || status === "busy" || status === "failed") {
+      mappedCommStatus = CommunicationStatus.FAILED;
     }
 
     if (communication) {
@@ -245,6 +257,98 @@ export async function POST(req: NextRequest) {
       } else {
         console.log(`[SARVAM-VOICE-WEBHOOK] Existing open task #${existingTask.id} detected. Skipping duplicate.`);
       }
+    }
+
+    // 4. ScheduledCall Lifecycle Reconciliation (Closing the Loop)
+    let scheduledCallUpdated = false;
+    try {
+      const scheduledCall = await db.scheduledCall.findFirst({
+        where: {
+          OR: [
+            { metadata: { path: ["callSid"], equals: callId } },
+            ...(communication?.clientId ? [{ clientId: communication.clientId, status: { in: ["IN_FLIGHT", "DISPATCHING"] } }] : []),
+          ],
+        },
+        include: { campaign: true },
+      });
+
+      if (scheduledCall) {
+        const isCompleted = status === "completed" || status === "answered";
+        if (isCompleted) {
+          let nextAction = "RESOLVED";
+          if (sentiment === "PROMISED_TO_PAY") nextAction = "AWAITING_CLIENT_ACTION";
+          else if (sentiment === "DISPUTING") nextAction = "FOLLOW_UP_REQUIRED";
+
+          await db.scheduledCall.update({
+            where: { id: scheduledCall.id },
+            data: {
+              status: "COMPLETED",
+              lastOutcome: "ANSWERED",
+              nextAction,
+              metadata: {
+                ...((scheduledCall.metadata as any) || {}),
+                callSid: callId,
+                durationSeconds,
+                sentiment,
+                recordingUrl: recordingUrl || null,
+                transcriptExcerpt: transcript?.slice(0, 300) || null,
+              },
+            },
+          });
+
+          if (scheduledCall.campaignId) {
+            await db.callingCampaign.update({
+              where: { id: scheduledCall.campaignId },
+              data: {
+                completedCount: { increment: 1 },
+                answeredCount: { increment: 1 },
+              },
+            }).catch(() => null);
+          }
+          scheduledCallUpdated = true;
+        } else {
+          // Failed / unanswered call from provider webhook
+          const canRetry = scheduledCall.attemptCount < scheduledCall.maxAttempts;
+          if (canRetry) {
+            const retryMin = scheduledCall.campaign?.retryIntervalMinutes || 120;
+            let nextRetry = new Date(Date.now() + retryMin * 60 * 1000);
+            if (!isWithinCallingWindow(nextRetry, scheduledCall.campaign?.callingWindowStart || "10:00", scheduledCall.campaign?.callingWindowEnd || "18:00")) {
+              nextRetry = getNextCallingWindowDate(nextRetry, scheduledCall.campaign?.callingWindowStart || "10:00");
+            }
+            await db.scheduledCall.update({
+              where: { id: scheduledCall.id },
+              data: {
+                status: "SCHEDULED",
+                scheduledFor: nextRetry,
+                lastOutcome: status.toUpperCase(),
+                nextAction: "RETRY_PENDING",
+              },
+            });
+          } else {
+            await db.scheduledCall.update({
+              where: { id: scheduledCall.id },
+              data: {
+                status: "FAILED",
+                lastOutcome: status.toUpperCase(),
+                nextAction: "FOLLOW_UP_REQUIRED",
+              },
+            });
+
+            if (scheduledCall.campaignId) {
+              await db.callingCampaign.update({
+                where: { id: scheduledCall.campaignId },
+                data: {
+                  completedCount: { increment: 1 },
+                  failedCount: { increment: 1 },
+                },
+              }).catch(() => null);
+            }
+          }
+          scheduledCallUpdated = true;
+        }
+      }
+    } catch (scErr: any) {
+      console.warn("[SARVAM-VOICE-WEBHOOK] Failed to reconcile ScheduledCall:", scErr.message);
     }
 
     // Revalidate dashboard views

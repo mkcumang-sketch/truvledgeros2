@@ -108,8 +108,8 @@ export async function destroySession(): Promise<void> {
   }
 }
 
-export async function getSessionContext(): Promise<SessionContext | null> {
-  let token: string | undefined;
+export async function getSessionContext(explicitToken?: string): Promise<SessionContext | null> {
+  let token: string | undefined = explicitToken;
   try {
     const cookieStore = cookies();
     token = cookieStore.get(SESSION_COOKIE_NAME)?.value;

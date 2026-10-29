@@ -1,7 +1,15 @@
 {
   "crons": [
     {
-      "path": "/api/automations/audit-feed",
+      "path": "/api/cron/calling-scheduler",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/outbox-dispatch",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/autonomous-daily",
       "schedule": "0 4 * * *"
     }
   ]

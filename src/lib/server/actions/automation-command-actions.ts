@@ -33,6 +33,7 @@ interface AiDraftParams {
   contextType: string;
   pendingAmount?: number;
   invoiceId?: string;
+  channel?: string;
 }
 
 interface OutboxFeedParams {
@@ -554,7 +555,7 @@ export async function getPracticeClientsForDispatchAction() {
         pan: true,
         gstin: true,
         invoices: {
-          where: { status: { in: ["ISSUED", "OVERDUE", "PARTIALLY_PAID"] } },
+          where: { status: { in: ["SENT", "OVERDUE", "PARTIALLY_PAID"] } },
           select: {
             id: true,
             invoiceNumber: true,

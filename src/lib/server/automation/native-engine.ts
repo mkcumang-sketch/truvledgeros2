@@ -8,6 +8,7 @@ import {
   PaymentRecoveryStage,
   CommunicationChannel,
   CommunicationDirection,
+  CommunicationStatus,
 } from "@prisma/client";
 import { sendEmail } from "@/lib/server/email/email-service";
 import { generateSecureToken } from "@/lib/auth/password";
@@ -428,7 +429,7 @@ async function handleAiPaymentRecoveryDraft(
       recipient: invoice.client.phone || invoice.client.email,
       subject: aiDraft.emailSubject,
       content: `[AI DRAFT — ${stage}]\n\n[WHATSAPP HINGLISH]:\n${aiDraft.whatsappHinglish}\n\n[WHATSAPP ENGLISH]:\n${aiDraft.whatsappEnglish}\n\n[EMAIL BODY]:\n${aiDraft.emailBodyHtml}\n\n[RATIONALE]: ${aiDraft.rationale}`,
-      status: "PENDING_APPROVAL",
+      status: CommunicationStatus.STANDBY,
     },
   });
 
@@ -566,7 +567,7 @@ async function handleAiTaxNoticeDraft(
       recipient: issuingAuthority,
       subject: `Preliminary Legal Reply: ${noticeType} under ${statutorySection} (${clientName})`,
       content: `[NOTICE TYPE]: ${rebuttal.noticeType}\n[AUTHORITY]: ${rebuttal.issuingAuthority}\n[SECTION]: ${rebuttal.statutorySection}\n[DEMAND]: ₹${rebuttal.allegedDemandInr.toLocaleString("en-IN")}\n\n[KEY ARGUMENTS]:\n${rebuttal.keyArguments.map((arg, i) => `${i + 1}. ${arg}`).join("\n")}\n\n[REBUTTAL LETTER TEXT]:\n${rebuttal.rebuttalLetterText}\n\n[ANNEXURES REQUIRED]:\n${rebuttal.documentsToAnnex.join(", ")}\n\n[COMPLIANCE]: ${rebuttal.icaiStandardComplianceNote}`,
-      status: "PENDING_APPROVAL",
+      status: CommunicationStatus.STANDBY,
     },
   });
 

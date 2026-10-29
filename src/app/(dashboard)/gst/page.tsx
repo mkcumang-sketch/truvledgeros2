@@ -5,7 +5,7 @@ import { GstClient } from "./GstClient";
 import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
-  title: "GST Compliance & Returns — TRUV LedgerOS",
+  title: "GST Compliance & Returns • TRUV LedgerOS",
   description: "Manage monthly GST returns, liability calculations, and client filing sign-offs.",
 };
 

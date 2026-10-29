@@ -99,30 +99,30 @@ export function OutboxDeliveryFeed({
 
   const getChannelBadge = (channel: string) => {
     switch (channel) {
-      case "WHATSAPP":
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
-            <MessageSquare className="w-3 h-3" />
-            WhatsApp
-          </span>
-        );
       case "VOICE":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-500/30">
-            <PhoneCall className="w-3 h-3" />
-            Sarvam Voice
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FFF4EE] text-[#D95524] border border-[#F26B38]/30">
+            <PhoneCall className="w-3 h-3 text-[#F26B38]" />
+            Voice
+          </span>
+        );
+      case "WHATSAPP":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <MessageSquare className="w-3 h-3 text-emerald-600" />
+            WhatsApp
           </span>
         );
       case "EMAIL":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-950/60 text-sky-400 border border-sky-500/30">
-            <Mail className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+            <Mail className="w-3 h-3 text-sky-600" />
             Email
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#F8FAFC] text-slate-700 border border-[#E5E7EB]">
             {channel}
           </span>
         );
@@ -132,39 +132,38 @@ export function OutboxDeliveryFeed({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "DELIVERED":
-      case "SENT":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <CheckCircle2 className="w-3 h-3" />
-            {status}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+            Delivered
           </span>
         );
+      case "SENT":
       case "INITIATED":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-            <Radio className="w-3 h-3 animate-pulse" />
-            INITIATED
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-800 border border-sky-200">
+            <Clock className="w-3 h-3 text-sky-600" />
+            {status}
           </span>
         );
-      case "QUEUED":
       case "STANDBY":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
-            <Clock className="w-3 h-3" />
-            {status}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+            <Clock className="w-3 h-3 text-amber-600" />
+            Standby
           </span>
         );
       case "FAILED":
       case "BOUNCED":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            <AlertTriangle className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+            <AlertTriangle className="w-3 h-3 text-rose-600" />
             {status}
           </span>
         );
       default:
         return (
-          <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">
+          <span className="px-2 py-0.5 rounded-md text-[10px] bg-[#F8FAFC] text-slate-700 border border-[#E5E7EB]">
             {status}
           </span>
         );
@@ -176,31 +175,31 @@ export function OutboxDeliveryFeed({
     switch (sentiment) {
       case "PROMISED_TO_PAY":
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-500/30">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
             🤝 Promised to Pay
           </span>
         );
       case "COOPERATIVE":
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-950/80 text-blue-300 border border-blue-500/30">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-800 border border-sky-200">
             👍 Cooperative
           </span>
         );
       case "DISPUTING":
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-950/80 text-rose-300 border border-rose-500/30">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
             ⚠️ Disputing Balance
           </span>
         );
       case "UNRESPONSIVE":
         return (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F8FAFC] text-slate-600 border border-[#E5E7EB]">
             ⏳ Unresponsive
           </span>
         );
       default:
         return (
-          <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">
+          <span className="px-2 py-0.5 rounded-md text-[10px] bg-[#F8FAFC] text-slate-600 border border-[#E5E7EB]">
             {sentiment}
           </span>
         );
@@ -210,30 +209,30 @@ export function OutboxDeliveryFeed({
   return (
     <div className="space-y-4">
       {/* Controls Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 bg-white border border-[#E5E7EB] rounded-xl shadow-2xs">
         <form onSubmit={handleSearchSubmit} className="flex-1 relative">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search outbox by client, phone, email, or content..."
-            className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg pl-9 pr-3 py-1.5 text-xs text-[#263238] placeholder:text-slate-400 focus:outline-hidden focus:border-[#F26B38] focus:ring-2 focus:ring-[#F26B38]/20 transition-colors"
           />
         </form>
 
         <div className="flex items-center gap-2">
           {/* Channel Filter Pills */}
-          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs">
+          <div className="flex items-center bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg p-0.5 text-xs">
             {["ALL", "WHATSAPP", "VOICE", "EMAIL"].map((ch) => (
               <button
                 key={ch}
                 type="button"
                 onClick={() => setFilterChannel(ch)}
-                className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   filterChannel === ch
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "bg-[#F26B38] text-white shadow-2xs"
+                    : "text-slate-600 hover:text-[#263238]"
                 }`}
               >
                 {ch === "ALL" ? "All Channels" : ch === "WHATSAPP" ? "WhatsApp" : ch === "VOICE" ? "Voice" : "Email"}
@@ -245,34 +244,34 @@ export function OutboxDeliveryFeed({
             type="button"
             onClick={fetchLatestFeed}
             disabled={isRefreshing}
-            className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-lg bg-white border border-[#E5E7EB] text-slate-600 hover:text-slate-900 hover:bg-[#FAF9F5] transition-colors disabled:opacity-50 shadow-2xs cursor-pointer"
             title="Refresh Live Outbox Feed"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#F26B38]" : ""}`} />
           </button>
         </div>
       </div>
 
       {/* Outbox Table */}
-      <div className="bg-[#090D16] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 border-b border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <table className="w-full text-left text-xs text-[#263238]">
+            <thead className="bg-[#FAF9F5] border-b border-[#E5E7EB] text-[10px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="py-3.5 px-4">Dispatched At</th>
-                <th className="py-3.5 px-4">Client / Entity</th>
-                <th className="py-3.5 px-4">Channel</th>
-                <th className="py-3.5 px-4">Recipient</th>
-                <th className="py-3.5 px-4">Message Preview</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Sentiment</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
+                <th className="py-3 px-4">Dispatched At</th>
+                <th className="py-3 px-4">Client / Entity</th>
+                <th className="py-3 px-4">Channel</th>
+                <th className="py-3 px-4">Recipient</th>
+                <th className="py-3 px-4">Message Preview</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Sentiment</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-sans">
+            <tbody className="divide-y divide-[#E5E7EB] font-sans">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Inbox className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
                     No outbound practice communications recorded yet.
                   </td>
@@ -281,10 +280,10 @@ export function OutboxDeliveryFeed({
                 items.map((item) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-slate-900/50 transition-colors cursor-pointer group"
+                    className="hover:bg-[#FAF9F5] transition-colors cursor-pointer group"
                     onClick={() => setSelectedItem(item)}
                   >
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                    <td className="py-3 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
                       {new Date(item.dispatchedAt).toLocaleString("en-IN", {
                         day: "2-digit",
                         month: "short",
@@ -293,7 +292,7 @@ export function OutboxDeliveryFeed({
                       })}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
-                      <div className="font-medium text-slate-200">
+                      <div className="font-bold text-[#263238] group-hover:text-[#D95524] transition-colors">
                         {item.client?.name || "Practice Contact"}
                       </div>
                       {item.client?.businessName && (
@@ -302,7 +301,7 @@ export function OutboxDeliveryFeed({
                         </div>
                       )}
                       {item.invoice && (
-                        <div className="text-[10px] text-indigo-400 font-mono">
+                        <div className="text-[10px] text-[#D95524] font-mono font-semibold">
                           Inv #{item.invoice.invoiceNumber}
                         </div>
                       )}
@@ -310,12 +309,12 @@ export function OutboxDeliveryFeed({
                     <td className="py-3 px-4 whitespace-nowrap">
                       {getChannelBadge(item.channel)}
                     </td>
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-300 whitespace-nowrap">
+                    <td className="py-3 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
                       {item.recipient}
                     </td>
-                    <td className="py-3 px-4 max-w-xs truncate text-slate-400">
+                    <td className="py-3 px-4 max-w-xs truncate text-slate-500">
                       {item.subject ? (
-                        <span className="font-medium text-slate-300 mr-1.5">
+                        <span className="font-semibold text-[#263238] mr-1.5">
                           [{item.subject}]
                         </span>
                       ) : null}
@@ -334,7 +333,7 @@ export function OutboxDeliveryFeed({
                           e.stopPropagation();
                           setSelectedItem(item);
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
+                        className="px-2.5 py-1 rounded-md bg-[#FAF9F5] hover:bg-[#FFF4EE] hover:text-[#D95524] border border-[#E5E7EB] text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
                       >
                         Inspect
                       </button>
@@ -349,46 +348,46 @@ export function OutboxDeliveryFeed({
 
       {/* Message Inspection Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-xl bg-[#090D16] border border-slate-800 rounded-2xl shadow-2xl p-6 text-xs text-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-xl bg-white border border-[#E2E0D8] rounded-2xl shadow-2xl p-6 text-xs text-[#263238] space-y-4">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
               <div className="flex items-center gap-2">
                 {getChannelBadge(selectedItem.channel)}
-                <span className="font-semibold text-white">Outbox Audit Record</span>
+                <span className="font-bold text-[#263238] text-sm">Outbox Audit Record</span>
               </div>
               <button
                 onClick={() => setSelectedItem(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-slate-700 text-sm font-bold p-1 rounded-lg hover:bg-[#FAF9F5]"
               >
                 ✕
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-800/80">
+            <div className="grid grid-cols-2 gap-3 p-3.5 bg-[#FAF9F5] rounded-xl border border-[#E5E7EB]">
               <div>
-                <span className="text-slate-500 block text-[10px]">Client / Recipient</span>
-                <span className="font-medium text-slate-200">
+                <span className="text-slate-500 block text-[10px] font-bold uppercase">Client / Recipient</span>
+                <span className="font-bold text-[#263238]">
                   {selectedItem.client?.name || "N/A"} ({selectedItem.recipient})
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[10px]">Dispatched At</span>
-                <span className="font-mono text-slate-300">
+                <span className="text-slate-500 block text-[10px] font-bold uppercase">Dispatched At</span>
+                <span className="font-mono text-slate-700">
                   {new Date(selectedItem.dispatchedAt).toLocaleString("en-IN")}
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[10px]">Delivery Status</span>
+                <span className="text-slate-500 block text-[10px] font-bold uppercase">Delivery Status</span>
                 <div className="mt-0.5">{getStatusBadge(selectedItem.status)}</div>
               </div>
               <div>
-                <span className="text-slate-500 block text-[10px]">Client Sentiment</span>
+                <span className="text-slate-500 block text-[10px] font-bold uppercase">Client Sentiment</span>
                 <div className="mt-0.5">{getSentimentPill(selectedItem.sentiment) || "Pending"}</div>
               </div>
               {selectedItem.externalRef && (
                 <div className="col-span-2">
-                  <span className="text-slate-500 block text-[10px]">External Telephony / Gateway SID</span>
-                  <span className="font-mono text-[11px] text-indigo-400">
+                  <span className="text-slate-500 block text-[10px] font-bold uppercase">External Telephony / Gateway SID</span>
+                  <span className="font-mono text-[11px] text-[#D95524]">
                     {selectedItem.externalRef}
                   </span>
                 </div>
@@ -397,21 +396,21 @@ export function OutboxDeliveryFeed({
 
             {selectedItem.subject && (
               <div>
-                <span className="text-slate-400 font-medium block mb-1">Subject</span>
-                <p className="p-2.5 bg-slate-900 rounded-lg text-slate-200 font-medium">
+                <span className="text-slate-500 font-bold uppercase text-[10px] block mb-1">Subject</span>
+                <p className="p-2.5 bg-[#FAF9F5] border border-[#E5E7EB] rounded-lg text-[#263238] font-semibold">
                   {selectedItem.subject}
                 </p>
               </div>
             )}
 
             <div>
-              <span className="text-slate-400 font-medium block mb-1">Full Dispatched Content</span>
-              <pre className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-300 font-mono text-[11px] whitespace-pre-wrap max-h-56 overflow-y-auto leading-relaxed">
+              <span className="text-slate-500 font-bold uppercase text-[10px] block mb-1">Full Dispatched Content</span>
+              <pre className="p-3 bg-[#FAF9F5] border border-[#E5E7EB] rounded-xl text-[#263238] font-mono text-[11px] whitespace-pre-wrap max-h-56 overflow-y-auto leading-relaxed">
                 {selectedItem.content}
               </pre>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between pt-2 border-t border-[#E5E7EB]">
               <button
                 type="button"
                 onClick={() => {
@@ -420,14 +419,14 @@ export function OutboxDeliveryFeed({
                     setSelectedItem(null);
                   }
                 }}
-                className="px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all font-medium"
+                className="px-3.5 py-2 rounded-lg bg-[#FFF4EE] text-[#D95524] border border-[#F26B38]/30 hover:bg-[#FFE7DA] transition-all font-semibold cursor-pointer"
               >
                 Send Follow-up to Client
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedItem(null)}
-                className="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+                className="px-4 py-2 rounded-lg bg-white border border-[#E5E7EB] text-slate-700 hover:bg-[#FAF9F5] font-semibold transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -438,4 +437,3 @@ export function OutboxDeliveryFeed({
     </div>
   );
 }
-

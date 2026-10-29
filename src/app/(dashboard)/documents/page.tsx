@@ -5,7 +5,7 @@ import { DocumentsClient } from "./DocumentsClient";
 import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
-  title: "Document Vault — TRUV LedgerOS",
+  title: "Document Vault • TRUV LedgerOS",
   description: "Secure client dossiers, checklists, and statutory documents.",
 };
 

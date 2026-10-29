@@ -21,7 +21,7 @@ import { formatINR } from "@/lib/financial/math";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Firm Settings — TRUV LedgerOS",
+  title: "Firm Settings • TRUV LedgerOS",
   description: "Configure CA firm identity, ICAI registration, and practice policies.",
 };
 

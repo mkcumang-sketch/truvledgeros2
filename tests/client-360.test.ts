@@ -49,8 +49,8 @@ async function runClient360Tests() {
     where: {
       tenantId: tenant.id,
       OR: [
-        { name: { contains: "Sharma", mode: "insensitive" } },
-        { gstin: { contains: "27AAACS", mode: "insensitive" } },
+        { name: { contains: "Apex", mode: "insensitive" } },
+        { gstin: { contains: "27AAACA", mode: "insensitive" } },
       ],
     },
   });
@@ -66,7 +66,8 @@ async function runClient360Tests() {
   assert(corporateResults.length >= 0, "TEST 4: Entity type filter retrieves corporate accounts");
 
   // 5. Test Canonical Client Creation
-  const testPan = "TSTCL9999P";
+  const randSuffix = Math.floor(1000 + Math.random() * 9000);
+  const testPan = `TSTCL${randSuffix}P`;
   const testGstin = "27TSTCL9999P1Z1";
   const uniqueName = `Automated Verification Client LLP - ${Date.now()}`;
 

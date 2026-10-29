@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import {
   GstReturnType,
   GstReturnStatus,
+  CommunicationStatus,
   TaskType,
   TaskStatus,
   CommunicationChannel,
@@ -261,7 +262,7 @@ export async function draftAiTaxNoticeRebuttalAction(params: {
         recipient: client.email || client.phone || "Notice Dossier",
         subject: `Draft Legal Reply: Notice u/s ${params.statutorySection} — ${client.name}`,
         content: rebuttal.rebuttalLetterText,
-        status: "DRAFT",
+        status: CommunicationStatus.STANDBY,
       },
     });
 

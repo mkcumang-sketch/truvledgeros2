@@ -4,7 +4,7 @@ import { serializeForClient } from "@/lib/serialization";
 import { PaymentRecoveryClient } from "./PaymentRecoveryClient";
 
 export const metadata = {
-  title: "Payment Recovery Operations — TRUV LedgerOS",
+  title: "Payment Recovery Operations • TRUV LedgerOS",
   description: "AI Payment Recovery Drafter and Outbound Voice Collection System.",
 };
 

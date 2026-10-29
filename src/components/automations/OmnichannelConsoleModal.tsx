@@ -100,43 +100,32 @@ export function OmnichannelConsoleModal({
 
   if (!isOpen) return null;
 
-  const selectedClient = clients.find((c) => c.id === selectedClientId);
-
   const filteredClients = clients.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (c.businessName && c.businessName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      c.phone.includes(searchQuery)
+      (c.phone && c.phone.includes(searchQuery))
   );
+
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
 
   const handleGenerateAiDraft = async () => {
     if (!selectedClientId) {
-      toast.error("Please select a client first.");
+      toast.error("Please select a target client first.");
       return;
     }
-
     setIsGeneratingAi(true);
     try {
       const res = await generateAiCommunicationDraftAction({
         clientId: selectedClientId,
         contextType,
         invoiceId: selectedInvoiceId || undefined,
+        channel,
       });
 
       if (res.success && res.data) {
-        setMessage(res.data.draft);
-        if (channel === "EMAIL") {
-          setSubject(
-            contextType === "SECTION_43B_H"
-              ? "Urgent: Section 43B(h) MSME Compliance Verification"
-              : contextType === "GSTR_1"
-              ? "Statutory Reminder: GSTR-1 Inward & Outward Reconciliation"
-              : contextType === "OVERDUE_INVOICE"
-              ? "Statement of Account & Outstanding Professional Fees"
-              : "Urgent Document Request for Tax Audit Sign-Off"
-          );
-        }
-        toast.success("AI Hinglish Draft generated successfully!");
+        setMessage((res.data as any).draft || "");
+        toast.success("AI draft tailored to Indian CA practice generated!");
       } else {
         const errorMsg =
           !res.success && "error" in res && typeof (res as any).error === "string"
@@ -145,7 +134,7 @@ export function OmnichannelConsoleModal({
         toast.error(errorMsg);
       }
     } catch {
-      toast.error("Network error while generating AI draft.");
+      toast.error("AI service error during draft generation.");
     } finally {
       setIsGeneratingAi(false);
     }
@@ -153,12 +142,17 @@ export function OmnichannelConsoleModal({
 
   const handleDispatch = () => {
     if (!selectedClientId) {
-      toast.error("Please choose a client.");
+      toast.error("Please choose a recipient client.");
+      return;
+    }
+
+    if (channel === "EMAIL" && !subject.trim()) {
+      toast.error("Email subject line is required.");
       return;
     }
 
     if (channel !== "VOICE" && !message.trim()) {
-      toast.error("Please provide message content or generate an AI draft.");
+      toast.error("Please enter message body or click 'AI Hinglish Draft'.");
       return;
     }
 
@@ -175,8 +169,8 @@ export function OmnichannelConsoleModal({
         if (res.success && res.data) {
           toast.success(res.data.message || "Dispatch initiated successfully!");
           
-          if (channel === "WHATSAPP" && res.data.waDirectUrl) {
-            window.open(res.data.waDirectUrl, "_blank", "noopener,noreferrer");
+          if (channel === "WHATSAPP" && (res.data as any).waDirectUrl) {
+            window.open((res.data as any).waDirectUrl, "_blank", "noopener,noreferrer");
           }
 
           onDispatchSuccess?.();
@@ -185,7 +179,7 @@ export function OmnichannelConsoleModal({
           const errorMsg =
             !res.success && "error" in res && typeof (res as any).error === "string"
               ? (res as any).error
-              : "Failed to dispatch communication.";
+              : "Dispatch failed.";
           toast.error(errorMsg);
         }
       } catch {
@@ -195,31 +189,32 @@ export function OmnichannelConsoleModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-2xl bg-[#090D16] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="relative w-full max-w-2xl bg-white border border-[#E2E0D8] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-slate-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] bg-[#FAF9F5]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-400">
-              <Radio className="w-5 h-5 animate-pulse" />
+            <div className="p-2 bg-[#FFF4EE] border border-[#F26B38]/30 rounded-lg text-[#D95524]">
+              <Radio className="w-5 h-5 animate-pulse text-[#F26B38]" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-[#263238] flex items-center gap-2">
                 Omnichannel Practice Dispatch Console
                 {preselectedWorkflowName && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-normal border border-slate-700">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#FFF4EE] text-[#D95524] font-medium border border-[#F26B38]/20">
                     {preselectedWorkflowName}
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-slate-400">
-                1-Click Manual Execution with Sarvam Voice, WhatsApp & Transactional Email
+              <p className="text-xs text-slate-500">
+                Authorized manual execution with Sarvam AI voice, WhatsApp, and transactional email.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-[#F8FAFC] transition-colors"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -229,7 +224,7 @@ export function OmnichannelConsoleModal({
         <div className="p-6 overflow-y-auto space-y-5 text-sm">
           {/* Step 1: Select Channel */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
               1. Choose Dispatch Channel
             </label>
             <div className="grid grid-cols-3 gap-3">
@@ -239,22 +234,22 @@ export function OmnichannelConsoleModal({
                 onClick={() => setChannel("WHATSAPP")}
                 className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                   channel === "WHATSAPP"
-                    ? "bg-emerald-950/40 border-emerald-500/60 text-white shadow-xs"
-                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-emerald-50/80 border-emerald-500 text-emerald-950 shadow-2xs font-medium"
+                    : "bg-white border-[#E5E7EB] text-slate-600 hover:border-slate-300 hover:bg-[#FAF9F5]"
                 }`}
               >
                 <div
                   className={`p-2 rounded-lg ${
                     channel === "WHATSAPP"
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "bg-slate-800 text-slate-400"
+                      ? "bg-emerald-500 text-white"
+                      : "bg-[#F8FAFC] text-slate-500 border border-[#E5E7EB]"
                   }`}
                 >
                   <MessageSquare className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="font-semibold text-xs text-slate-200">WhatsApp</div>
-                  <div className="text-[11px] text-slate-400">Direct Web fallback</div>
+                  <div className="font-bold text-xs text-[#263238]">WhatsApp</div>
+                  <div className="text-[10px] text-slate-500">Direct Web link</div>
                 </div>
               </button>
 
@@ -264,22 +259,22 @@ export function OmnichannelConsoleModal({
                 onClick={() => setChannel("VOICE")}
                 className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                   channel === "VOICE"
-                    ? "bg-indigo-950/40 border-indigo-500/60 text-white shadow-xs"
-                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-[#FFF4EE] border-[#F26B38] text-[#9A3412] shadow-2xs font-medium"
+                    : "bg-white border-[#E5E7EB] text-slate-600 hover:border-slate-300 hover:bg-[#FAF9F5]"
                 }`}
               >
                 <div
                   className={`p-2 rounded-lg ${
                     channel === "VOICE"
-                      ? "bg-indigo-500/20 text-indigo-400"
-                      : "bg-slate-800 text-slate-400"
+                      ? "bg-[#F26B38] text-white"
+                      : "bg-[#F8FAFC] text-slate-500 border border-[#E5E7EB]"
                   }`}
                 >
                   <PhoneCall className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="font-semibold text-xs text-slate-200">Sarvam Voice</div>
-                  <div className="text-[11px] text-slate-400">Bilingual Telephony</div>
+                  <div className="font-bold text-xs text-[#263238]">Sarvam Voice</div>
+                  <div className="text-[10px] text-slate-500">Bilingual Telephony</div>
                 </div>
               </button>
 
@@ -289,22 +284,22 @@ export function OmnichannelConsoleModal({
                 onClick={() => setChannel("EMAIL")}
                 className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                   channel === "EMAIL"
-                    ? "bg-sky-950/40 border-sky-500/60 text-white shadow-xs"
-                    : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-sky-50 border-sky-500 text-sky-950 shadow-2xs font-medium"
+                    : "bg-white border-[#E5E7EB] text-slate-600 hover:border-slate-300 hover:bg-[#FAF9F5]"
                 }`}
               >
                 <div
                   className={`p-2 rounded-lg ${
                     channel === "EMAIL"
-                      ? "bg-sky-500/20 text-sky-400"
-                      : "bg-slate-800 text-slate-400"
+                      ? "bg-sky-600 text-white"
+                      : "bg-[#F8FAFC] text-slate-500 border border-[#E5E7EB]"
                   }`}
                 >
                   <Mail className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="font-semibold text-xs text-slate-200">Transactional Email</div>
-                  <div className="text-[11px] text-slate-400">Formal Audit Trail</div>
+                  <div className="font-bold text-xs text-[#263238]">Email Notice</div>
+                  <div className="text-[10px] text-slate-500">Formal Audit Trail</div>
                 </div>
               </button>
             </div>
@@ -312,18 +307,18 @@ export function OmnichannelConsoleModal({
 
           {/* Step 2: Select Client */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-2">
-              2. Target Client & Registered Endpoints
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+              2. Target Client & Verified Contact
             </label>
             <div className="space-y-2">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Filter client by name, firm, or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-900/90 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-lg pl-9 pr-3 py-2 text-xs text-[#263238] placeholder:text-slate-400 focus:outline-hidden focus:border-[#F26B38] focus:ring-2 focus:ring-[#F26B38]/20 transition-colors"
                 />
               </div>
 
@@ -334,7 +329,7 @@ export function OmnichannelConsoleModal({
                   setSelectedInvoiceId("");
                 }}
                 disabled={loadingClients}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-xs text-[#263238] focus:outline-hidden focus:border-[#F26B38] focus:ring-2 focus:ring-[#F26B38]/20 transition-colors"
               >
                 {loadingClients ? (
                   <option>Loading practice clients...</option>
@@ -351,21 +346,21 @@ export function OmnichannelConsoleModal({
 
               {/* Endpoint Preview Card */}
               {selectedClient && (
-                <div className="p-3 bg-slate-900/40 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs">
+                <div className="p-3 bg-[#FAF9F5] border border-[#E5E7EB] rounded-xl flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-slate-400" />
-                    <span className="font-medium text-slate-300">{selectedClient.name}</span>
+                    <Building2 className="w-4 h-4 text-[#F26B38]" />
+                    <span className="font-bold text-[#263238]">{selectedClient.name}</span>
                     {selectedClient.pan && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-mono">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-white border border-[#E5E7EB] text-slate-600 font-mono">
                         {selectedClient.pan}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-                    <span className="flex items-center gap-1 text-slate-300 font-mono">
+                  <div className="flex items-center gap-3 text-slate-500 text-[11px]">
+                    <span className="flex items-center gap-1 font-mono text-[#263238]">
                       📞 {selectedClient.phone || "No phone"}
                     </span>
-                    <span className="flex items-center gap-1 text-slate-400">
+                    <span className="flex items-center gap-1 text-slate-500">
                       ✉️ {selectedClient.email || "No email"}
                     </span>
                   </div>
@@ -377,13 +372,13 @@ export function OmnichannelConsoleModal({
           {/* Optional: Associate with Invoice */}
           {selectedClient?.invoices && selectedClient.invoices.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                 Linked Invoice (Optional)
               </label>
               <select
                 value={selectedInvoiceId}
                 onChange={(e) => setSelectedInvoiceId(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-xs text-[#263238] focus:outline-hidden focus:border-[#F26B38] focus:ring-2 focus:ring-[#F26B38]/20"
               >
                 <option value="">None (General Practice Follow-Up)</option>
                 {selectedClient.invoices.map((inv) => (
@@ -397,18 +392,18 @@ export function OmnichannelConsoleModal({
 
           {/* Voice Mode Banner */}
           {channel === "VOICE" && (
-            <div className="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-2">
+            <div className="p-4 rounded-xl bg-[#FFF4EE] border border-[#F26B38]/30 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
-                  <PhoneCall className="w-3.5 h-3.5" />
+                <span className="text-xs font-bold text-[#D95524] flex items-center gap-1.5">
+                  <PhoneCall className="w-3.5 h-3.5 text-[#F26B38]" />
                   Sarvam AI Telephony Dispatch Mode
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium border border-indigo-500/30">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#F26B38]/30 text-[#D95524] font-bold">
                   Hinglish Bilingual Agent
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                The autonomous voice agent will dial <strong className="text-slate-200">{selectedClient?.phone || "the client"}</strong> using the dedicated Sarvam AI engine. The conversation adapts dynamically to payment confirmations, dispute logs, and promise-to-pay dates.
+              <p className="text-xs text-slate-600">
+                The autonomous voice agent will dial <strong className="text-[#263238]">{selectedClient?.phone || "the client"}</strong> using the dedicated Sarvam AI engine. The conversation adapts dynamically to payment confirmations, dispute logs, and promise-to-pay dates.
               </p>
               <div className="text-[11px] text-slate-500 flex items-center gap-2">
                 <span>Caller Persona: Senior Accounts Associate</span>
@@ -421,7 +416,7 @@ export function OmnichannelConsoleModal({
           {/* Email Subject Line (if Email channel) */}
           {channel === "EMAIL" && (
             <div>
-              <label className="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                 Email Subject
               </label>
               <input
@@ -429,7 +424,7 @@ export function OmnichannelConsoleModal({
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Important Compliance & Accounts Advisory"
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-xs text-[#263238] focus:outline-hidden focus:border-[#F26B38] focus:ring-2 focus:ring-[#F26B38]/20"
               />
             </div>
           )}
@@ -437,14 +432,14 @@ export function OmnichannelConsoleModal({
           {/* AI Drafting Toolbar & Message Content */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 3. Message & Script Content
               </label>
               <div className="flex items-center gap-2">
                 <select
                   value={contextType}
                   onChange={(e) => setContextType(e.target.value as any)}
-                  className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-300 focus:outline-none"
+                  className="bg-white border border-[#E5E7EB] rounded-lg px-2 py-1 text-[11px] text-[#263238] focus:outline-hidden"
                 >
                   <option value="SECTION_43B_H">Section 43B(h) MSME Notice</option>
                   <option value="GSTR_1">GSTR-1 Filing Deadline</option>
@@ -455,12 +450,12 @@ export function OmnichannelConsoleModal({
                   type="button"
                   onClick={handleGenerateAiDraft}
                   disabled={isGeneratingAi || !selectedClientId}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/30 text-xs font-medium transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#FFF4EE] border border-[#F26B38]/30 text-[#D95524] hover:bg-[#FFE7DA] text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isGeneratingAi ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F26B38]" />
                   ) : (
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    <Sparkles className="w-3.5 h-3.5 text-[#F26B38]" />
                   )}
                   AI Hinglish Draft
                 </button>
@@ -476,17 +471,17 @@ export function OmnichannelConsoleModal({
                   ? "Leave blank to use dynamic Sarvam AI conversational script, or enter custom caller talking points..."
                   : "Type your message or click 'AI Hinglish Draft' for an institutional CA-compliant follow-up..."
               }
-              className="w-full bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
+              className="w-full bg-white border border-[#E5E7EB] rounded-xl p-3 text-xs text-[#263238] placeholder:text-slate-400 focus:outline-hidden focus:border-[#F26B38] focus:ring-2 focus:ring-[#F26B38]/20 font-sans leading-relaxed transition-colors"
             />
           </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-[#E5E7EB] bg-[#FAF9F5] flex items-center justify-between">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -495,7 +490,7 @@ export function OmnichannelConsoleModal({
               type="button"
               onClick={handleDispatch}
               disabled={isDispatching || !selectedClientId}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             >
               {isDispatching ? (
                 <>
@@ -525,4 +520,3 @@ export function OmnichannelConsoleModal({
     </div>
   );
 }
-

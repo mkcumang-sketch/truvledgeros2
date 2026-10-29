@@ -7,6 +7,7 @@ import {
   RATE_LIMIT_TIERS,
 } from "@/lib/server/security/rate-limiter";
 import { revalidatePath } from "next/cache";
+import { timingSafeEqualCompare } from "@/lib/server/m2m-auth";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,19 @@ export async function POST(req: NextRequest) {
     const rateStatus = await rateLimiter.check(`webhook:voice:${clientIp}`, RATE_LIMIT_TIERS.GENERAL_API);
     if (!rateStatus.allowed) {
       return createRateLimitResponse(rateStatus);
+    }
+
+    // 0. Authentication token validation
+    const webhookSecret = process.env.VOICE_WEBHOOK_SECRET?.trim() || process.env.CRON_SECRET?.trim();
+    if (webhookSecret) {
+      const providedToken =
+        req.headers.get("x-webhook-token")?.trim() ||
+        req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")?.trim() ||
+        new URL(req.url).searchParams.get("token")?.trim();
+
+      if (!providedToken || !timingSafeEqualCompare(providedToken, webhookSecret)) {
+        return NextResponse.json({ error: "Unauthorized: Invalid webhook secret token" }, { status: 401 });
+      }
     }
 
     let body: any = {};

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Plus,
@@ -156,6 +156,7 @@ export function ClientsDirectoryClient({
   initialStatus,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   // Filters state
@@ -163,6 +164,12 @@ export function ClientsDirectoryClient({
   const [entityFilter, setEntityFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<"ACTIVE" | "ARCHIVED">(initialStatus);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams?.get("action") === "new" || searchParams?.get("new") === "true") {
+      setIsAddModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

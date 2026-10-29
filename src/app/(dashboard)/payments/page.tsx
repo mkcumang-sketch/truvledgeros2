@@ -9,7 +9,7 @@ import { PaymentsClient } from "./PaymentsClient";
 import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
-  title: "Payments & Recovery — TRUV LedgerOS",
+  title: "Payments & Recovery • TRUV LedgerOS",
   description: "Track receivables aging buckets and record verified client payments.",
 };
 

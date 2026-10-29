@@ -5,7 +5,7 @@ import { TasksClient } from "./TasksClient";
 import { serializeForClient } from "@/lib/serialization";
 
 export const metadata = {
-  title: "Tasks & Partner Approvals — TRUV LedgerOS",
+  title: "Tasks & Partner Approvals • TRUV LedgerOS",
   description: "Practice workflow management, return reviews, and approval thresholds.",
 };
 

@@ -6,7 +6,7 @@ import { TeamManagementClient } from "./TeamManagementClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Team & Access Management — TRUV LedgerOS",
+  title: "Team & Access Management • TRUV LedgerOS",
   description: "Manage practice partners, managers, invitations, and role-based permissions.",
 };
 

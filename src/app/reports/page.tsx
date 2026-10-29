@@ -5,7 +5,7 @@ import { serializeForClient } from "@/lib/serialization";
 import { ReportsClient, ReportMetrics } from "./ReportsClient";
 
 export const metadata = {
-  title: "Practice Reports & MIS — TRUV LedgerOS",
+  title: "Practice Reports & MIS • TRUV LedgerOS",
   description: "Real-time practice billing analytics, realization ratios, and client performance.",
 };
 
