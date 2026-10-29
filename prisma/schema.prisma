@@ -85,6 +85,16 @@ enum CommunicationDirection {
   INBOUND
 }
 
+enum CommunicationStatus {
+  QUEUED
+  INITIATED
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  STANDBY
+}
+
 enum TaskType {
   INVOICE_APPROVAL
   PAYMENT_ESCALATION
@@ -578,28 +588,34 @@ model Task {
 // ==========================================
 
 model Communication {
-  id          String                 @id @default(cuid())
-  tenantId    String
-  clientId    String?
-  invoiceId   String?
-  channel     CommunicationChannel
-  direction   CommunicationDirection @default(OUTBOUND)
-  purpose     String // INVOICE, RECOVERY, GST_DATA, GST_SUMMARY, DOCS, SUPPORT
-  category    String
-  recipient   String
-  cc          String?
-  subject     String?
-  content     String                 @db.Text
-  status      String // DELIVERED, ANSWERED, VOICEMAIL, NO_ANSWER, FAILED, INTERNAL
-  externalRef String?
-  createdAt   DateTime               @default(now())
+  id              String                 @id @default(cuid())
+  tenantId        String
+  clientId        String?
+  invoiceId       String?
+  channel         CommunicationChannel
+  direction       CommunicationDirection @default(OUTBOUND)
+  status          CommunicationStatus    @default(QUEUED)
+  purpose         String?                // INVOICE, RECOVERY, GST_DATA, GST_SUMMARY, DOCS, SUPPORT
+  category        String?
+  recipient       String
+  cc              String?
+  subject         String?
+  content         String                 @db.Text
+  sentiment       String?                // e.g., 'PROMISED_TO_PAY', 'DISPUTING', 'COOPERATIVE', 'UNRESPONSIVE'
+  externalRef     String?                // Sarvam Call SID, WhatsApp message ID, or Resend ID
+  durationSeconds Int?
+  recordingUrl    String?
+  metadata        Json?
+  dispatchedAt    DateTime               @default(now())
+  createdAt       DateTime               @default(now())
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
+  @@index([tenantId, dispatchedAt])
+  @@index([clientId, channel])
   @@index([tenantId, channel])
-  @@index([tenantId, purpose])
   @@index([tenantId, createdAt])
 }
 

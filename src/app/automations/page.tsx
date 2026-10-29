@@ -4,22 +4,28 @@ import {
   getTenantAutomationsAction,
   getTenantOutboxEventsAction,
 } from "@/lib/server/actions/automation-actions";
+import {
+  getWorkflowTelemetryStatsAction,
+  getLiveOutboxFeedAction,
+} from "@/lib/server/actions/automation-command-actions";
 import { AutomationsClient } from "./AutomationsClient";
 import { serializeForClient } from "@/lib/serialization";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "10-Suite Automations & AI Practice Engine — TRUV LedgerOS",
-  description: "Enterprise workflow automation, Section 43B(h) audit scanner, tax notice drafter, and AI voice calling.",
+  title: "Omnichannel Practice Dispatch Command Center — TRUV LedgerOS",
+  description: "Live PostgreSQL metrics, real-time telemetry, Sarvam AI outbound voice calling, and calendar-aligned automated triggers.",
 };
 
 export default async function AutomationsPage() {
   await requireTenant();
 
-  const [automationsRes, outboxRes] = await Promise.all([
+  const [automationsRes, outboxRes, telemetryRes, liveFeedRes] = await Promise.all([
     getTenantAutomationsAction(),
     getTenantOutboxEventsAction({ limit: 50 }),
+    getWorkflowTelemetryStatsAction(),
+    getLiveOutboxFeedAction({ limit: 50 }),
   ]);
 
   const workflows = automationsRes.success && automationsRes.data ? automationsRes.data.workflows : [];
@@ -36,12 +42,16 @@ export default async function AutomationsPage() {
       };
 
   const outboxEvents = outboxRes.success && outboxRes.data ? outboxRes.data : [];
+  const initialTelemetry = telemetryRes.success && telemetryRes.data ? telemetryRes.data : null;
+  const initialOutboxFeed = liveFeedRes.success && liveFeedRes.data ? liveFeedRes.data : [];
 
   return (
     <div className="flex-1 w-full max-w-full min-w-0 overflow-x-hidden">
       <AutomationsClient
         initialWorkflows={serializeForClient(workflows) as any}
         initialOutboxEvents={serializeForClient(outboxEvents) as any}
+        initialTelemetry={serializeForClient(initialTelemetry) as any}
+        initialOutboxFeed={serializeForClient(initialOutboxFeed) as any}
         stats={serializeForClient(stats)}
       />
     </div>
