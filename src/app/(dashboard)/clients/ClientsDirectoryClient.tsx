@@ -367,7 +367,7 @@ export function ClientsDirectoryClient({
         setTimeout(() => setFormSuccessMessage(null), 4000);
         router.refresh();
       } else {
-        toast.error(getActionErrorMessage(res, "Failed to delete/archive client."));
+        toast.error(getActionErrorMessage(res, "Failed to restore client."));
       }
     });
   };
