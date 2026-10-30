@@ -708,6 +708,9 @@ export async function executeClientBulkImport(
               });
             }
           }
+        }, {
+          maxWait: 10000, // 10s
+          timeout: 20000, // 20s
         });
 
         summary.updatedCount++;
@@ -780,6 +783,9 @@ export async function executeClientBulkImport(
         }
 
         return client;
+      }, {
+        maxWait: 10000, // 10s
+        timeout: 20000, // 20s
       });
 
       summary.importedCount++;

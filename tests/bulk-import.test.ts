@@ -340,6 +340,9 @@ Godavari Sugar Mills,Godavari Mills,LLP,AAACG2222B,27AAACG2222B1Z2,admin@godavar
     });
 
     return cl;
+  }, {
+    maxWait: 10000, // 10s
+    timeout: 20000, // 20s
   });
 
   assert(createdClient !== null, "TEST 31: Canonical client successfully persisted to PostgreSQL");

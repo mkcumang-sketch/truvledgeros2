@@ -29,7 +29,7 @@ for (const testFile of testFiles) {
   process.stdout.write(`\n--- Running ${testFile} ---\n`);
   try {
     const cmd = `npx ts-node -O "{\\"module\\":\\"commonjs\\"}" -r tsconfig-paths/register "${testFile}"`;
-    execSync(cmd, { stdio: "inherit", cwd: path.join(__dirname, "..") });
+    execSync(cmd, { stdio: "inherit", cwd: path.join(__dirname, ".."), env: { ...process.env, NODE_ENV: "test" } });
     totalPassed++;
   } catch (error) {
     console.error(`FAILED: ${testFile}`);

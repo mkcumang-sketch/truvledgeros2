@@ -39,7 +39,7 @@ import {
 } from "../src/lib/server/voice/scheduler";
 import { timingSafeEqualCompare } from "../src/lib/server/m2m-auth";
 
-const prisma = new PrismaClient();
+import { db as prisma } from "../src/lib/db";
 
 let passedTests = 0;
 let failedTests = 0;

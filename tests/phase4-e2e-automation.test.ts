@@ -160,6 +160,11 @@ async function runTests() {
         status: "READY_FOR_REVIEW",
       },
     });
+  } else {
+    testGstReturn = await db.gstReturn.update({
+      where: { id: testGstReturn.id },
+      data: { status: "READY_FOR_REVIEW" },
+    });
   }
 
   assert(testGstReturn !== null, "STEP 3: Active GST compliance return loaded for testing");

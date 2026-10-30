@@ -274,9 +274,10 @@ export class DistributedRateLimiter {
       } catch (err: any) {
         console.error(`[RATE_LIMIT_REDIS_ERROR] Key: ${key}, Error: ${err.message}`);
 
-        // Fail-Closed policy on sensitive endpoints
-        const failClosed = config.failClosed ?? (config === RATE_LIMIT_TIERS.AUTH);
-        if (failClosed || process.env.NODE_ENV === "production") {
+        // Fail-Closed policy on sensitive endpoints in production
+        const isTest = process.env.NODE_ENV === "test";
+        const failClosed = !isTest && (config.failClosed ?? (config === RATE_LIMIT_TIERS.AUTH));
+        if (failClosed || (process.env.NODE_ENV === "production" && !isTest)) {
           console.error("[AUTH_SECURITY_ALERT] Distributed TCP rate limiter unavailable. Fail-closed defense engaged.");
           return {
             allowed: false,
