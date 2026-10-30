@@ -87,9 +87,46 @@ const config: Config = {
           800: "#73511D",
           900: "#5A3E17",
         },
+        // TRUV LedgerOS Design Tokens
+        surface: {
+          canvas: "#090d16", // Deep app background
+          base: "#0f172a",   // Card base, table row base
+          raised: "#1e293b", // Elevated card, dropdowns, modal background
+          overlay: "#334155",// Active selection, hovered row
+          muted: "#182234",  // Table headers, nested inset panels
+        },
+        brand: {
+          primary: "#6366f1", // Indigo primary action
+          hover: "#4f46e5",   // Primary action hover
+          subtle: "rgba(99, 102, 241, 0.12)", // Badge fill, active nav link
+        },
+        status: {
+          success: {
+            DEFAULT: "#10b981",
+            subtle: "rgba(16, 185, 129, 0.12)",
+          },
+          warning: {
+            DEFAULT: "#f59e0b",
+            subtle: "rgba(245, 158, 11, 0.12)",
+          },
+          danger: {
+            DEFAULT: "#ef4444",
+            subtle: "rgba(239, 68, 68, 0.12)",
+          },
+          neutral: {
+            DEFAULT: "#64748b",
+            subtle: "rgba(100, 116, 139, 0.12)",
+          },
+        },
+        border: {
+          subtle: "#1e293b", // Table cell dividers, subtle card separators
+          strong: "#334155", // Card borders, input strokes
+          focused: "#6366f1",// Active focus ring & focused input outline
+        },
       },
       fontFamily: {
         sans: [
+          "Inter",
           "-apple-system",
           "BlinkMacSystemFont",
           "'Segoe UI'",
@@ -99,6 +136,8 @@ const config: Config = {
           "sans-serif",
         ],
         mono: [
+          "'JetBrains Mono'",
+          "'Fira Code'",
           "'SF Mono'",
           "SFMono-Regular",
           "Consolas",
@@ -109,6 +148,8 @@ const config: Config = {
         ],
       },
       boxShadow: {
+        raised: "0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3)",
+        overlay: "0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5)",
         card: "0 1px 3px 0 rgba(23, 26, 25, 0.05), 0 1px 2px -1px rgba(23, 26, 25, 0.05)",
         "card-hover": "0 4px 6px -1px rgba(23, 26, 25, 0.08), 0 2px 4px -2px rgba(23, 26, 25, 0.05)",
         popover: "0 10px 15px -3px rgba(23, 26, 25, 0.08), 0 4px 6px -4px rgba(23, 26, 25, 0.04)",
