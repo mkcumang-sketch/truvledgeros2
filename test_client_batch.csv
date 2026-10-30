@@ -1,5 +1,5 @@
 Legal Name,Trade Name,Entity Type,PAN,GSTIN,Primary Email,Phone,Registered Address,City,State,PIN Code,Monthly Retainer,Notes
-Indus Valley Logistics Pvt Ltd,Indus Cargo,Pvt Ltd,AAACI7777J,27AAACI7777J1Z8,ops@indusvalley.in,9820077777,Plot 88 MIDC,Mumbai,Maharashtra,400093,55000,Logistics retainer
+Indus Valley Logistics Pvt Ltd,Indus Cargo,Pvt Ltd,AAACI7777J,27AAACI7777J1Z8,ops@indusvalley.in,9336849321,Plot 88 MIDC,Mumbai,Maharashtra,400093,55000,Logistics retainer
 Sharma Traders Pvt Ltd,Sharma Traders,Pvt Ltd,AAACS0000F,27AAACS0000F1ZK,accounts@sharma-traders.example.com,9820011101,Andheri East,Mumbai,Maharashtra,400069,75000,Existing firm client
 Bad Data LLP,Bad Data,LLP,BADPAN123,BADGSTIN,bademail,123,Nowhere,Pune,Maharashtra,411001,0,Invalid data test
 Indus Valley Logistics Pvt Ltd,Indus Dup,Pvt Ltd,AAACI7777J,27AAACI7777J1Z8,ops@indusvalley.in,9820077777,Plot 88,Mumbai,Maharashtra,400093,55000,Duplicate row
