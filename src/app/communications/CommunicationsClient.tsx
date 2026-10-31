@@ -1142,23 +1142,39 @@ export function CommunicationsClient({
             {dispatchResult && (
               <div
                 className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
-                  dispatchResult.success
+                  dispatchResult.success && (!dispatchResult.failedCount || dispatchResult.failedCount === 0)
                     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : dispatchResult.success && ((dispatchResult.succeededCount || dispatchResult.successCount || 0) > 0)
+                    ? "bg-amber-50 border-amber-200 text-amber-800"
                     : "bg-rose-50 border-rose-200 text-rose-800"
                 }`}
               >
                 <div className="font-bold flex items-center gap-1.5">
-                  {dispatchResult.success ? (
+                  {dispatchResult.success && (!dispatchResult.failedCount || dispatchResult.failedCount === 0) ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  ) : dispatchResult.success && ((dispatchResult.succeededCount || dispatchResult.successCount || 0) > 0) ? (
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
                   ) : (
                     <AlertCircle className="w-4 h-4 text-rose-600" />
                   )}
-                  {dispatchResult.success ? "Dispatch Initiated Successfully" : "Dispatch Failed"}
+                  {dispatchResult.success
+                    ? (!dispatchResult.failedCount || dispatchResult.failedCount === 0)
+                      ? "Dispatch Initiated Successfully"
+                      : "Dispatch Completed with Partial Warnings"
+                    : "Dispatch Failed"}
                 </div>
                 <div className="mt-1">
                   {dispatchResult.message ||
-                    `Processed ${dispatchResult.processedCount || 0} clients (${dispatchResult.successCount || 0} succeeded, ${dispatchResult.failedCount || 0} failed).`}
+                    `Processed ${dispatchResult.processedCount || 0} clients (${dispatchResult.succeededCount ?? dispatchResult.successCount ?? 0} succeeded, ${dispatchResult.failedCount || 0} failed).`}
                 </div>
+                {/* Subtle banner when in simulation mode */}
+                {(dispatchResult.isSimulated ||
+                  dispatchResult.results?.some((r: any) => r.details?.includes("Simulation Mode"))) && (
+                  <div className="mt-2.5 pt-2 border-t border-emerald-200/80 text-[11px] font-medium text-emerald-700 flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                    Telephony call queued (Carrier in Simulation Mode - set TWILIO credentials in .env to place live GSM calls)
+                  </div>
+                )}
               </div>
             )}
 

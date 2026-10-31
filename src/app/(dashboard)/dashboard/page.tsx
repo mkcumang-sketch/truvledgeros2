@@ -28,6 +28,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { ShimmerButton } from "@/components/ui/ShimmerButton";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -181,16 +183,16 @@ export default async function DashboardPage() {
 
         <div className="flex items-center gap-2.5">
           <Link href="/clients?action=new">
-            <Button variant="primary" size="md">
+            <ShimmerButton variant="primary" size="md">
               <Plus className="w-4 h-4 mr-1" />
               Onboard Client
-            </Button>
+            </ShimmerButton>
           </Link>
           <Link href="/invoices/new">
-            <Button variant="secondary" size="md">
+            <ShimmerButton variant="secondary" size="md">
               <FileText className="w-4 h-4 mr-1" />
               Issue Invoice
-            </Button>
+            </ShimmerButton>
           </Link>
         </div>
       </div>
@@ -232,7 +234,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Attention Required / Practice Health Radar */}
-      <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 sm:p-5 shadow-xs">
+      <GlassCard className="border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-glass-card">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#F1F5F9]">
           <div className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${attentionTotal > 0 ? "bg-amber-50 text-amber-600 border border-amber-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}>
@@ -355,7 +357,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
         </div>
-      </div>
+      </GlassCard>
 
       {/* AI Omnichannel Document Triage Feed */}
       <AiDocumentTriageFeed items={serializeForClient(triagedDocuments) as any} />

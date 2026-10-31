@@ -10,7 +10,7 @@ import {
   EventStatus,
 } from "@prisma/client";
 import { initiateOutboundVoiceCall } from "@/lib/server/voice/calling-agent";
-import { sendEmail } from "@/lib/server/email/email-service";
+import { sendEmail, EmailDeliveryResult } from "@/lib/server/email/email-service";
 import { generateGeminiContent } from "@/lib/server/ai/gemini-client";
 import { serializeForClient } from "@/lib/serialization";
 
@@ -267,6 +267,10 @@ export async function executeManualOmnichannelDispatchAction(payload: Omnichanne
       revalidatePath("/automations");
       revalidatePath("/dashboard");
 
+      const isSimulated =
+        voiceCallResult.provider === "SIMULATED_VOICE_AGENT" ||
+        voiceCallResult.status === "DISPATCHED_SIMULATED";
+
       return {
         success: true,
         data: serializeForClient({
@@ -277,7 +281,10 @@ export async function executeManualOmnichannelDispatchAction(payload: Omnichanne
           recipient: recipientPhone,
           transcript: voiceCallResult.transcript,
           communicationId: communicationRecord?.id || voiceCallResult.communicationId,
-          message: `Sarvam AI outbound voice call dispatched to ${recipientPhone}.`,
+          isSimulated,
+          message: isSimulated
+            ? "Telephony call queued (Carrier in Simulation Mode - set TWILIO credentials in .env to place live GSM calls)"
+            : `Outbound voice call dispatched to ${recipientPhone} via ${voiceCallResult.provider}.`,
         }),
       };
     }
@@ -303,6 +310,8 @@ export async function executeManualOmnichannelDispatchAction(payload: Omnichanne
           invoiceId: payload.invoiceId || null,
           channel: CommunicationChannel.WHATSAPP,
           direction: CommunicationDirection.OUTBOUND,
+          purpose: payload.invoiceId ? "RECOVERY" : "COMPLIANCE_ADVISORY",
+          category: "MANUAL_DISPATCH",
           status: CommunicationStatus.DELIVERED,
           recipient: formattedPhone,
           subject: payload.subject || "CA Practice WhatsApp Advisory",
@@ -343,14 +352,26 @@ export async function executeManualOmnichannelDispatchAction(payload: Omnichanne
         payload.customMessage?.trim() ||
         `<p>Dear ${client.name},</p><p>This is an automated communication from your Chartered Accountant practice regarding your ongoing statutory filings and accounts reconciliation.</p><p>Please review and revert back to our audit team if any clarification is needed.</p><p>Warm regards,<br/><strong>CA Practice Partner</strong></p>`;
 
-      const deliveryRes = await sendEmail({
-        to: recipientEmail,
-        subject: emailSubject,
-        html: emailBody,
-        text: emailBody.replace(/<[^>]+>/g, ""),
-        tenantId,
-        category: "NOTIFICATION",
-      });
+      let deliveryRes: EmailDeliveryResult;
+      try {
+        deliveryRes = await sendEmail({
+          to: recipientEmail,
+          subject: emailSubject,
+          html: emailBody,
+          text: emailBody.replace(/<[^>]+>/g, ""),
+          tenantId,
+          category: "NOTIFICATION",
+        });
+      } catch (err: any) {
+        deliveryRes = {
+          success: false,
+          status: "FAILED",
+          error: err.message,
+        };
+      }
+
+      const isDelivered = deliveryRes.success && (deliveryRes.delivered || deliveryRes.status === "SENT" || deliveryRes.status === "DELIVERED");
+      const externalMsgId = deliveryRes.messageId || `EMAIL_${Date.now()}`;
 
       const commRecord = await db.communication.create({
         data: {
@@ -359,12 +380,19 @@ export async function executeManualOmnichannelDispatchAction(payload: Omnichanne
           invoiceId: payload.invoiceId || null,
           channel: CommunicationChannel.EMAIL,
           direction: CommunicationDirection.OUTBOUND,
-          status: deliveryRes.success ? CommunicationStatus.SENT : CommunicationStatus.FAILED,
+          purpose: payload.invoiceId ? "RECOVERY" : "COMPLIANCE_ADVISORY",
+          category: "MANUAL_DISPATCH",
+          status: isDelivered ? CommunicationStatus.DELIVERED : CommunicationStatus.FAILED,
           recipient: recipientEmail,
           subject: emailSubject,
           content: emailBody,
           sentiment: payload.sentiment || "COOPERATIVE",
-          externalRef: deliveryRes.messageId || `EMAIL_${Date.now()}`,
+          externalRef: externalMsgId,
+          metadata: {
+            provider: deliveryRes.provider,
+            messageId: externalMsgId,
+            error: deliveryRes.error,
+          },
           dispatchedAt: new Date(),
         },
       });
@@ -372,14 +400,21 @@ export async function executeManualOmnichannelDispatchAction(payload: Omnichanne
       revalidatePath("/automations");
       revalidatePath("/dashboard");
 
+      if (!isDelivered) {
+        return {
+          success: false,
+          error: deliveryRes.error || "Email delivery failed",
+        };
+      }
+
       return {
         success: true,
         data: serializeForClient({
           channel: "EMAIL",
           communicationId: commRecord.id,
           recipient: recipientEmail,
-          status: deliveryRes.status,
-          message: `Email advisory dispatched to ${recipientEmail}.`,
+          status: "DELIVERED",
+          message: `Email advisory dispatched to ${recipientEmail} (${deliveryRes.provider || "mail"}: ${externalMsgId}).`,
         }),
       };
     }

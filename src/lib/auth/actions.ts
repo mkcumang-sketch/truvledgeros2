@@ -57,7 +57,13 @@ export async function loginAction(formData: FormData) {
   }
 
   // 2. Cloudflare Turnstile Captcha: Verify before DB credentials check
-  if (captchaToken) {
+  // Development-safe bypass: only enforce verification if captcha token is provided and in production or test/staging with secret
+  const isProduction = process.env.NODE_ENV === "production";
+  const hasTurnstileSecret = Boolean(
+    process.env.TURNSTILE_SECRET_KEY || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY
+  );
+
+  if (captchaToken && (isProduction || hasTurnstileSecret)) {
     const captchaResult = await verifyTurnstileToken(captchaToken);
     if (!captchaResult.success) {
       return {

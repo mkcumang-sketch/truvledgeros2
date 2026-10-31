@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { dispatchSarvamVoiceAgentCall } from "@/lib/server/voice/sarvam-telephony";
+import { initiateOutboundVoiceCall } from "@/lib/server/voice/calling-agent";
 import { sendEmail, getAppBaseUrl } from "@/lib/server/email/email-service";
 import {
   CommunicationChannel,
   CommunicationDirection,
+  CommunicationStatus,
   InvoiceStatus,
   Role,
 } from "@prisma/client";
@@ -265,37 +266,88 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        let serviceDesc = customNote || "Quarterly CA Retainer & Tax Compliance";
-        if (workflowReason === "GST_DEADLINE") {
-          serviceDesc = customNote || "Statutory GST Return Filing Authorization";
-        } else if (workflowReason === "DOCUMENT_COLLECTION") {
-          serviceDesc = customNote || "Statutory Audit Bank Statement & Bill Submissions";
+        try {
+          // Normalize and validate Indian standard E.164 phone formatting (+91)
+          let cleanPhone = clientPhone.replace(/\D/g, "");
+          if (cleanPhone.length === 10) {
+            cleanPhone = `91${cleanPhone}`;
+          } else if (cleanPhone.length > 10 && !cleanPhone.startsWith("91")) {
+            cleanPhone = `91${cleanPhone.slice(-10)}`;
+          }
+          const formattedPhone = `+${cleanPhone}`;
+
+          if (cleanPhone.length < 10) {
+            results.push({
+              clientId: client.id,
+              clientName,
+              phone: clientPhone,
+              email: clientEmail,
+              channel: "VOICE",
+              status: "SKIPPED",
+              details: "Invalid telephone number (must be at least 10 digits).",
+            });
+            continue;
+          }
+
+          let serviceDesc = customNote || "Quarterly CA Retainer & Tax Compliance";
+          if (workflowReason === "GST_DEADLINE") {
+            serviceDesc = customNote || "Statutory GST Return Filing Authorization";
+          } else if (workflowReason === "DOCUMENT_COLLECTION") {
+            serviceDesc = customNote || "Statutory Audit Bank Statement & Bill Submissions";
+          }
+
+          const callReason =
+            workflowReason === "PAYMENT_RECOVERY"
+              ? "PAYMENT_RECOVERY"
+              : workflowReason === "DOCUMENT_COLLECTION"
+              ? "DOCUMENT_COLLECTION"
+              : "GST_DEADLINE";
+
+          const voiceRes = await initiateOutboundVoiceCall({
+            tenantId,
+            clientId: client.id,
+            recipientPhone: formattedPhone,
+            clientName,
+            reason: callReason,
+            invoiceId: invoice?.id || undefined,
+            invoiceNumber: invNumber,
+            amount: amountDue,
+            dueDate: dueDate.toISOString().slice(0, 10),
+            documentTitle: serviceDesc,
+            languagePreference: "HINGLISH",
+          });
+
+          const isSuccess = voiceRes.success && (
+            voiceRes.status === "INITIATED" ||
+            voiceRes.status === "DIALING" ||
+            voiceRes.status === "DISPATCHED_SIMULATED" ||
+            voiceRes.status === "COMPLETED"
+          );
+
+          results.push({
+            clientId: client.id,
+            clientName,
+            phone: formattedPhone,
+            email: clientEmail,
+            channel: "VOICE",
+            status: isSuccess ? "DELIVERED" : "FAILED",
+            details: voiceRes.provider === "SIMULATED_VOICE_AGENT" || voiceRes.status === "DISPATCHED_SIMULATED"
+              ? "Telephony call queued (Carrier in Simulation Mode - set TWILIO credentials in .env to place live GSM calls)"
+              : `Outbound voice call ${voiceRes.status.toLowerCase()} via ${voiceRes.provider}.`,
+            reference: voiceRes.callSid,
+          });
+        } catch (voiceErr: any) {
+          console.error(`[MANUAL-DISPATCH-VOICE-ERROR] Client ${client.id}:`, voiceErr.message);
+          results.push({
+            clientId: client.id,
+            clientName,
+            phone: clientPhone,
+            email: clientEmail,
+            channel: "VOICE",
+            status: "FAILED",
+            details: `Telephony error: ${voiceErr.message}`,
+          });
         }
-
-        const voiceRes = await dispatchSarvamVoiceAgentCall({
-          phone: clientPhone,
-          clientName,
-          amount: amountDue,
-          invoiceNumber: invNumber,
-          dueDate,
-          serviceDescription: serviceDesc,
-          handlingPartnerName: partnerName,
-          caFirmName: firmName,
-          tenantId,
-          clientId: client.id,
-          invoiceId: invoice?.id || null,
-        });
-
-        results.push({
-          clientId: client.id,
-          clientName,
-          phone: clientPhone,
-          email: clientEmail,
-          channel: "VOICE",
-          status: voiceRes.success ? "INITIATED" : "FAILED",
-          details: voiceRes.diagnostics || voiceRes.error || "Sarvam voice dispatch triggered.",
-          reference: voiceRes.callSid,
-        });
       }
 
       // Branch B: Direct Email Dispatch
@@ -364,7 +416,7 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          await sendEmail({
+          const delivery = await sendEmail({
             to: clientEmail,
             subject,
             html: emailHtml,
@@ -373,6 +425,73 @@ export async function POST(req: NextRequest) {
             category: "NOTIFICATION",
           });
 
+          if (!delivery.success || delivery.status === "FAILED") {
+            const errorMsg = delivery.error || "Email delivery failed at gateway";
+            const comm = await db.communication.create({
+              data: {
+                tenantId,
+                clientId: client.id,
+                invoiceId: invoice?.id || null,
+                channel: CommunicationChannel.EMAIL,
+                direction: CommunicationDirection.OUTBOUND,
+                purpose: workflowReason,
+                category: "MANUAL_DISPATCH",
+                recipient: clientEmail,
+                subject,
+                content: emailHtml,
+                status: CommunicationStatus.FAILED,
+                metadata: { error: errorMsg, provider: delivery.provider },
+                externalRef: delivery.messageId || `failed_email_${Date.now()}`,
+              },
+            });
+
+            results.push({
+              clientId: client.id,
+              clientName,
+              phone: clientPhone,
+              email: clientEmail,
+              channel: "EMAIL",
+              status: "FAILED",
+              details: `Email delivery failed: ${errorMsg}`,
+              reference: comm.id,
+            });
+          } else {
+            const externalMsgId = delivery.messageId || `manual_email_${Date.now()}_${client.id.slice(-4)}`;
+            const comm = await db.communication.create({
+              data: {
+                tenantId,
+                clientId: client.id,
+                invoiceId: invoice?.id || null,
+                channel: CommunicationChannel.EMAIL,
+                direction: CommunicationDirection.OUTBOUND,
+                purpose: workflowReason,
+                category: "MANUAL_DISPATCH",
+                recipient: clientEmail,
+                subject,
+                content: emailHtml,
+                status: CommunicationStatus.DELIVERED,
+                metadata: {
+                  provider: delivery.provider,
+                  messageId: externalMsgId,
+                  outcome: delivery.deliveryOutcome,
+                },
+                externalRef: externalMsgId,
+              },
+            });
+
+            results.push({
+              clientId: client.id,
+              clientName,
+              phone: clientPhone,
+              email: clientEmail,
+              channel: "EMAIL",
+              status: "DELIVERED",
+              details: `Email dispatched successfully to ${clientEmail} (${delivery.provider || "mail"}: ${externalMsgId}).`,
+              reference: comm.id,
+            });
+          }
+        } catch (emailErr: any) {
+          console.error(`[MANUAL-DISPATCH-EMAIL-ERROR] Client ${client.id}:`, emailErr.message);
           const comm = await db.communication.create({
             data: {
               tenantId,
@@ -385,22 +504,12 @@ export async function POST(req: NextRequest) {
               recipient: clientEmail,
               subject,
               content: emailHtml,
-              status: "DELIVERED",
-              externalRef: `manual_email_${Date.now()}_${client.id.slice(-4)}`,
+              status: CommunicationStatus.FAILED,
+              metadata: { error: emailErr.message },
+              externalRef: `error_email_${Date.now()}`,
             },
-          });
+          }).catch(() => null);
 
-          results.push({
-            clientId: client.id,
-            clientName,
-            phone: clientPhone,
-            email: clientEmail,
-            channel: "EMAIL",
-            status: "DELIVERED",
-            details: `Email dispatched successfully to ${clientEmail}.`,
-            reference: comm.id,
-          });
-        } catch (emailErr: any) {
           results.push({
             clientId: client.id,
             clientName,
@@ -409,6 +518,7 @@ export async function POST(req: NextRequest) {
             channel: "EMAIL",
             status: "FAILED",
             details: `Email error: ${emailErr.message}`,
+            reference: comm?.id,
           });
         }
       }
@@ -485,8 +595,9 @@ export async function POST(req: NextRequest) {
       revalidatePath("/automations");
     } catch {}
 
-    const successCount = results.filter((r) => r.status === "DELIVERED" || r.status === "INITIATED").length;
+    const succeededCount = results.filter((r) => r.status === "DELIVERED" || r.status === "INITIATED").length;
     const failedCount = results.filter((r) => r.status === "FAILED").length;
+    const hasSimulation = results.some((r) => r.details?.includes("Simulation Mode"));
 
     return NextResponse.json({
       success: true,
@@ -494,8 +605,10 @@ export async function POST(req: NextRequest) {
       channel,
       workflowReason,
       processedCount: results.length,
-      successCount,
+      succeededCount,
+      successCount: succeededCount,
       failedCount,
+      isSimulated: hasSimulation,
       results,
     });
   } catch (err: any) {

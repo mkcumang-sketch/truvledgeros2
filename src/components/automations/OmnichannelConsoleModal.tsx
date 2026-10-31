@@ -167,7 +167,15 @@ export function OmnichannelConsoleModal({
         });
 
         if (res.success && res.data) {
-          toast.success(res.data.message || "Dispatch initiated successfully!");
+          const isSim = (res.data as any).isSimulated || (res.data as any).status === "DISPATCHED_SIMULATED";
+          if (channel === "VOICE" && isSim) {
+            toast.info(
+              "Telephony call queued (Carrier in Simulation Mode - set TWILIO credentials in .env to place live GSM calls)",
+              { duration: 5000 }
+            );
+          } else {
+            toast.success(res.data.message || "Dispatch initiated successfully!");
+          }
           
           if (channel === "WHATSAPP" && (res.data as any).waDirectUrl) {
             window.open((res.data as any).waDirectUrl, "_blank", "noopener,noreferrer");

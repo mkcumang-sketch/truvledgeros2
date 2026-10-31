@@ -108,20 +108,31 @@ export function wrapEmailTemplate(contentHtml: string, title: string): string {
 export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryResult> {
   const smtpUser = process.env.SMTP_USER?.trim();
   const smtpPass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
-  const fromEmail = process.env.EMAIL_FROM?.trim() || (smtpUser ? `TRUV LedgerOS <${smtpUser}>` : "TRUV LedgerOS <onboarding@resend.dev>");
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
 
   // 1. Primary: Direct Gmail SMTP via Nodemailer
   if (smtpUser && smtpPass) {
     try {
+      const smtpHost = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
+      const smtpPort = Number(process.env.SMTP_PORT) || 465;
+      const isSecure = smtpPort === 465;
+
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || "smtp.gmail.com",
-        port: Number(process.env.SMTP_PORT) || 465,
-        secure: (process.env.SMTP_PORT || "465") === "465",
+        host: smtpHost,
+        port: smtpPort,
+        secure: isSecure,
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
       });
+
+      // Verify transporter credentials before dispatching if verify method exists
+      if (typeof transporter.verify === "function") {
+        await transporter.verify();
+      }
+
+      const fromEmail = process.env.EMAIL_FROM?.trim() || `TRUV LedgerOS <${smtpUser}>`;
 
       const info = await transporter.sendMail({
         from: fromEmail,
@@ -132,27 +143,55 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
         attachments: params.attachments,
       });
 
-      console.log(">>> [SMTP-DISPATCH] Sent email to:", params.to);
+      const messageId = info?.messageId || `smtp_${Date.now()}`;
+      console.log(`[EMAIL-SERVICE] Dispatched to ${params.to} (Message ID: ${messageId}) via SMTP`);
 
       return {
         success: true,
         delivered: true,
         status: "SENT",
         deliveryOutcome: "DELIVERED_TO_RECIPIENT",
-        messageId: info.messageId,
+        messageId,
         provider: "smtp",
         detail: "Confirmed dispatched via direct Gmail SMTP.",
       };
     } catch (smtpErr: any) {
       console.error("[SMTP-DELIVERY-ERROR]", smtpErr?.message || smtpErr);
-      // Fall through to Resend / Standby fallback below
+      // If Resend is not configured, fall through to standby or throw
+      if (!resendApiKey) {
+        console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (SMTP error and no Resend configured)`);
+        return {
+          success: true,
+          delivered: false,
+          status: "STANDBY_MODE",
+          deliveryOutcome: "SIMULATED_STANDBY",
+          messageId: `standby_${Date.now()}`,
+          provider: "standby",
+          detail: `SMTP failure (${smtpErr.message}); logged to standby audit.`,
+        };
+      }
+      console.log("[EMAIL-SERVICE] Falling back from SMTP to Resend API gateway...");
     }
   }
 
-  // 2. Fallback: Resend API
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  // 2. Fallback: Resend API Gateway
   if (resendApiKey) {
     try {
+      // Enforce fallback sender: If no verified custom domain is configured, default to "TRUV Advisory <onboarding@resend.dev>"
+      let resendFrom = "TRUV Advisory <onboarding@resend.dev>";
+      const configuredFrom = process.env.EMAIL_FROM?.trim();
+
+      // If user configured a custom domain sender that is NOT a freemail domain (@gmail, @yahoo, etc.), use it
+      if (
+        configuredFrom &&
+        !configuredFrom.includes("@gmail.com") &&
+        !configuredFrom.includes("@yahoo.com") &&
+        !configuredFrom.includes("@outlook.com") &&
+        !configuredFrom.includes("@hotmail.com")
+      ) {
+        resendFrom = configuredFrom;
+      }
+
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -160,7 +199,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: fromEmail,
+          from: resendFrom,
           to: [params.to],
           subject: params.subject,
           html: params.html,
@@ -168,44 +207,40 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
         }),
       });
 
-      const data = await response.json();
+      const rawResponseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawResponseText);
+      } catch {
+        data = { raw: rawResponseText };
+      }
 
       if (!response.ok) {
-        console.error("[RESEND-API-ERROR]", data);
-        return {
-          success: false,
-          delivered: false,
-          status: "FAILED",
-          deliveryOutcome: "DELIVERY_FAILED",
-          provider: "resend",
-          error: data.message || `Resend responded with HTTP ${response.status}`,
-        };
+        const errorDetail = data.message || data.error || rawResponseText;
+        console.error(`[RESEND-API-ERROR] HTTP ${response.status}:`, errorDetail);
+        throw new Error(`Resend API Error (HTTP ${response.status}): ${errorDetail}`);
       }
+
+      const messageId = data.id || `resend_${Date.now()}`;
+      console.log(`[EMAIL-SERVICE] Dispatched to ${params.to} (Message ID: ${messageId}) via Resend`);
 
       return {
         success: true,
         delivered: true,
         status: "SENT",
         deliveryOutcome: "DELIVERED_TO_RECIPIENT",
-        messageId: data.id,
+        messageId,
         provider: "resend",
         detail: "Confirmed dispatched to Resend mail gateway.",
       };
     } catch (err: any) {
-      console.error("[RESEND-SEND-EXCEPTION]", err);
-      return {
-        success: false,
-        delivered: false,
-        status: "FAILED",
-        deliveryOutcome: "DELIVERY_FAILED",
-        provider: "resend",
-        error: err.message || "Failed to transmit email through Resend provider",
-      };
+      console.error("[RESEND-SEND-EXCEPTION]", err.message || err);
+      throw err;
     }
   }
 
   // 3. Fallback: Standby Mode (Neither SMTP nor Resend configured)
-  console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (RESEND_API_KEY unconfigured; standby recorded)`);
+  console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (No live email credentials; recorded in standby)`);
   return {
     success: true,
     delivered: false,

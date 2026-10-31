@@ -123,6 +123,23 @@ const config: Config = {
           strong: "#334155", // Card borders, input strokes
           focused: "#6366f1",// Active focus ring & focused input outline
         },
+        // Magical Frosted Glass Tokens
+        glass: {
+          canvas: "rgba(9, 13, 22, 0.75)",
+          base: "rgba(15, 23, 42, 0.65)",
+          raised: "rgba(30, 41, 59, 0.70)",
+          hover: "rgba(51, 65, 85, 0.45)",
+          border: "rgba(255, 255, 255, 0.08)",
+          borderStrong: "rgba(255, 255, 255, 0.16)",
+        },
+      },
+      backdropBlur: {
+        xs: "2px",
+        sm: "4px",
+        md: "8px",
+        lg: "12px",
+        xl: "16px",
+        "2xl": "24px",
       },
       fontFamily: {
         sans: [
@@ -148,11 +165,25 @@ const config: Config = {
         ],
       },
       boxShadow: {
+        "glass-sm": "0 4px 6px -1px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+        "glass-card": "0 10px 25px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+        "glass-glow": "0 0 30px -5px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
+        "status-emerald": "0 0 14px -2px rgba(16, 185, 129, 0.45)",
+        "status-rose": "0 0 14px -2px rgba(239, 68, 68, 0.45)",
         raised: "0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3)",
         overlay: "0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5)",
         card: "0 1px 3px 0 rgba(23, 26, 25, 0.05), 0 1px 2px -1px rgba(23, 26, 25, 0.05)",
         "card-hover": "0 4px 6px -1px rgba(23, 26, 25, 0.08), 0 2px 4px -2px rgba(23, 26, 25, 0.05)",
         popover: "0 10px 15px -3px rgba(23, 26, 25, 0.08), 0 4px 6px -4px rgba(23, 26, 25, 0.04)",
+      },
+      keyframes: {
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+      },
+      animation: {
+        shimmer: "shimmer 1.5s infinite linear",
       },
     },
   },

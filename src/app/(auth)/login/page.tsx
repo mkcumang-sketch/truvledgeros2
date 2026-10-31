@@ -11,7 +11,9 @@ import { Turnstile } from "@marsidev/react-turnstile";
 import { TruvLogo } from "@/components/brand/truv-logo";
 
 const TURNSTILE_SITE_KEY =
-  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
+  process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY ||
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+  "";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -26,8 +28,20 @@ function LoginForm() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
+  // Development-safe bypass:
+  // If NODE_ENV !== "production" or NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY / NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  // is missing or dummy test key, bypass Turnstile enforcement so login is never blocked.
+  const isProduction = process.env.NODE_ENV === "production";
+  const configuredSiteKey =
+    process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY ||
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const hasValidTurnstileKey =
+    Boolean(configuredSiteKey) && configuredSiteKey !== "1x00000000000000000000AA";
+
+  const isTurnstileEnforced = isProduction && hasValidTurnstileKey;
   const requireTurnstile =
-    failedAttempts >= 2 || process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true";
+    isTurnstileEnforced &&
+    (failedAttempts >= 2 || process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true");
 
   useEffect(() => {
     if (urlError === "SESSION_EXPIRED") {
@@ -204,7 +218,7 @@ function LoginForm() {
         </div>
 
         {/* Cloudflare Turnstile Captcha Widget */}
-        {requireTurnstile && (
+        {requireTurnstile && Boolean(TURNSTILE_SITE_KEY) && (
           <div className="pt-2 pb-1 flex justify-center">
             <Turnstile
               siteKey={TURNSTILE_SITE_KEY}

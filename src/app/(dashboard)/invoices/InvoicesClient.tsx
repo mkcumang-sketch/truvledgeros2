@@ -19,6 +19,9 @@ import {
   FileDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { StatusBadge } from "@/components/ui/StatusBadges";
+import { ShimmerButton } from "@/components/ui/ShimmerButton";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -154,7 +157,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
           </p>
         </div>
 
-        <Button
+        <ShimmerButton
           variant="primary"
           size="md"
           onClick={() => {
@@ -164,7 +167,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
         >
           <Plus className="w-4 h-4 mr-1" />
           Issue Fee Invoice
-        </Button>
+        </ShimmerButton>
       </div>
 
       {/* Metrics */}
@@ -202,7 +205,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
       </div>
 
       {/* Directory Card */}
-      <Card>
+      <GlassCard className="border border-white/[0.08] shadow-glass-card">
         <div className="p-3.5 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-graphite-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -278,22 +281,11 @@ export function InvoicesClient({ invoices, clients }: Props) {
                     <td className="px-4 py-4 text-xs text-graphite-600 font-mono">
                       {new Date(inv.dueDate).toLocaleDateString("en-IN")}
                     </td>
-                    <td className="px-4 py-4 text-right font-semibold text-graphite-900 text-xs">
+                    <td className="px-4 py-4 text-right font-mono font-semibold text-emerald-600 text-xs tabular-nums">
                       {formatINR(Number(inv.totalAmount))}
                     </td>
                     <td className="px-4 py-4 text-center">
-                      <Badge
-                        variant={
-                          inv.status === "PAID"
-                            ? "success"
-                            : inv.status === "OVERDUE"
-                            ? "danger"
-                            : "warning"
-                        }
-                        size="sm"
-                      >
-                        {inv.status}
-                      </Badge>
+                      <StatusBadge status={inv.status} />
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
@@ -320,7 +312,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
             </table>
           </div>
         )}
-      </Card>
+      </GlassCard>
 
       {/* Create Invoice Modal */}
       <Modal
@@ -428,21 +420,21 @@ export function InvoicesClient({ invoices, clients }: Props) {
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#EBE9E1]">
-            <Button
+            <ShimmerButton
               type="button"
               variant="secondary"
               onClick={() => setIsModalOpen(false)}
               disabled={isPending}
             >
               Cancel
-            </Button>
-            <Button
+            </ShimmerButton>
+            <ShimmerButton
               type="submit"
               variant="primary"
               isLoading={isPending}
             >
               Issue Invoice
-            </Button>
+            </ShimmerButton>
           </div>
         </form>
       </Modal>
