@@ -439,12 +439,12 @@ export function ClientsDirectoryClient({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
           {/* Status Tabs */}
-          <div className="flex items-center p-0.5 bg-[#FAF9F5] border border-[#E2E0D8] rounded-lg text-xs">
+          <div className="flex items-center p-1 bg-[#FAF9F5] border border-[#E2E0D8] rounded-xl text-xs min-h-[44px]">
             <button
               onClick={() => setStatusFilter("ACTIVE")}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+              className={`px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer min-h-[36px] ${
                 statusFilter === "ACTIVE"
                   ? "bg-white text-graphite-900 shadow-2xs font-semibold"
                   : "text-graphite-500 hover:text-graphite-800"
@@ -454,7 +454,7 @@ export function ClientsDirectoryClient({
             </button>
             <button
               onClick={() => setStatusFilter("ARCHIVED")}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+              className={`px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer min-h-[36px] ${
                 statusFilter === "ARCHIVED"
                   ? "bg-white text-graphite-900 shadow-2xs font-semibold"
                   : "text-graphite-500 hover:text-graphite-800"
@@ -468,7 +468,7 @@ export function ClientsDirectoryClient({
             variant="secondary"
             size="md"
             onClick={() => setIsImportModalOpen(true)}
-            className="flex-shrink-0"
+            className="w-full sm:w-auto flex-1 sm:flex-none"
           >
             <Upload className="w-4 h-4 mr-1.5" />
             Import Clients
@@ -481,7 +481,7 @@ export function ClientsDirectoryClient({
               resetForm();
               setIsAddModalOpen(true);
             }}
-            className="flex-shrink-0"
+            className="w-full sm:w-auto flex-1 sm:flex-none"
           >
             <Plus className="w-4 h-4 mr-1" />
             Add New Client

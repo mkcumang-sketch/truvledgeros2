@@ -235,12 +235,12 @@ export function OmnichannelConsoleModal({
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
               1. Choose Dispatch Channel
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               {/* WhatsApp */}
               <button
                 type="button"
                 onClick={() => setChannel("WHATSAPP")}
-                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all min-h-[44px] active:scale-[0.98] ${
                   channel === "WHATSAPP"
                     ? "bg-emerald-50/80 border-emerald-500 text-emerald-950 shadow-2xs font-medium"
                     : "bg-white border-[#E5E7EB] text-slate-600 hover:border-slate-300 hover:bg-[#FAF9F5]"
@@ -265,7 +265,7 @@ export function OmnichannelConsoleModal({
               <button
                 type="button"
                 onClick={() => setChannel("VOICE")}
-                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all min-h-[44px] active:scale-[0.98] ${
                   channel === "VOICE"
                     ? "bg-[#FFF4EE] border-[#F26B38] text-[#9A3412] shadow-2xs font-medium"
                     : "bg-white border-[#E5E7EB] text-slate-600 hover:border-slate-300 hover:bg-[#FAF9F5]"
@@ -290,7 +290,7 @@ export function OmnichannelConsoleModal({
               <button
                 type="button"
                 onClick={() => setChannel("EMAIL")}
-                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all min-h-[44px] active:scale-[0.98] ${
                   channel === "EMAIL"
                     ? "bg-sky-50 border-sky-500 text-sky-950 shadow-2xs font-medium"
                     : "bg-white border-[#E5E7EB] text-slate-600 hover:border-slate-300 hover:bg-[#FAF9F5]"
@@ -485,20 +485,20 @@ export function OmnichannelConsoleModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-[#E5E7EB] bg-[#FAF9F5] flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-[#E5E7EB] bg-[#FAF9F5] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white sm:bg-transparent border sm:border-transparent border-[#E5E7EB] rounded-xl transition-colors cursor-pointer active:scale-[0.98]"
           >
             Cancel
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={handleDispatch}
               disabled={isDispatching || !selectedClientId}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#F26B38] hover:bg-[#D95524] text-white font-bold text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer active:scale-[0.98]"
             >
               {isDispatching ? (
                 <>

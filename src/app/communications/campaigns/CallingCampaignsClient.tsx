@@ -1581,12 +1581,16 @@ export function CallingCampaignsClient({
 
       {/* Reschedule Call Modal */}
       {rescheduleCallItem && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#E5E4DE] shadow-xl w-full max-w-md p-5 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl border border-[#E5E4DE] shadow-xl w-full max-w-md p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E5E4DE] pb-3">
               <h3 className="text-sm font-bold text-[#0C0E12]">Reschedule Client Call</h3>
-              <button onClick={() => setRescheduleCallItem(null)} className="text-[#718096]">
-                <XCircle className="w-4 h-4" />
+              <button
+                onClick={() => setRescheduleCallItem(null)}
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#718096] hover:text-[#0C0E12]"
+                aria-label="Close dialog"
+              >
+                <XCircle className="w-5 h-5" />
               </button>
             </div>
 
@@ -1594,14 +1598,14 @@ export function CallingCampaignsClient({
               Client: <span className="font-semibold text-[#0C0E12]">{rescheduleCallItem.client?.name}</span> ({rescheduleCallItem.client?.phone})
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-semibold text-[#718096] block mb-1">New Date</label>
                 <input
                   type="date"
                   value={rescheduleDateStr}
                   onChange={(e) => setRescheduleDateStr(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#E5E4DE]"
+                  className="w-full px-3 py-2 min-h-[44px] text-xs rounded-xl border border-[#E5E4DE]"
                 />
               </div>
               <div>
@@ -1610,22 +1614,22 @@ export function CallingCampaignsClient({
                   type="time"
                   value={rescheduleTimeStr}
                   onChange={(e) => setRescheduleTimeStr(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#E5E4DE]"
+                  className="w-full px-3 py-2 min-h-[44px] text-xs rounded-xl border border-[#E5E4DE]"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               <button
                 onClick={() => setRescheduleCallItem(null)}
-                className="px-3 py-1.5 text-xs font-semibold text-[#718096] hover:bg-slate-100 rounded-lg"
+                className="w-full sm:w-auto min-h-[44px] flex items-center justify-center px-4 py-2.5 text-xs font-semibold text-[#718096] hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 disabled={isRescheduling}
                 onClick={handleExecuteReschedule}
-                className="px-4 py-1.5 text-xs font-bold bg-[#F26B38] text-white rounded-lg shadow-sm"
+                className="w-full sm:w-auto min-h-[44px] flex items-center justify-center px-5 py-2.5 text-xs font-bold bg-[#F26B38] hover:bg-[#D95524] text-white rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer active:scale-[0.98]"
               >
                 {isRescheduling ? "Saving..." : "Save Reschedule"}
               </button>

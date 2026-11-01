@@ -51,11 +51,11 @@ export function Modal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-graphite-900/40 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-graphite-900/50 backdrop-blur-xs transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -63,12 +63,12 @@ export function Modal({
       {/* Modal Dialog Body */}
       <div
         className={cn(
-          "relative w-full bg-white rounded-2xl shadow-popover border border-[#E8ECE8] z-10 max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none",
+          "relative w-full bg-white rounded-2xl shadow-popover border border-[#E8ECE8] z-10 max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none",
           maxWidthStyles[maxWidth]
         )}
       >
         {/* Header */}
-        <div className="px-6 py-4.5 border-b border-[#E8ECE8] flex items-center justify-between flex-shrink-0">
+        <div className="px-5 sm:px-6 py-4 border-b border-[#E8ECE8] flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-base font-bold text-graphite-900 leading-tight">
               {title}
@@ -79,7 +79,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-graphite-400 hover:text-graphite-700 hover:bg-[#FAFAF7] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-graphite-400 hover:text-graphite-700 hover:bg-[#FAFAF7] transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F26B38]"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" />
@@ -87,7 +87,7 @@ export function Modal({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1">{children}</div>
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">{children}</div>
       </div>
     </div>
   );

@@ -303,7 +303,7 @@ export function AutomationsClient({
       {/* Top Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap w-full lg:w-auto">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF4EE] text-[#F26B38] border border-[#F26B38]/30 shrink-0">
               <Cpu className="h-5 w-5" />
             </span>
@@ -325,10 +325,10 @@ export function AutomationsClient({
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap w-full lg:w-auto">
           <button
             onClick={() => handleOpenConsole("Manual Dispatch")}
-            className="flex items-center gap-2 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white px-4 py-2 text-xs font-bold shadow-2xs transition-colors active:scale-[0.98] cursor-pointer"
+            className="flex items-center gap-2 rounded-lg bg-[#F26B38] hover:bg-[#D95524] text-white px-4 py-2.5 min-h-[44px] text-xs font-bold shadow-2xs transition-colors active:scale-[0.98] cursor-pointer"
           >
             <Send className="h-3.5 w-3.5" />
             Omnichannel Console
@@ -337,7 +337,7 @@ export function AutomationsClient({
           <button
             onClick={handleTriggerVoiceCall}
             disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2 text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
+            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2.5 min-h-[44px] text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
           >
             <PhoneCall className={`h-3.5 w-3.5 text-[#F26B38] ${isPending ? "animate-pulse" : ""}`} />
             Quick Voice Dial
@@ -346,7 +346,7 @@ export function AutomationsClient({
           <button
             onClick={handleTriggerAuditScan}
             disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2 text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
+            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2.5 min-h-[44px] text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
           >
             <Sparkles className={`h-3.5 w-3.5 text-purple-600 ${isPending ? "animate-spin" : ""}`} />
             Run AI Audit
@@ -355,7 +355,7 @@ export function AutomationsClient({
           <button
             onClick={handleTriggerDispatch}
             disabled={isPending}
-            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2 text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
+            className="flex items-center gap-2 rounded-lg bg-white hover:bg-[#FAF9F5] border border-[#E5E7EB] text-[#263238] px-3.5 py-2.5 min-h-[44px] text-xs font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 shadow-2xs cursor-pointer"
           >
             <RotateCw className={`h-3.5 w-3.5 text-emerald-600 ${isPending ? "animate-spin" : ""}`} />
             Drain Outbox
@@ -613,11 +613,11 @@ export function AutomationsClient({
                     </div>
 
                     {/* 1-Click Action Bar */}
-                    <div className="mt-3 pt-3 border-t border-[#E5E7EB] grid grid-cols-3 gap-1.5">
+                    <div className="mt-3 pt-3 border-t border-[#E5E7EB] grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleQuickVoiceCall(w.name)}
-                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-[#FAF9F5] hover:bg-[#FFF4EE] hover:text-[#D95524] text-slate-700 border border-[#E5E7EB] text-[10px] font-semibold transition-colors cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] py-2 px-2.5 rounded-xl bg-[#FAF9F5] hover:bg-[#FFF4EE] hover:text-[#D95524] text-slate-700 border border-[#E5E7EB] text-xs sm:text-[11px] font-semibold transition-colors cursor-pointer active:scale-[0.98]"
                         title="Dial Sarvam AI voice agent for client"
                       >
                         <PhoneCall className="w-3 h-3 text-[#F26B38]" />
@@ -627,7 +627,7 @@ export function AutomationsClient({
                       <button
                         type="button"
                         onClick={() => handleQuickWhatsApp(w.name)}
-                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-[#FAF9F5] hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 border border-[#E5E7EB] text-[10px] font-semibold transition-colors cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] py-2 px-2.5 rounded-xl bg-[#FAF9F5] hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 border border-[#E5E7EB] text-xs sm:text-[11px] font-semibold transition-colors cursor-pointer active:scale-[0.98]"
                         title="Open WhatsApp draft modal"
                       >
                         <MessageSquare className="w-3 h-3 text-emerald-600" />
@@ -637,7 +637,7 @@ export function AutomationsClient({
                       <button
                         type="button"
                         onClick={() => handleOpenConsole(w.name)}
-                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-[#FAF9F5] hover:bg-[#F8FAFC] text-slate-700 border border-[#E5E7EB] text-[10px] font-semibold transition-colors cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[36px] py-2 px-2.5 rounded-xl bg-[#FAF9F5] hover:bg-[#F8FAFC] text-slate-700 border border-[#E5E7EB] text-xs sm:text-[11px] font-semibold transition-colors cursor-pointer active:scale-[0.98]"
                         title="Open full Omnichannel Dispatch Console"
                       >
                         <Sliders className="w-3 h-3 text-slate-500" />
@@ -694,7 +694,7 @@ export function AutomationsClient({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <table className="min-w-full divide-y divide-[#E5E7EB] text-left text-xs">
               <thead className="bg-[#FAF9F5] text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>

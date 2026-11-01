@@ -28,152 +28,153 @@ interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   showDot?: boolean;
 }
 
+// Strict WCAG 2.2 AA compliant status tokens (contrast ratio >= 4.5:1 against surfaces)
 const statusConfig: Record<
   string,
   { bg: string; text: string; border: string; dot: string; glow: string; defaultLabel: string }
 > = {
   FILED: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    border: "border-emerald-500/25",
-    dot: "bg-emerald-400",
-    glow: "shadow-[0_0_8px_rgba(52,211,153,0.7)]",
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    dot: "bg-emerald-600",
+    glow: "shadow-2xs",
     defaultLabel: "Filed",
   },
   PAID: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    border: "border-emerald-500/25",
-    dot: "bg-emerald-400",
-    glow: "shadow-[0_0_8px_rgba(52,211,153,0.7)]",
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    dot: "bg-emerald-600",
+    glow: "shadow-2xs",
     defaultLabel: "Paid",
   },
   APPROVED: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    border: "border-emerald-500/25",
-    dot: "bg-emerald-400",
-    glow: "shadow-[0_0_8px_rgba(52,211,153,0.7)]",
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    dot: "bg-emerald-600",
+    glow: "shadow-2xs",
     defaultLabel: "Approved",
   },
   ACTIVE: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    border: "border-emerald-500/25",
-    dot: "bg-emerald-400",
-    glow: "shadow-[0_0_8px_rgba(52,211,153,0.7)]",
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    dot: "bg-emerald-600",
+    glow: "shadow-2xs",
     defaultLabel: "Active",
   },
   READY_FOR_REVIEW: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-300",
-    border: "border-amber-500/25",
-    dot: "bg-amber-400",
-    glow: "shadow-[0_0_8px_rgba(251,191,36,0.7)]",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    dot: "bg-amber-600",
+    glow: "shadow-2xs",
     defaultLabel: "Ready for Review",
   },
   PARTIAL: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-300",
-    border: "border-amber-500/25",
-    dot: "bg-amber-400",
-    glow: "shadow-[0_0_8px_rgba(251,191,36,0.7)]",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    dot: "bg-amber-600",
+    glow: "shadow-2xs",
     defaultLabel: "Partial",
   },
   PARTIALLY_PAID: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-300",
-    border: "border-amber-500/25",
-    dot: "bg-amber-400",
-    glow: "shadow-[0_0_8px_rgba(251,191,36,0.7)]",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    dot: "bg-amber-600",
+    glow: "shadow-2xs",
     defaultLabel: "Partially Paid",
   },
   PENDING_APPROVAL: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-300",
-    border: "border-amber-500/25",
-    dot: "bg-amber-400",
-    glow: "shadow-[0_0_8px_rgba(251,191,36,0.7)]",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    dot: "bg-amber-600",
+    glow: "shadow-2xs",
     defaultLabel: "Pending Approval",
   },
   DUE_SOON: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-300",
-    border: "border-amber-500/25",
-    dot: "bg-amber-400",
-    glow: "shadow-[0_0_8px_rgba(251,191,36,0.7)]",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    dot: "bg-amber-600",
+    glow: "shadow-2xs",
     defaultLabel: "Due Soon",
   },
   AWAITING_CLIENT_APPROVAL: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-300",
-    border: "border-amber-500/25",
-    dot: "bg-amber-400",
-    glow: "shadow-[0_0_8px_rgba(251,191,36,0.7)]",
-    defaultLabel: "Client Review",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    dot: "bg-amber-600",
+    glow: "shadow-2xs",
+    defaultLabel: "Awaiting Client",
   },
   OVERDUE: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    border: "border-rose-500/25",
-    dot: "bg-rose-400",
-    glow: "shadow-[0_0_8px_rgba(244,63,94,0.7)]",
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    dot: "bg-rose-600",
+    glow: "shadow-2xs",
     defaultLabel: "Overdue",
   },
   REJECTED: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    border: "border-rose-500/25",
-    dot: "bg-rose-400",
-    glow: "shadow-[0_0_8px_rgba(244,63,94,0.7)]",
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    dot: "bg-rose-600",
+    glow: "shadow-2xs",
     defaultLabel: "Rejected",
   },
   FAILED: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    border: "border-rose-500/25",
-    dot: "bg-rose-400",
-    glow: "shadow-[0_0_8px_rgba(244,63,94,0.7)]",
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    dot: "bg-rose-600",
+    glow: "shadow-2xs",
     defaultLabel: "Failed",
   },
   FAILED_OUTBOX: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    border: "border-rose-500/25",
-    dot: "bg-rose-400",
-    glow: "shadow-[0_0_8px_rgba(244,63,94,0.7)]",
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    dot: "bg-rose-600",
+    glow: "shadow-2xs",
     defaultLabel: "Outbox Failed",
   },
   DISPUTING: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    border: "border-rose-500/25",
-    dot: "bg-rose-400",
-    glow: "shadow-[0_0_8px_rgba(244,63,94,0.7)]",
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    dot: "bg-rose-600",
+    glow: "shadow-2xs",
     defaultLabel: "Disputing",
   },
   DRAFT: {
-    bg: "bg-slate-500/10",
-    text: "text-slate-300",
-    border: "border-slate-500/25",
-    dot: "bg-slate-400",
-    glow: "shadow-[0_0_6px_rgba(148,163,184,0.4)]",
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-500",
+    glow: "shadow-2xs",
     defaultLabel: "Draft",
   },
   ARCHIVED: {
-    bg: "bg-slate-500/10",
-    text: "text-slate-300",
-    border: "border-slate-500/25",
-    dot: "bg-slate-400",
-    glow: "shadow-[0_0_6px_rgba(148,163,184,0.4)]",
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-500",
+    glow: "shadow-2xs",
     defaultLabel: "Archived",
   },
   CANCELLED: {
-    bg: "bg-slate-500/10",
-    text: "text-slate-300",
-    border: "border-slate-500/25",
-    dot: "bg-slate-400",
-    glow: "shadow-[0_0_6px_rgba(148,163,184,0.4)]",
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-500",
+    glow: "shadow-2xs",
     defaultLabel: "Cancelled",
   },
 };
@@ -185,29 +186,42 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   showDot = true,
   ...props
 }) => {
-  const normStatus = String(status || "DRAFT").toUpperCase().trim();
-  const current = statusConfig[normStatus] || statusConfig.DRAFT;
+  const normalizedStatus = (status || "").toUpperCase();
+  const config = statusConfig[normalizedStatus] || {
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-500",
+    glow: "shadow-2xs",
+    defaultLabel: status,
+  };
+
+  const displayLabel = label || config.defaultLabel;
 
   return (
     <span
+      role="status"
+      aria-label={`Status: ${displayLabel}`}
       className={cn(
-        "inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-medium",
-        "backdrop-blur-md border select-none transition-all duration-150",
-        current.bg,
-        current.text,
-        current.border,
+        "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide border select-none transition-all duration-200",
+        config.bg,
+        config.text,
+        config.border,
+        config.glow,
         className
       )}
-      role="status"
       {...props}
     >
       {showDot && (
         <span
-          className={cn("w-1.5 h-1.5 rounded-full shrink-0", current.dot, current.glow)}
+          className={cn(
+            "w-1.5 h-1.5 rounded-full shrink-0",
+            config.dot
+          )}
           aria-hidden="true"
         />
       )}
-      <span>{label || current.defaultLabel}</span>
+      <span className="truncate">{displayLabel}</span>
     </span>
   );
 };

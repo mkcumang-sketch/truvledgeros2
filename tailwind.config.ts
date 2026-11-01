@@ -25,12 +25,19 @@ const config: Config = {
           800: "#943213",
           900: "#7A2B12",
         },
+        obsidian: {
+          DEFAULT: "#090D16",
+          canvas: "#090D16",
+          alt: "#0B0F19",
+          card: "#111827",
+          surface: "#0F172A",
+        },
         charcoal: {
-          DEFAULT: "#263238",
-          900: "#263238",
-          800: "#374151",
-          700: "#4B5563",
-          600: "#6B7280",
+          DEFAULT: "#1E293B",
+          900: "#0F172A",
+          800: "#1E293B",
+          700: "#334155",
+          600: "#475569",
           500: "#64748B",
           400: "#94A3B8",
           300: "#CBD5E1",
@@ -94,11 +101,17 @@ const config: Config = {
           raised: "#1e293b", // Elevated card, dropdowns, modal background
           overlay: "#334155",// Active selection, hovered row
           muted: "#182234",  // Table headers, nested inset panels
+          light: "#FFFFFF",  // Light mode card base
+          lightMuted: "#FAF9F5", // Light mode table header / inset
         },
         brand: {
           primary: "#6366f1", // Indigo primary action
           hover: "#4f46e5",   // Primary action hover
           subtle: "rgba(99, 102, 241, 0.12)", // Badge fill, active nav link
+          indigo: "#4F46E5",
+          charcoal: "#1E293B",
+          emerald: "#059669",
+          amber: "#D97706",
         },
         status: {
           success: {
@@ -121,6 +134,7 @@ const config: Config = {
         border: {
           subtle: "#1e293b", // Table cell dividers, subtle card separators
           strong: "#334155", // Card borders, input strokes
+          light: "#EBE9E1",  // Light mode card & table border
           focused: "#6366f1",// Active focus ring & focused input outline
         },
         // Magical Frosted Glass Tokens
@@ -131,6 +145,8 @@ const config: Config = {
           hover: "rgba(51, 65, 85, 0.45)",
           border: "rgba(255, 255, 255, 0.08)",
           borderStrong: "rgba(255, 255, 255, 0.16)",
+          light: "rgba(255, 255, 255, 0.95)",
+          lightBorder: "rgba(235, 233, 225, 0.85)",
         },
       },
       backdropBlur: {

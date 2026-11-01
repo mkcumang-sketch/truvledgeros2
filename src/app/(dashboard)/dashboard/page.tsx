@@ -181,15 +181,15 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Link href="/clients?action=new">
-            <ShimmerButton variant="primary" size="md">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto">
+          <Link href="/clients?action=new" className="w-full sm:w-auto flex-1 sm:flex-none">
+            <ShimmerButton variant="primary" size="md" className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-1" />
               Onboard Client
             </ShimmerButton>
           </Link>
-          <Link href="/invoices/new">
-            <ShimmerButton variant="secondary" size="md">
+          <Link href="/invoices/new" className="w-full sm:w-auto flex-1 sm:flex-none">
+            <ShimmerButton variant="secondary" size="md" className="w-full sm:w-auto">
               <FileText className="w-4 h-4 mr-1" />
               Issue Invoice
             </ShimmerButton>
@@ -234,7 +234,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Attention Required / Practice Health Radar */}
-      <GlassCard className="border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-glass-card">
+      <GlassCard variant="light" className="border border-[#EBE9E1] rounded-2xl p-4 sm:p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#F1F5F9]">
           <div className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${attentionTotal > 0 ? "bg-amber-50 text-amber-600 border border-amber-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200"}`}>

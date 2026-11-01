@@ -1,7 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthAwareShell } from "@/components/layout/auth-aware-shell";
 import { Toaster } from "sonner";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  colorScheme: "light",
+  themeColor: "#FAF9F5",
+};
 
 export const metadata: Metadata = {
   title: "TRUV LedgerOS — Accounting Practice Management System",
@@ -18,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="bg-ivory text-graphite min-h-screen antialiased selection:bg-orange-100 selection:text-orange-950">
+    <html lang="en" className="overflow-x-hidden">
+      <body className="bg-ivory text-graphite min-h-screen antialiased selection:bg-orange-100 selection:text-orange-950 overflow-x-hidden">
         <AuthAwareShell>{children}</AuthAwareShell>
         <Toaster position="top-right" richColors closeButton />
       </body>

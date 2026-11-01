@@ -2,15 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Explicit light color scheme to prevent synthetic mobile OS color inversion */
+html {
+  color-scheme: light;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+
 :root {
   --background: #F7F8FA;
-  --foreground: #263238;
+  --foreground: #1E293B;
   
   --surface: #FFFFFF;
-  --surface-muted: #F8FAFC;
+  --surface-muted: #FAF9F5;
   --surface-active: #FFF4EE;
   
-  --border: #E5E7EB;
+  --border: #EBE9E1;
   --border-subtle: #F1F5F9;
   --border-focus: #F26B38;
   
@@ -18,6 +26,11 @@
   --primary-hover: #D95524;
   --primary-foreground: #FFFFFF;
   --primary-tint: #FFF4EE;
+
+  --accent-charcoal: #1E293B;
+  --accent-indigo: #4F46E5;
+  --accent-emerald: #059669;
+  --accent-amber: #D97706;
   
   --muted: #64748B;
   --muted-light: #94A3B8;
@@ -25,9 +38,9 @@
   --gold-accent: #D97706;
   --gold-tint: #FFFBEB;
   
-  --success: #10B981;
+  --success: #059669;
   --success-bg: #ECFDF5;
-  --warning: #F59E0B;
+  --warning: #D97706;
   --warning-bg: #FFFBEB;
   --danger: #EF4444;
   --danger-bg: #FEF2F2;
@@ -39,45 +52,64 @@ body {
   color: var(--foreground);
   background: var(--background);
   background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.10) 0px, transparent 45%),
-    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
-  background-attachment: fixed;
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.06) 0px, transparent 45%),
+    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+  /* Mobile-safe: do not use background-attachment: fixed which triggers severe paint thrashing & color distortion on mobile Safari/Chrome */
+  background-repeat: no-repeat;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
 }
 
-/* Glassmorphism Panel Utilities */
+/* Glassmorphism Panel Utilities with verified light-mode & dark-mode legibility */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(235, 233, 225, 0.85);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #F8FAFC;
 }
 
 .glass-panel-interactive {
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(235, 233, 225, 0.85);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
   transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-panel-interactive:hover {
-  background: rgba(30, 41, 59, 0.70);
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 30px -5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.06);
   transform: translateY(-1px);
 }
 
+/* Reduced transparency accessibility fallbacks: use solid readable surfaces, not dark ink */
 @media (prefers-reduced-transparency: reduce) {
   .glass-panel,
   .glass-panel-interactive {
-    background: #0f172a !important;
+    background: #FFFFFF !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .glass-panel-dark {
+    background: #0F172A !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
@@ -99,18 +131,27 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D3DBD6;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #929F98;
+  background: #94A3B8;
 }
 
 /* Accessible focus ring */
 :focus-visible {
   outline: 2px solid #F26B38;
   outline-offset: 2px;
+}
+
+/* Safe Area insets for iOS & Android gesture docks */
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.safe-area-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
 }
 
 /* Respect user's motion preferences */

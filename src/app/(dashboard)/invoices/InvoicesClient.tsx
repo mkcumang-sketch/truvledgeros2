@@ -160,6 +160,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
         <ShimmerButton
           variant="primary"
           size="md"
+          className="w-full sm:w-auto"
           onClick={() => {
             setFormError(null);
             setIsModalOpen(true);
@@ -205,7 +206,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
       </div>
 
       {/* Directory Card */}
-      <GlassCard className="border border-white/[0.08] shadow-glass-card">
+      <div className="bg-white border border-[#EBE9E1] rounded-2xl shadow-xs overflow-hidden">
         <div className="p-3.5 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-graphite-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -243,7 +244,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
             onAction={() => setIsModalOpen(true)}
           />
         ) : (
-          <div className="overflow-x-auto border-t border-[#EBE9E1]">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 border-t border-[#EBE9E1]">
             <table className="w-full text-left text-sm text-graphite-700">
               <thead className="bg-[#FAF9F5] text-[11px] uppercase tracking-wider text-graphite-500 font-semibold border-b border-[#E2E0D8]">
                 <tr>
@@ -294,13 +295,13 @@ export function InvoicesClient({ invoices, clients }: Props) {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Download Rule 46 Tax Invoice PDF"
-                          className="text-xs font-semibold text-sky-700 hover:text-sky-900 inline-flex items-center gap-1 hover:underline"
+                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-xs font-semibold text-sky-700 hover:text-sky-900 gap-1 hover:underline p-2 rounded-lg"
                         >
                           <FileDown className="w-3.5 h-3.5" /> PDF
                         </a>
                         <Link
                           href={`/invoices/${inv.id}`}
-                          className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1"
+                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-xs font-semibold text-emerald-700 hover:text-emerald-900 gap-1 p-2 rounded-lg"
                         >
                           View <ExternalLink className="w-3 h-3" />
                         </Link>
@@ -312,7 +313,7 @@ export function InvoicesClient({ invoices, clients }: Props) {
             </table>
           </div>
         )}
-      </GlassCard>
+      </div>
 
       {/* Create Invoice Modal */}
       <Modal

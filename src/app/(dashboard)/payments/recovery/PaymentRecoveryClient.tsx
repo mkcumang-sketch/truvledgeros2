@@ -361,8 +361,8 @@ export function PaymentRecoveryClient({ recoveryItems }: Props) {
 
       {/* AI Voice Call Modal */}
       {callModalOpen && activeCallResult && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 text-left shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-4 sm:p-6 space-y-4 text-left shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-lg bg-amber-950 text-amber-400 border border-amber-800">
@@ -378,13 +378,13 @@ export function PaymentRecoveryClient({ recoveryItems }: Props) {
               <button
                 type="button"
                 onClick={() => setCallModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-800"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-center">
               <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
                 <div className="text-[10px] uppercase text-slate-500 font-semibold">Call Status</div>
                 <div className="text-sm font-bold text-emerald-400 mt-1">{activeCallResult.status}</div>
@@ -419,11 +419,11 @@ export function PaymentRecoveryClient({ recoveryItems }: Props) {
               </div>
             )}
 
-            <div className="flex justify-end pt-2 border-t border-slate-800">
+            <div className="flex justify-end pt-2 border-t border-slate-800 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={() => setCallModalOpen(false)}
-                className="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium"
+                className="w-full sm:w-auto min-h-[44px] flex items-center justify-center px-5 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium active:scale-[0.98]"
               >
                 Dismiss Log
               </button>

@@ -711,7 +711,7 @@ export function CommunicationsClient({
               </div>
 
               {/* Desktop / Tablet Table View (hidden sm:block) */}
-              <div className="hidden sm:block bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-xs">
+              <div className="hidden sm:block bg-white border border-[#E5E7EB] rounded-2xl overflow-x-auto shadow-xs">
                 <table className="w-full text-left text-xs text-[#475569]">
                   <thead className="bg-[#FAF9F5] border-b border-[#E5E7EB] text-[11px] uppercase tracking-wider text-[#64748B] font-semibold">
                     <tr>
@@ -1057,7 +1057,7 @@ export function CommunicationsClient({
             {/* Channel Selection */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[#263238]">Delivery Channel</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setDispatchChannel("VOICE")}
@@ -1179,11 +1179,11 @@ export function CommunicationsClient({
             )}
 
             {/* Bottom Execution Trigger Button */}
-            <div className="pt-2 flex items-center justify-end gap-3">
+            <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={() => setIsDispatchModalOpen(false)}
-                className="min-h-[48px] px-4 py-2.5 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#263238]"
+                className="w-full sm:w-auto min-h-[48px] px-4 py-2.5 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#263238] flex items-center justify-center border border-[#E5E7EB] sm:border-transparent bg-white sm:bg-transparent"
               >
                 Cancel
               </button>
@@ -1192,7 +1192,7 @@ export function CommunicationsClient({
                 type="button"
                 onClick={handleExecuteDispatch}
                 disabled={isDispatching}
-                className="min-h-[48px] px-6 py-2.5 rounded-xl text-xs font-bold bg-[#F26B38] hover:bg-[#D95524] disabled:opacity-50 text-white shadow-sm shadow-orange-500/20 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+                className="w-full sm:w-auto min-h-[48px] px-6 py-2.5 rounded-xl text-xs font-bold bg-[#F26B38] hover:bg-[#D95524] disabled:opacity-50 text-white shadow-sm shadow-orange-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
               >
                 {isDispatching ? (
                   <>

@@ -426,7 +426,7 @@ export function BulkImportModal({ isOpen, onClose, onImportComplete }: Props) {
                             {String(sampleVal)}
                           </td>
                           <td className="py-2.5 px-4">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                               <select
                                 value={currentMappedField}
                                 onChange={(e) => {
@@ -733,7 +733,7 @@ export function BulkImportModal({ isOpen, onClose, onImportComplete }: Props) {
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-3.5 border-t border-[#E2E0D8] bg-[#FAF9F5] flex items-center justify-between flex-shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 border-t border-[#E2E0D8] bg-[#FAF9F5] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4 flex-shrink-0 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
           <div>
             {currentStep === "MAPPING" && (
               <Button variant="ghost" size="sm" onClick={() => setCurrentStep("UPLOAD")}>
@@ -755,7 +755,7 @@ export function BulkImportModal({ isOpen, onClose, onImportComplete }: Props) {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {currentStep === "UPLOAD" && (
               <>
                 <Button variant="ghost" size="sm" onClick={handleClose}>

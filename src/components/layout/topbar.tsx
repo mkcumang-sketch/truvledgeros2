@@ -79,7 +79,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
           <button
             onClick={onOpenMobileNav}
             data-testid="mobile-hamburger"
-            className="lg:hidden p-2 rounded-lg text-graphite-600 hover:text-graphite-900 hover:bg-[#FAF9F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F26B38]"
+            className="lg:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-graphite-600 hover:text-graphite-900 hover:bg-[#FAF9F5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F26B38]"
             aria-label="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
@@ -108,7 +108,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         {/* Mobile Search Icon Button */}
         <button
           onClick={() => setIsCommandPaletteOpen(true)}
-          className="sm:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-[#F8FAFC] transition-colors"
+          className="sm:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-600 hover:text-slate-900 hover:bg-[#F8FAFC] transition-colors"
           aria-label="Search practice records"
         >
           <Search className="w-5 h-5" />
@@ -129,7 +129,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         {/* AI Practice Bot Quick Link */}
         <Link
           href="/support"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#FFF4EE] border border-[#F26B38]/30 text-[#D95524] hover:bg-[#FFE7DA] transition-colors shadow-2xs"
+          className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] text-xs font-semibold rounded-xl bg-[#FFF4EE] border border-[#F26B38]/30 text-[#D95524] hover:bg-[#FFE7DA] transition-colors shadow-2xs"
           title="Open AI Practice Copilot"
         >
           <Sparkles className="w-3.5 h-3.5 text-[#F26B38]" />
@@ -139,11 +139,11 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         {/* Notifications */}
         <Link
           href="/tasks"
-          className="relative p-2 rounded-lg border border-[#E5E7EB] text-slate-600 hover:bg-[#F8FAFC] hover:text-[#263238] transition-colors"
+          className="relative p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border border-[#E5E7EB] text-slate-600 hover:bg-[#F8FAFC] hover:text-[#263238] transition-colors"
           title="Practice Notifications & Approvals"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#F26B38] ring-2 ring-white" />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#F26B38] ring-2 ring-white" />
         </Link>
 
         {/* User Profile Pill & Dropdown */}

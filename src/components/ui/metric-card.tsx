@@ -36,24 +36,25 @@ export function MetricCard({
 
   return (
     <GlassCard
+      variant="light"
       className={cn(
-        "p-5 flex flex-col justify-between group",
+        "p-4 sm:p-5 flex flex-col justify-between group min-w-0 border border-[#EBE9E1] shadow-xs",
         className
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#94a3b8] group-hover:text-[#f8fafc] transition-colors truncate">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] group-hover:text-[#1E293B] transition-colors truncate">
           {title}
         </span>
         {icon && (
-          <div className="p-2 rounded-lg bg-white/[0.04] border border-white/[0.06] text-[#94a3b8] group-hover:text-[#6366f1] group-hover:border-[#6366f1]/30 transition-all shrink-0">
+          <div className="p-2 rounded-xl bg-[#FAF9F5] border border-[#EBE9E1] text-[#64748B] group-hover:text-[#4F46E5] group-hover:border-[#4F46E5]/30 transition-all shrink-0">
             {icon}
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex items-baseline justify-between gap-2 flex-wrap">
-        <span className="text-xl sm:text-2xl font-bold tracking-tight text-[#f8fafc] font-mono tabular-nums break-words">
+      <div className="mt-3 sm:mt-4 flex items-baseline justify-between gap-2 flex-wrap">
+        <span className="text-xl sm:text-2xl font-bold tracking-tight text-[#1E293B] font-mono tabular-nums break-words">
           {value}
         </span>
         {badge && (
@@ -66,7 +67,7 @@ export function MetricCard({
       </div>
 
       {subtitle && (
-        <p className="mt-1.5 text-xs text-[#64748b] group-hover:text-[#94a3b8] transition-colors truncate">
+        <p className="mt-1 sm:mt-1.5 text-xs text-[#64748B] group-hover:text-[#475569] transition-colors truncate">
           {subtitle}
         </p>
       )}
