@@ -17,8 +17,14 @@ export const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.
  * and links to the canonical practice tenant.
  */
 export async function seedAdmin() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Production seeding is disabled. Use the reviewed owner-bootstrap procedure instead.");
+  const isDeployedRuntime =
+    process.env.NODE_ENV === "production" ||
+    process.env.NODE_ENV === "staging" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.APP_ENV === "staging";
+  if (isDeployedRuntime) {
+    throw new Error("Demo/admin seeding is disabled in staging and production. Use the reviewed owner-bootstrap procedure instead.");
   }
   if (!DEFAULT_ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD.length < 16) {
     throw new Error("Set ADMIN_PASSWORD or SEED_DEFAULT_PASSWORD to a unique value of at least 16 characters before running the development/CI seed.");
