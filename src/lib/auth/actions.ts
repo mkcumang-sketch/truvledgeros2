@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { verifyPassword, hashPassword, generateSecureToken, hashToken } from "./password";
+import { verifyPassword, hashToken } from "./password";
 import { createSession, destroySession } from "./session";
-import { checkRateLimit, resetRateLimit } from "./rate-limit";
+import { resetRateLimit } from "./rate-limit";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
@@ -13,7 +13,7 @@ import {
   RATE_LIMIT_TIERS,
   getClientIp,
 } from "@/lib/server/security/rate-limiter";
-import { sendEmail, getAppBaseUrl, sendPasswordResetEmail } from "@/lib/server/email/email-service";
+import { sendPasswordResetEmail } from "@/lib/server/email/email-service";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
