@@ -49,7 +49,7 @@ export async function sendWhatsAppMessage(
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
   const configuredApiVersion = process.env.WHATSAPP_GRAPH_API_VERSION?.trim();
-  const graphApiVersion = configuredApiVersion && /^v\\d{1,2}\\.0$/.test(configuredApiVersion) ? configuredApiVersion : "v26.0";
+  const graphApiVersion = configuredApiVersion && /^v\d{1,2}\.0$/.test(configuredApiVersion) ? configuredApiVersion : "v26.0";
 
   let provider: WhatsAppMessageResult["provider"] = "whatsapp_standby";
   let status: WhatsAppMessageResult["status"] = "STANDBY";
