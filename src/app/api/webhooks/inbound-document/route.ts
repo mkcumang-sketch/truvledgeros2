@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     // Case C: Unified Omnichannel / Testing Payload
     else {
       channel = rawBody.channel?.toUpperCase() === "EMAIL" ? "EMAIL" : "WHATSAPP";
-      senderIdentifier = rawBody.sender || rawBody.senderPhone || rawBody.senderEmail || rawBody.from || "+919876543210";
+      senderIdentifier = rawBody.sender || rawBody.senderPhone || rawBody.senderEmail || rawBody.from || "";
       fileName = rawBody.fileName || fileName;
       mimeType = rawBody.mimeType || mimeType;
 
