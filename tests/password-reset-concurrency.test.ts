@@ -369,6 +369,30 @@ async function runTests() {
     const finalRaceToken = await harness.mockDb.passwordResetToken.findUnique({ where: { id: raceRecord.id } });
     assert(finalRaceToken?.usedAt !== null, "4b. Token has exactly one usedAt timestamp");
 
+    // ----------------------------------------------------------------------
+    // TEST 4C: User-row token path is atomically consumed with the ledger row
+    // ----------------------------------------------------------------------
+    const rawTokenUserRow = generateSecureToken(32);
+    const userRowHash = hashToken(rawTokenUserRow);
+    const userRowRecord = await harness.mockDb.passwordResetToken.create({
+      data: {
+        userId: "user_test_1",
+        tokenHash: userRowHash,
+        expiresAt: new Date(Date.now() + 3600 * 1000),
+      },
+    });
+    const userRow = harness.users.get("user_test_1") as any;
+    userRow.resetToken = userRowHash;
+    userRow.resetTokenExpires = new Date(Date.now() + 3600 * 1000);
+
+    const userRowResult = await resetPasswordAction(makeFormData({
+      token: rawTokenUserRow,
+      newPassword: "UserRowPassword123!",
+    }));
+    const consumedUserRow = await harness.mockDb.passwordResetToken.findUnique({ where: { id: userRowRecord.id } });
+    assert(userRowResult.success === true, "4c. User.resetToken compatibility path resets password successfully");
+    assert(userRow.resetToken === null && userRow.resetTokenExpires === null, "4d. User-row reset token is cleared atomically");
+    assert(consumedUserRow?.usedAt !== null, "4e. Matching PasswordResetToken ledger row is also consumed");
 
     // ----------------------------------------------------------------------
     // TEST 5: Password-update failure and transaction rollback
