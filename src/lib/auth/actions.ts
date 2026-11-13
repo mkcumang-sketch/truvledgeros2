@@ -222,23 +222,31 @@ export async function requestPasswordResetAction(
   const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-  await db.user.update({
-    where: { id: user.id },
-    data: {
-      resetToken: tokenHash,
-      resetTokenExpires: expiresAt,
-    },
-  });
-
-  // Keep the normalized token ledger in sync when the model is available.
+  // Rotate outstanding reset links atomically. A newly issued link invalidates
+  // every older unused ledger token for this account.
   try {
-    if ((db as any).passwordResetToken) {
-      await (db as any).passwordResetToken.create({
-        data: { tokenHash, userId: user.id, expiresAt },
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken: tokenHash,
+          resetTokenExpires: expiresAt,
+        },
       });
-    }
+
+      if ((tx as any).passwordResetToken) {
+        await (tx as any).passwordResetToken.updateMany({
+          where: { userId: user.id, usedAt: null },
+          data: { usedAt: new Date() },
+        });
+        await (tx as any).passwordResetToken.create({
+          data: { tokenHash, userId: user.id, expiresAt },
+        });
+      }
+    });
   } catch {
-    console.error("[AUTH] PasswordResetToken ledger write failed; User reset token remains authoritative.");
+    console.error("[AUTH] Password reset token rotation failed; no reset email was sent.");
+    return PASSWORD_RESET_GENERIC_RESPONSE;
   }
 
   await db.auditLog.create({
