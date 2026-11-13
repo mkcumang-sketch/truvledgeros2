@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storageKey = `${tenantId}/vault/${Date.now()}_${sanitizedFileName}`;
 
-    const uploadResult = await uploadBufferToS3({
+    await uploadBufferToS3({
       key: storageKey,
       buffer: fileBuffer,
       contentType: mimeType,
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
         tenantId,
         clientId: matchedClient.id,
         name: fileName,
-        fileUrl: uploadResult.url,
+        fileUrl: storageKey,
         fileSize: fileBuffer.length,
         mimeType,
         category: triageResult.documentType,
