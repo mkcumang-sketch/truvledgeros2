@@ -19,6 +19,9 @@ export async function GET(
     if (!document || !document.fileUrl) {
       return NextResponse.json({ error: "Stored document not found." }, { status: 404 });
     }
+    if (!document.fileUrl.startsWith(`${context.membership.tenantId}/`)) {
+      return NextResponse.json({ error: "This legacy document must be securely re-uploaded before it can be downloaded." }, { status: 409 });
+    }
 
     const downloadUrl = await getDownloadPresignedUrl({
       key: document.fileUrl,
