@@ -34,8 +34,17 @@ async function runE2EPracticeVerification() {
     include: { memberships: { include: { user: true } } },
   });
 
-  const tenantB = await db.tenant.findUnique({
+  // Tenant B is an isolated fixture for the cross-tenant probe. Create it
+  // only in the test database when absent; never depend on production demo data.
+  const tenantB = await db.tenant.upsert({
     where: { slug: "demo-firm" },
+    update: {},
+    create: {
+      name: "TRUV E2E Isolation Firm",
+      slug: "demo-firm",
+      email: "e2e-isolation@example.invalid",
+      phone: "+910000000000",
+    },
     include: { memberships: { include: { user: true } } },
   });
 
