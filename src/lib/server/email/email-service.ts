@@ -375,7 +375,7 @@ export async function sendPasswordResetEmail(params: {
     </div>
 
     <p style="font-size: 12px; color: #64748B;">
-      This single-use recovery link is valid for <strong>15 minutes</strong>. If you did not request a password reset, you can safely disregard this message; your account credentials remain unchanged.
+      This single-use recovery link is valid for <strong>1 hour</strong>. If you did not request a password reset, you can safely disregard this message; your account credentials remain unchanged.
     </p>
 
     <p style="font-size: 12px; color: #64748B; margin-top: 20px;">
@@ -385,7 +385,7 @@ export async function sendPasswordResetEmail(params: {
   `;
 
   const text = `Password recovery requested for TRUV LedgerOS.
-Reset your password here (valid for 15 minutes):
+Reset your password here (valid for 1 hour):
 ${resetUrl}
 
 If you did not request this, please ignore this email.`;
