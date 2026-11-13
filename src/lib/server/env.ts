@@ -91,6 +91,9 @@ const ServerEnvSchema = z.object({
 
   // 12. Rate Limiter (Redis)
   REDIS_URL: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   RATE_LIMIT_REDIS_TIMEOUT_MS: z.string().optional().default("1000"),
 });
 
@@ -124,30 +127,41 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
   }
 
   // Check Encryption Keyring (Required in Production for Credential Vault)
-  const hasEncKey = !!(
-    envToValidate.ENCRYPTION_KEY?.trim() ||
-    envToValidate.ENCRYPTION_KEY_M2M?.trim()
-  );
-  if (!hasEncKey) {
-    if (isLiveProduction) {
-      missingRequired.push("ENCRYPTION_KEY or ENCRYPTION_KEY_M2M (AES-256 64-hex-char key required in production)");
+  const isDeployedEnvironment = isLiveProduction || isVercelPreview || envToValidate.NODE_ENV === "staging";
+  const hasValidEncryptionKey = /^[a-fA-F0-9]{64}$/.test(envToValidate.ENCRYPTION_KEY?.trim() || "");
+  if (!hasValidEncryptionKey) {
+    if (isDeployedEnvironment) {
+      missingRequired.push("ENCRYPTION_KEY (exactly 64 hexadecimal characters for AES-256-GCM)");
     } else {
-      warnings.push("ENCRYPTION_KEY is unset; credential vault will fail closed on encrypted fields.");
+      warnings.push("ENCRYPTION_KEY is unset or invalid; credential vault operations fail closed.");
     }
+  }
+
+  if (isDeployedEnvironment && !envToValidate.APP_BASE_URL?.trim()) {
+    missingRequired.push("APP_BASE_URL (canonical HTTPS application URL)");
+  }
+  if (isDeployedEnvironment && !envToValidate.DIRECT_URL?.trim()) {
+    missingRequired.push("DIRECT_URL (direct PostgreSQL connection for migration operations)");
+  }
+  if (isDeployedEnvironment && !envToValidate.CRON_SECRET?.trim()) {
+    missingRequired.push("CRON_SECRET (authenticated scheduled outbox dispatch)");
   }
 
   // Check Email Provider Status (Direct Gmail SMTP / Resend)
   const smtpConfigured = !!(envToValidate.SMTP_USER?.trim() && envToValidate.SMTP_PASS?.trim());
   const resendConfigured = !!envToValidate.RESEND_API_KEY?.trim();
+  if (isDeployedEnvironment && !smtpConfigured && !resendConfigured) {
+    missingRequired.push("SMTP_USER + SMTP_PASS or RESEND_API_KEY (password-reset and transactional email delivery)");
+  }
   providers.push({
     name: "Transactional Email (SMTP / Resend)",
     configured: smtpConfigured || resendConfigured,
     mode: smtpConfigured ? "ACTIVE" : resendConfigured ? "ACTIVE" : "STANDBY",
     detail: smtpConfigured
-      ? "Direct Gmail SMTP configured (smtp.gmail.com:465)"
+      ? "Direct SMTP provider configured"
       : resendConfigured
       ? "Live Resend API key configured"
-      : "Operating in safe STANDBY_MODE (logs delivery intent, does not throw error)",
+      : "Standby only; no reset or invitation email is transmitted until a provider is configured.",
   });
 
   // Check S3 Storage
@@ -155,13 +169,16 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
     envToValidate.AWS_ACCESS_KEY_ID?.trim() &&
     envToValidate.AWS_SECRET_ACCESS_KEY?.trim()
   );
+  if (isDeployedEnvironment && !s3Configured) {
+    missingRequired.push("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (private persistent document storage)");
+  }
   providers.push({
     name: "Object Storage (S3 / R2)",
     configured: s3Configured,
     mode: s3Configured ? "ACTIVE" : "STANDBY",
     detail: s3Configured
-      ? "AWS/S3 credentials configured"
-      : "S3 credentials unconfigured; fallback to local storage or presign unavailable",
+      ? "Private persistent S3-compatible storage configured"
+      : "Not configured; document uploads fail closed with HTTP 503. No local disk fallback is used.",
   });
 
   // Check Payment Gateway
@@ -208,21 +225,26 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
 
   // Check Redis Rate Limiter
   const redisConfigured = !!envToValidate.REDIS_URL?.trim();
+  if (isDeployedEnvironment && !redisConfigured) {
+    missingRequired.push("REDIS_URL (distributed rate limiting; production authentication fails closed without Redis)");
+  }
   providers.push({
     name: "Distributed Rate Limiter (Redis)",
     configured: redisConfigured,
     mode: redisConfigured ? "ACTIVE" : "STANDBY",
     detail: redisConfigured
-      ? "Redis cluster connection configured"
-      : "Unconfigured; falling back to in-memory sliding window rate limiter",
+      ? "Redis configured for distributed rate limits"
+      : "Development may use memory fallback; production sensitive routes fail closed when Redis is unavailable.",
   });
 
   // Check Native Automation Engine
   providers.push({
-    name: "Automation Engine (Native In-Process)",
-    configured: true,
-    mode: "ACTIVE",
-    detail: "100% self-contained Node.js & Railway PostgreSQL transactional automation engine active.",
+    name: "Automation Engine (Native Outbox)",
+    configured: !!envToValidate.CRON_SECRET?.trim(),
+    mode: envToValidate.CRON_SECRET?.trim() ? "ACTIVE" : "STANDBY",
+    detail: envToValidate.CRON_SECRET?.trim()
+      ? "Authenticated outbox endpoint can be invoked by the configured scheduler."
+      : "Worker code is present, but scheduled dispatch is not operational until CRON_SECRET and a scheduler are configured.",
   });
 
   return {
