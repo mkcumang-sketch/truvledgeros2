@@ -14,7 +14,6 @@ import {
   sendTeamInvitationResendEmail,
   sendSecurityNoticeEmail,
 } from "@/lib/server/email/email-service";
-import { createSession } from "@/lib/auth/session";
 
 export interface InviteMemberParams {
   tenantId: string;
@@ -512,6 +511,24 @@ export async function acceptInvitation(params: AcceptInvitationParams) {
 
   // 2. Atomic transaction: create/update user, create membership, consume invite
   const result = await db.$transaction(async (tx) => {
+    // Claim the invitation inside the transaction. A conditional update makes
+    // concurrent acceptance single-use even when both requests read PENDING.
+    const invitationClaim = await tx.invitation.updateMany({
+      where: {
+        id: invitation.id,
+        status: InvitationStatus.PENDING,
+        expiresAt: { gt: new Date() },
+      },
+      data: {
+        status: InvitationStatus.ACCEPTED,
+        acceptedAt: new Date(),
+      },
+    });
+
+    if (invitationClaim.count !== 1) {
+      throw new Error("This invitation has already been accepted or has expired.");
+    }
+
     // Check if user exists already
     let user = await tx.user.findUnique({ where: { email } });
 
@@ -562,15 +579,6 @@ export async function acceptInvitation(params: AcceptInvitationParams) {
       },
     });
 
-    // Mark invitation ACCEPTED atomically
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: InvitationStatus.ACCEPTED,
-        acceptedAt: new Date(),
-      },
-    });
-
     return { user, membership };
   });
 
@@ -590,19 +598,8 @@ export async function acceptInvitation(params: AcceptInvitationParams) {
     console.warn("Audit logging non-fatal error during invitation acceptance:", auditErr);
   }
 
-  // 4. Create an authenticated session cookie for immediate access
-  let sessionCreated = false;
-  try {
-    await createSession(result.user.id, invitation.tenantId, { ipAddress, userAgent });
-    sessionCreated = true;
-  } catch (sessionErr) {
-    // In environments where cookies() is not available (e.g. CLI/tests), log warning
-    console.warn("Session creation was bypassed or unavailable in current execution context:", sessionErr);
-  }
-
   return {
     success: true,
-    sessionCreated,
     user: {
       id: result.user.id,
       email: result.user.email,
