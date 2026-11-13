@@ -152,15 +152,17 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
     missingRequired.push("TOKEN_PEPPER (64 hexadecimal characters; required for machine-token digest peppering)");
   }
 
-  if (isDeployedEnvironment && !envToValidate.APP_BASE_URL?.trim()) {
+  const appBaseUrl = envToValidate.APP_BASE_URL?.trim() || "";
+  if (isDeployedEnvironment && !appBaseUrl) {
     missingRequired.push("APP_BASE_URL (canonical HTTPS application URL)");
-  } else if (isDeployedEnvironment && !envToValidate.APP_BASE_URL.trim().toLowerCase().startsWith("https://")) {
+  } else if (isDeployedEnvironment && !appBaseUrl.toLowerCase().startsWith("https://")) {
     missingRequired.push("APP_BASE_URL must use HTTPS in deployed environments");
   }
   if (isDeployedEnvironment && !envToValidate.DIRECT_URL?.trim()) {
     missingRequired.push("DIRECT_URL (direct PostgreSQL connection for migration operations)");
   }
-  if (isDeployedEnvironment && (!envToValidate.CRON_SECRET?.trim() || envToValidate.CRON_SECRET.trim().length < 32)) {
+  const cronSecret = envToValidate.CRON_SECRET?.trim() || "";
+  if (isDeployedEnvironment && cronSecret.length < 32) {
     missingRequired.push("CRON_SECRET (at least 32 characters for authenticated scheduled outbox dispatch)");
   }
 
