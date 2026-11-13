@@ -140,7 +140,22 @@ class UpstashLoginLimiter {
       }
     }
 
-    // In-memory sliding window fallback (guarantees local dev and outage resilience)
+    // Never downgrade authentication throttling to per-instance memory in production:
+    // serverless instances do not share this state and an outage would bypass the limit.
+    if (process.env.NODE_ENV === "production") {
+      const retryAfterSeconds = 60;
+      return {
+        allowed: false,
+        limit: 5,
+        remaining: 0,
+        resetTime: Math.ceil((Date.now() + retryAfterSeconds * 1000) / 1000),
+        retryAfterSeconds,
+        retryAfterMinutes: 1,
+        errorMessage: "Authentication is temporarily unavailable. Please try again shortly.",
+      };
+    }
+
+    // In-memory fallback is restricted to local development and isolated tests.
     return this.checkMemory(key, 5, 15 * 60);
   }
 

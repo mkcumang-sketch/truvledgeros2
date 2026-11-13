@@ -29,6 +29,10 @@ interface MockUserRecord {
   id: string;
   email: string;
   passwordHash: string;
+  active?: boolean;
+  resetToken?: string | null;
+  resetTokenExpires?: Date | null;
+  memberships?: any[];
 }
 
 interface MockSessionRecord {
@@ -48,6 +52,10 @@ function createHarness() {
     id: "user_test_1",
     email: "test@example.com",
     passwordHash: "old_hashed_password_abc",
+    active: true,
+    resetToken: null,
+    resetTokenExpires: null,
+    memberships: [],
   });
 
   // Seed active sessions
@@ -66,13 +74,35 @@ function createHarness() {
         }
         return null;
       },
+      findFirst: async ({ where }: any) => {
+        return Array.from(users.values()).find((u: any) =>
+          (!where.id || u.id === where.id) &&
+          (!where.email || u.email === where.email) &&
+          (!where.resetToken || u.resetToken === where.resetToken) &&
+          (!where.resetTokenExpires?.gt || (u.resetTokenExpires && u.resetTokenExpires > where.resetTokenExpires.gt))
+        ) || null;
+      },
+      updateMany: async ({ where, data }: any) => {
+        if (shouldFailUserUpdate) throw new Error("DATABASE_CONNECTION_ERROR_USER_UPDATE");
+        let count = 0;
+        for (const user of users.values() as any) {
+          const matches = user.id === where.id &&
+            (where.resetToken === undefined || user.resetToken === where.resetToken) &&
+            (!where.resetTokenExpires?.gt || (user.resetTokenExpires && user.resetTokenExpires > where.resetTokenExpires.gt));
+          if (matches) {
+            Object.assign(user, data);
+            count++;
+          }
+        }
+        return { count };
+      },
       update: async ({ where, data }: any) => {
         if (shouldFailUserUpdate) {
           throw new Error("DATABASE_CONNECTION_ERROR_USER_UPDATE");
         }
         const user = users.get(where.id);
         if (!user) throw new Error("User not found");
-        user.passwordHash = data.passwordHash;
+        Object.assign(user, data);
         return user;
       },
     },
@@ -339,6 +369,30 @@ async function runTests() {
     const finalRaceToken = await harness.mockDb.passwordResetToken.findUnique({ where: { id: raceRecord.id } });
     assert(finalRaceToken?.usedAt !== null, "4b. Token has exactly one usedAt timestamp");
 
+    // ----------------------------------------------------------------------
+    // TEST 4C: User-row token path is atomically consumed with the ledger row
+    // ----------------------------------------------------------------------
+    const rawTokenUserRow = generateSecureToken(32);
+    const userRowHash = hashToken(rawTokenUserRow);
+    const userRowRecord = await harness.mockDb.passwordResetToken.create({
+      data: {
+        userId: "user_test_1",
+        tokenHash: userRowHash,
+        expiresAt: new Date(Date.now() + 3600 * 1000),
+      },
+    });
+    const userRow = harness.users.get("user_test_1") as any;
+    userRow.resetToken = userRowHash;
+    userRow.resetTokenExpires = new Date(Date.now() + 3600 * 1000);
+
+    const userRowResult = await resetPasswordAction(makeFormData({
+      token: rawTokenUserRow,
+      newPassword: "UserRowPassword123!",
+    }));
+    const consumedUserRow = await harness.mockDb.passwordResetToken.findUnique({ where: { id: userRowRecord.id } });
+    assert(userRowResult.success === true, "4c. User.resetToken compatibility path resets password successfully");
+    assert(userRow.resetToken === null && userRow.resetTokenExpires === null, "4d. User-row reset token is cleared atomically");
+    assert(consumedUserRow?.usedAt !== null, "4e. Matching PasswordResetToken ledger row is also consumed");
 
     // ----------------------------------------------------------------------
     // TEST 5: Password-update failure and transaction rollback
@@ -401,7 +455,7 @@ async function runTests() {
     });
     const nonExistentResult = await resetPasswordAction(nonExistentFd);
     assert(
-      nonExistentResult.error === "Invalid or expired password reset link.",
+      ("error" in nonExistentResult ? nonExistentResult.error : "") === "Invalid or expired password reset link.",
       "6. Non-existent token returns generic invalid/expired error"
     );
 
@@ -411,7 +465,7 @@ async function runTests() {
     });
     const shortPasswordResult = await resetPasswordAction(shortPasswordFd);
     assert(
-      shortPasswordResult.error === "Password must be at least 8 characters",
+      ("error" in shortPasswordResult ? shortPasswordResult.error : "") === "Password must be at least 8 characters",
       "6b. Password length validation rejects passwords < 8 characters"
     );
 
@@ -421,7 +475,7 @@ async function runTests() {
     });
     const emptyTokenResult = await resetPasswordAction(emptyTokenFd);
     assert(
-      emptyTokenResult.error === "Reset token is required",
+      ("error" in emptyTokenResult ? emptyTokenResult.error : "") === "Reset token is required",
       "6c. Missing token rejects request immediately"
     );
 
@@ -431,10 +485,44 @@ async function runTests() {
     // ----------------------------------------------------------------------
     const reqNonExistent = makeFormData({ email: "definitely_does_not_exist@example.com" });
     const reqRes = await requestPasswordResetAction(reqNonExistent);
+    const genericResetMessage = "message" in reqRes ? reqRes.message : "";
     assert(
-      reqRes.success === false &&
-        reqRes.error === "You don't have an active account with this email. Please check your credentials or register a new practice.",
-      "7. Password reset request enforces strict account existence check (clear explicit error)"
+      reqRes.success === true &&
+        genericResetMessage === "If an account matches that email address, password reset instructions will be sent shortly.",
+      "7. Unknown email receives the same generic success response (no account enumeration)"
+    );
+
+    const reqKnown = makeFormData({ email: "test@example.com" });
+    const reqKnownRes = await requestPasswordResetAction(reqKnown);
+    const knownResetMessage = "message" in reqKnownRes ? reqKnownRes.message : "";
+    assert(
+      reqKnownRes.success === reqRes.success &&
+        knownResetMessage === genericResetMessage &&
+        !("resetUrl" in reqKnownRes),
+      "7b. Known email receives identical response and no raw reset URL is returned"
+    );
+
+    const resetUser = await harness.mockDb.user.findUnique({ where: { email: "test@example.com" } });
+    assert(
+      Boolean((resetUser as any)?.resetToken) &&
+        (resetUser as any)?.resetToken !== "raw-token",
+      "7c. Reset token digest is persisted on the user record"
+    );
+
+    const firstIssuedLedger = Array.from(harness.tokens.values()).find(
+      (record) => record.tokenHash === (resetUser as any).resetToken
+    )!;
+    const secondKnownRes = await requestPasswordResetAction(makeFormData({ email: "test@example.com" }));
+    const stillUnusedLedger = Array.from(harness.tokens.values()).filter((record) => record.usedAt === null);
+    assert(
+      secondKnownRes.success === reqRes.success &&
+        ("message" in secondKnownRes ? secondKnownRes.message : "") === genericResetMessage,
+      "7d. Repeated reset requests preserve the same generic public response"
+    );
+    assert(firstIssuedLedger.usedAt !== null, "7e. Issuing a new reset link invalidates the previous unused token");
+    assert(
+      stillUnusedLedger.length === 1 && stillUnusedLedger[0].tokenHash === (resetUser as any).resetToken,
+      "7f. Only the newest reset token remains redeemable"
     );
 
     const reqInvalidEmail = makeFormData({ email: "invalid-email-format" });

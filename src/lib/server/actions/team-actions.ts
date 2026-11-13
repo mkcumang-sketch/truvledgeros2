@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { Role } from "@prisma/client";
-import { requireTenant, requireRole } from "@/lib/auth/session";
+import { requireTenant, requireRole, createSession } from "@/lib/auth/session";
 import {
   inviteTeamMember,
   resendTeamInvitation,
@@ -268,7 +268,19 @@ export async function acceptInvitationAction(data: {
       userAgent,
     });
 
-    return { success: true, data: serializeForClient(result) };
+    let sessionCreated = false;
+    try {
+      await createSession(result.user.id, result.tenant.id, { ipAddress, userAgent });
+      sessionCreated = true;
+    } catch {
+      // The invitation is already accepted; send the user to sign in manually.
+      console.error("Invitation accepted but automatic session creation failed.");
+    }
+
+    return {
+      success: true,
+      data: serializeForClient({ ...result, sessionCreated }),
+    };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to accept invitation." };
   }

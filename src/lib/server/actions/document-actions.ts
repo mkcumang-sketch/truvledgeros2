@@ -94,7 +94,7 @@ export async function escalateDocumentRequestReminderAction(requestId: string) {
     const isEscalatedToPartner = newReminderCount >= (request.tenant.docReminderLimit || 3);
 
     const updated = await db.documentRequest.update({
-      where: { id: requestId },
+      where: { id: requestId, tenantId },
       data: {
         reminderCount: newReminderCount,
         lastReminderAt: new Date(),
@@ -217,7 +217,7 @@ export async function updateDocumentStatusAction(params: {
     }
 
     const updated = await db.document.update({
-      where: { id: params.documentId },
+      where: { id: params.documentId, tenantId },
       data: {
         status: params.status,
         verifiedAt: params.status === DocumentStatus.VERIFIED ? new Date() : null,

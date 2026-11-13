@@ -38,12 +38,12 @@ export function MetricCard({
     <GlassCard
       variant="light"
       className={cn(
-        "p-4 sm:p-5 flex flex-col justify-between group min-w-0 border border-[#EBE9E1] shadow-xs",
+        "p-3 sm:p-5 flex flex-col justify-between group min-w-0 border border-[#EBE9E1] shadow-xs",
         className
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] group-hover:text-[#1E293B] transition-colors truncate">
+        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-[#64748B] group-hover:text-[#1E293B] transition-colors truncate">
           {title}
         </span>
         {icon && (
@@ -54,7 +54,7 @@ export function MetricCard({
       </div>
 
       <div className="mt-3 sm:mt-4 flex items-baseline justify-between gap-2 flex-wrap">
-        <span className="text-xl sm:text-2xl font-bold tracking-tight text-[#1E293B] font-mono tabular-nums break-words">
+        <span className="text-lg sm:text-2xl font-bold tracking-tight text-[#1E293B] font-mono tabular-nums break-words">
           {value}
         </span>
         {badge && (

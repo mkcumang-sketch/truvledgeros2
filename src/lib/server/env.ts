@@ -6,7 +6,7 @@ import { z } from "zod";
  * Strict architectural rules:
  * 1. Server-side only (never imported into client components or client bundles).
  * 2. Never print, log, or serialize secret values or plaintext tokens.
- * 3. Graceful degradation for optional providers (Resend, WhatsApp, Razorpay, S3, Redis).
+ * 3. Graceful degradation for optional business integrations; mandatory production infrastructure is validated explicitly.
  * 4. Fail-closed validation for core security invariants (Database, Encryption Keyring).
  */
 
@@ -91,6 +91,8 @@ const ServerEnvSchema = z.object({
 
   // 12. Rate Limiter (Redis)
   REDIS_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   RATE_LIMIT_REDIS_TIMEOUT_MS: z.string().optional().default("1000"),
 });
 
@@ -106,7 +108,12 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
   const providers: ProviderStatus[] = [];
 
   const parsed = ServerEnvSchema.safeParse(envToValidate);
-  const isVercelPreview = envToValidate.VERCEL_ENV === "preview" || envToValidate.APP_ENV === "staging";
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      missingRequired.push("ENV_" + issue.path.join("_") + ": " + issue.message);
+    }
+  }
+  const isVercelPreview = envToValidate.VERCEL_ENV === "preview" || envToValidate.APP_ENV === "staging" || envToValidate.NODE_ENV === "staging";
   const isLiveProduction = (envToValidate.NODE_ENV === "production" || envToValidate.VERCEL_ENV === "production") && !isVercelPreview;
 
   let resolvedEnvironment: "development" | "staging" | "production" | "test" = "development";
@@ -124,30 +131,55 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
   }
 
   // Check Encryption Keyring (Required in Production for Credential Vault)
-  const hasEncKey = !!(
-    envToValidate.ENCRYPTION_KEY?.trim() ||
-    envToValidate.ENCRYPTION_KEY_M2M?.trim()
-  );
-  if (!hasEncKey) {
-    if (isLiveProduction) {
-      missingRequired.push("ENCRYPTION_KEY or ENCRYPTION_KEY_M2M (AES-256 64-hex-char key required in production)");
+  const isDeployedEnvironment = isLiveProduction || isVercelPreview || envToValidate.NODE_ENV === "staging";
+  const hasValidEncryptionKey = /^[a-fA-F0-9]{64}$/.test(envToValidate.ENCRYPTION_KEY?.trim() || "");
+  if (!hasValidEncryptionKey) {
+    if (isDeployedEnvironment) {
+      missingRequired.push("ENCRYPTION_KEY (exactly 64 hexadecimal characters for AES-256-GCM)");
     } else {
-      warnings.push("ENCRYPTION_KEY is unset; credential vault will fail closed on encrypted fields.");
+      warnings.push("ENCRYPTION_KEY is unset or invalid; credential vault operations fail closed.");
     }
+  }
+
+  const hasValidM2MEncryptionKey = /^[a-fA-F0-9]{64}$/.test(envToValidate.ENCRYPTION_KEY_M2M?.trim() || "");
+  if (isDeployedEnvironment && !hasValidM2MEncryptionKey) {
+    missingRequired.push("ENCRYPTION_KEY_M2M (64 hexadecimal characters; required by the active M2M keyring)");
+  }
+
+  const hasValidTokenPepper = /^[a-fA-F0-9]{64}$/.test(envToValidate.TOKEN_PEPPER?.trim() || "");
+  if (isDeployedEnvironment && !hasValidTokenPepper) {
+    missingRequired.push("TOKEN_PEPPER (64 hexadecimal characters; required for machine-token digest peppering)");
+  }
+
+  const appBaseUrl = envToValidate.APP_BASE_URL?.trim() || "";
+  if (isDeployedEnvironment && !appBaseUrl) {
+    missingRequired.push("APP_BASE_URL (canonical HTTPS application URL)");
+  } else if (isDeployedEnvironment && !appBaseUrl.toLowerCase().startsWith("https://")) {
+    missingRequired.push("APP_BASE_URL must use HTTPS in deployed environments");
+  }
+  if (isDeployedEnvironment && !envToValidate.DIRECT_URL?.trim()) {
+    missingRequired.push("DIRECT_URL (direct PostgreSQL connection for migration operations)");
+  }
+  const cronSecret = envToValidate.CRON_SECRET?.trim() || "";
+  if (isDeployedEnvironment && cronSecret.length < 32) {
+    missingRequired.push("CRON_SECRET (at least 32 characters for authenticated scheduled outbox dispatch)");
   }
 
   // Check Email Provider Status (Direct Gmail SMTP / Resend)
   const smtpConfigured = !!(envToValidate.SMTP_USER?.trim() && envToValidate.SMTP_PASS?.trim());
   const resendConfigured = !!envToValidate.RESEND_API_KEY?.trim();
+  if (isDeployedEnvironment && !smtpConfigured && !resendConfigured) {
+    missingRequired.push("SMTP_USER + SMTP_PASS or RESEND_API_KEY (password-reset and transactional email delivery)");
+  }
   providers.push({
     name: "Transactional Email (SMTP / Resend)",
     configured: smtpConfigured || resendConfigured,
     mode: smtpConfigured ? "ACTIVE" : resendConfigured ? "ACTIVE" : "STANDBY",
     detail: smtpConfigured
-      ? "Direct Gmail SMTP configured (smtp.gmail.com:465)"
+      ? "Direct SMTP provider configured"
       : resendConfigured
       ? "Live Resend API key configured"
-      : "Operating in safe STANDBY_MODE (logs delivery intent, does not throw error)",
+      : "Standby only; no reset or invitation email is transmitted until a provider is configured.",
   });
 
   // Check S3 Storage
@@ -155,13 +187,16 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
     envToValidate.AWS_ACCESS_KEY_ID?.trim() &&
     envToValidate.AWS_SECRET_ACCESS_KEY?.trim()
   );
+  if (isDeployedEnvironment && !s3Configured) {
+    missingRequired.push("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (private persistent document storage)");
+  }
   providers.push({
     name: "Object Storage (S3 / R2)",
     configured: s3Configured,
     mode: s3Configured ? "ACTIVE" : "STANDBY",
     detail: s3Configured
-      ? "AWS/S3 credentials configured"
-      : "S3 credentials unconfigured; fallback to local storage or presign unavailable",
+      ? "Private persistent S3-compatible storage configured"
+      : "Not configured; document uploads fail closed with HTTP 503. No local disk fallback is used.",
   });
 
   // Check Payment Gateway
@@ -208,21 +243,26 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
 
   // Check Redis Rate Limiter
   const redisConfigured = !!envToValidate.REDIS_URL?.trim();
+  if (isDeployedEnvironment && !redisConfigured) {
+    missingRequired.push("REDIS_URL (distributed rate limiting; production authentication fails closed without Redis)");
+  }
   providers.push({
     name: "Distributed Rate Limiter (Redis)",
     configured: redisConfigured,
     mode: redisConfigured ? "ACTIVE" : "STANDBY",
     detail: redisConfigured
-      ? "Redis cluster connection configured"
-      : "Unconfigured; falling back to in-memory sliding window rate limiter",
+      ? "Redis configured for distributed rate limits"
+      : "Development may use memory fallback; production sensitive routes fail closed when Redis is unavailable.",
   });
 
   // Check Native Automation Engine
   providers.push({
-    name: "Automation Engine (Native In-Process)",
-    configured: true,
-    mode: "ACTIVE",
-    detail: "100% self-contained Node.js & Railway PostgreSQL transactional automation engine active.",
+    name: "Automation Engine (Native Outbox)",
+    configured: !!envToValidate.CRON_SECRET?.trim(),
+    mode: envToValidate.CRON_SECRET?.trim() ? "ACTIVE" : "STANDBY",
+    detail: envToValidate.CRON_SECRET?.trim()
+      ? "Authenticated outbox endpoint can be invoked by the configured scheduler."
+      : "Worker code is present, but scheduled dispatch is not operational until CRON_SECRET and a scheduler are configured.",
   });
 
   return {
@@ -247,8 +287,10 @@ export function getSanitizedConfigSummary(): Record<string, string> {
     APP_BASE_URL: env.APP_BASE_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     DATABASE_URL: env.DATABASE_URL ? "postgresql://●●●●●●:●●●●●●@... [CONFIGURED]" : "[UNSET]",
     DIRECT_URL: mask(env.DIRECT_URL),
-    ENCRYPTION_KEY: mask(env.ENCRYPTION_KEY || env.ENCRYPTION_KEY_M2M),
-    SMTP: env.SMTP_USER ? `smtp.gmail.com (${env.SMTP_USER}) [CONFIGURED]` : "[UNSET]",
+    ENCRYPTION_KEY: mask(env.ENCRYPTION_KEY),
+    ENCRYPTION_KEY_M2M: mask(env.ENCRYPTION_KEY_M2M),
+    TOKEN_PEPPER: mask(env.TOKEN_PEPPER),
+    SMTP: env.SMTP_USER && env.SMTP_PASS ? "[CONFIGURED]" : "[UNSET]",
     RESEND_API_KEY: mask(env.RESEND_API_KEY),
     AWS_S3: mask(env.AWS_ACCESS_KEY_ID),
     RAZORPAY: mask(env.RAZORPAY_KEY_ID),

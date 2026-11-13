@@ -4,7 +4,16 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 declare const process: any;
 async function main() {
-  console.log("🌱 Seeding TRUV LedgerOS Multi-Tenant Production Foundation...");
+  const isDeployedRuntime =
+    process.env.NODE_ENV === "production" ||
+    process.env.NODE_ENV === "staging" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.APP_ENV === "staging";
+  if (isDeployedRuntime) {
+    throw new Error("Demo fixture seeding is disabled in staging and production. Use the reviewed owner-bootstrap procedure instead.");
+  }
+  console.log("🌱 Seeding isolated TRUV LedgerOS development/CI fixtures...");
 
   const defaultSeedPassword = process.env.SEED_DEFAULT_PASSWORD || (process.env.NODE_ENV === "production" ? null : "DevSeedPassword_Secure123!");
   if (!defaultSeedPassword) {

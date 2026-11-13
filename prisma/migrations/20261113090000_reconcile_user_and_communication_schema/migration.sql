@@ -6,6 +6,10 @@ ALTER TABLE "User"
   ADD COLUMN IF NOT EXISTS "resetToken" TEXT,
   ADD COLUMN IF NOT EXISTS "resetTokenExpires" TIMESTAMP(3);
 
+ALTER TABLE "Communication"
+  ADD COLUMN IF NOT EXISTS "sentiment" TEXT,
+  ADD COLUMN IF NOT EXISTS "durationSeconds" INTEGER;
+
 DO $$
 BEGIN
   CREATE TYPE "CommunicationStatus" AS ENUM (
@@ -25,7 +29,7 @@ END $$;
 
 -- Fail safely if legacy status values are outside the Prisma enum. Do not
 -- silently rewrite historical communication states during a production migration.
-DO $
+DO $$
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -34,7 +38,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Communication.status contains values outside CommunicationStatus; review and reconcile them before migrating.';
   END IF;
-END $;
+END $$;
 
 ALTER TABLE "Communication"
   ALTER COLUMN "status" TYPE "CommunicationStatus"

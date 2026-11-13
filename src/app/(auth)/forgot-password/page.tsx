@@ -11,7 +11,6 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,18 +19,13 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = (formData.get("email") as string)?.trim();
-    setSubmittedEmail(email);
 
     const res = await requestPasswordResetAction(formData);
 
     setLoading(false);
-    if (!res.success || res?.error) {
-      setError(
-        res.error ||
-          "You don't have an active account with this email. Please check your credentials or register a new practice."
-      );
-    } else if (res?.message) {
+    if ("error" in res && res.error) {
+      setError(res.error);
+    } else if ("message" in res && res.message) {
       setMessage(res.message);
     }
   }
@@ -63,7 +57,7 @@ export default function ForgotPasswordPage() {
           >
             <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-rose-300">Account Not Found</p>
+              <p className="font-semibold text-rose-300">Check your email address</p>
               <p className="mt-0.5 text-rose-200/90">{error}</p>
             </div>
           </div>
@@ -78,13 +72,8 @@ export default function ForgotPasswordPage() {
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-emerald-300">Dispatch Successful</p>
+              <p className="font-semibold text-emerald-300">Request received</p>
               <p className="mt-0.5 text-emerald-200/90">{message}</p>
-              {submittedEmail && (
-                <p className="mt-1 text-[11px] text-emerald-400 font-mono">
-                  Sent to: {submittedEmail}
-                </p>
-              )}
             </div>
           </div>
         )}

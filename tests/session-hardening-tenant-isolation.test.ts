@@ -45,7 +45,7 @@ async function runSessionHardeningSuite() {
 
   // 1.3 Verify clean redirect for users lacking active membership
   assert(
-    sessionSource.includes('redirect("/login?error=TENANT_MEMBERSHIP_REQUIRED")'),
+    sessionSource.includes('redirect("/login?error=TENANT_MEMBERSHIP_REQUIRED&force=true")'),
     "1.3 Non-superadmin users lacking membership redirected cleanly to login with error"
   );
 
@@ -135,16 +135,16 @@ async function runSessionHardeningSuite() {
   const docActionPath = path.join(__dirname, "../src/lib/server/actions/document-actions.ts");
   const docActionSource = fs.readFileSync(docActionPath, "utf-8");
   assert(
-    docActionSource.includes("where: { id: params.requestId, tenantId }"),
-    "2.2 Document actions requestId update is strictly tenant-scoped (updateMany with tenantId)"
+    docActionSource.includes("where: { id: requestId, tenantId }"),
+    "2.2 Document request mutation is strictly scoped to the active tenant"
   );
 
   // 2.3 Verify Document Upload API route tenant isolation
   const uploadRoutePath = path.join(__dirname, "../src/app/api/documents/upload/route.ts");
   const uploadRouteSource = fs.readFileSync(uploadRoutePath, "utf-8");
   assert(
-    uploadRouteSource.includes("where: { id: requestId, tenantId }"),
-    "2.3 Document upload route requestId update is strictly tenant-scoped (updateMany with tenantId)"
+    uploadRouteSource.includes("where: { id: requestId, tenantId, clientId }"),
+    "2.3 Document upload validates request ownership by tenant and client"
   );
 
   // 2.4 Verify GST Actions tenant isolation
