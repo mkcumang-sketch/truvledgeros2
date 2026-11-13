@@ -29,6 +29,10 @@ interface MockUserRecord {
   id: string;
   email: string;
   passwordHash: string;
+  active?: boolean;
+  resetToken?: string | null;
+  resetTokenExpires?: Date | null;
+  memberships?: any[];
 }
 
 interface MockSessionRecord {
@@ -48,6 +52,10 @@ function createHarness() {
     id: "user_test_1",
     email: "test@example.com",
     passwordHash: "old_hashed_password_abc",
+    active: true,
+    resetToken: null,
+    resetTokenExpires: null,
+    memberships: [],
   });
 
   // Seed active sessions
@@ -66,13 +74,35 @@ function createHarness() {
         }
         return null;
       },
+      findFirst: async ({ where }: any) => {
+        return Array.from(users.values()).find((u: any) =>
+          (!where.id || u.id === where.id) &&
+          (!where.email || u.email === where.email) &&
+          (!where.resetToken || u.resetToken === where.resetToken) &&
+          (!where.resetTokenExpires?.gt || (u.resetTokenExpires && u.resetTokenExpires > where.resetTokenExpires.gt))
+        ) || null;
+      },
+      updateMany: async ({ where, data }: any) => {
+        if (shouldFailUserUpdate) throw new Error("DATABASE_CONNECTION_ERROR_USER_UPDATE");
+        let count = 0;
+        for (const user of users.values() as any) {
+          const matches = user.id === where.id &&
+            (where.resetToken === undefined || user.resetToken === where.resetToken) &&
+            (!where.resetTokenExpires?.gt || (user.resetTokenExpires && user.resetTokenExpires > where.resetTokenExpires.gt));
+          if (matches) {
+            Object.assign(user, data);
+            count++;
+          }
+        }
+        return { count };
+      },
       update: async ({ where, data }: any) => {
         if (shouldFailUserUpdate) {
           throw new Error("DATABASE_CONNECTION_ERROR_USER_UPDATE");
         }
         const user = users.get(where.id);
         if (!user) throw new Error("User not found");
-        user.passwordHash = data.passwordHash;
+        Object.assign(user, data);
         return user;
       },
     },
@@ -432,9 +462,25 @@ async function runTests() {
     const reqNonExistent = makeFormData({ email: "definitely_does_not_exist@example.com" });
     const reqRes = await requestPasswordResetAction(reqNonExistent);
     assert(
-      reqRes.success === false &&
-        reqRes.error === "You don't have an active account with this email. Please check your credentials or register a new practice.",
-      "7. Password reset request enforces strict account existence check (clear explicit error)"
+      reqRes.success === true &&
+        reqRes.message === "If an account matches that email address, password reset instructions will be sent shortly.",
+      "7. Unknown email receives the same generic success response (no account enumeration)"
+    );
+
+    const reqKnown = makeFormData({ email: "test@example.com" });
+    const reqKnownRes = await requestPasswordResetAction(reqKnown);
+    assert(
+      reqKnownRes.success === reqRes.success &&
+        reqKnownRes.message === reqRes.message &&
+        !("resetUrl" in reqKnownRes),
+      "7b. Known email receives identical response and no raw reset URL is returned"
+    );
+
+    const resetUser = await harness.mockDb.user.findUnique({ where: { email: "test@example.com" } });
+    assert(
+      Boolean((resetUser as any)?.resetToken) &&
+        (resetUser as any)?.resetToken !== "raw-token",
+      "7c. Reset token digest is persisted on the user record"
     );
 
     const reqInvalidEmail = makeFormData({ email: "invalid-email-format" });
