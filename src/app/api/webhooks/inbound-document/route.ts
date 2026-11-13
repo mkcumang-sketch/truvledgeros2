@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     let fileBuffer: Buffer | null = null;
     let messageText = "";
 
-    // Case A: WhatsApp Cloud API Webhook payload
+    // Case A: Trusted-gateway-normalized WhatsApp Cloud API payload (media bytes must be base64-enriched)
     if (rawBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
       channel = "WHATSAPP";
       const message = rawBody.entry[0].changes[0].value.messages[0];
