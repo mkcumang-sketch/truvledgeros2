@@ -58,19 +58,22 @@ export async function POST(req: NextRequest) {
     const inboundSecret = process.env.INBOUND_DOCUMENT_WEBHOOK_SECRET?.trim();
     const suppliedSecret =
       req.headers.get("x-inbound-webhook-secret") ||
-      req.headers.get("authorization")?.replace(/^Bearer\\s+/i, "") ||
+      req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
       "";
 
-    let authenticated = false;
-    if (signature && appSecret) {
-      const expectedSignature = `sha256=${crypto.createHmac("sha256", appSecret).update(rawPayload).digest("hex")}`;
-      authenticated = constantTimeEqual(signature, expectedSignature);
-    }
-    if (!authenticated && inboundSecret && suppliedSecret) {
-      authenticated = constantTimeEqual(suppliedSecret, inboundSecret);
-    }
-    if (!authenticated) {
+    // A trusted gateway secret authenticates the tenant-routing header. Meta-signed
+    // requests must additionally pass the raw-body HMAC check using the Meta App Secret.
+    if (!inboundSecret || !suppliedSecret || !constantTimeEqual(suppliedSecret, inboundSecret)) {
       return NextResponse.json({ error: "Unauthorized webhook request." }, { status: 401 });
+    }
+    if (signature) {
+      if (!appSecret) {
+        return NextResponse.json({ error: "WhatsApp webhook signature verification is not configured." }, { status: 503 });
+      }
+      const expectedSignature = `sha256=${crypto.createHmac("sha256", appSecret).update(rawPayload).digest("hex")}`;
+      if (!constantTimeEqual(signature, expectedSignature)) {
+        return NextResponse.json({ error: "Invalid WhatsApp webhook signature." }, { status: 401 });
+      }
     }
 
     let rawBody: any;
