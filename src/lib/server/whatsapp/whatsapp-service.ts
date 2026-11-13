@@ -33,7 +33,7 @@ export async function sendWhatsAppMessage(
   const { tenantId, clientId, invoiceId, recipientPhone, recipientName, message } = params;
   const digits = recipientPhone.replace(/\D/g, "");
   const normalizedDigits = digits.length === 10 ? `91${digits}` : digits;
-  const messageId = `wa_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+  let messageId = `wa_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 
   if (!tenantId || !normalizedDigits || normalizedDigits.length < 10 || normalizedDigits.length > 15 || !message.trim()) {
     return {
@@ -78,6 +78,7 @@ export async function sendWhatsAppMessage(
 
       const data = await response.json();
       if (response.ok && data.messages?.[0]?.id) {
+        messageId = data.messages[0].id;
         status = "SENT";
         detail = "Accepted by Meta WhatsApp Cloud API. Recipient delivery is not confirmed until a delivery webhook arrives.";
       } else {
