@@ -215,7 +215,7 @@ async function runVaultIntegrationSuite() {
   });
   const res2 = await getDueObligations(req2);
   const body2 = await res2.json();
-  assert(res2.status === 401 && body2.code === "INVALID_CREDENTIALS", "2.1 Tampered auth tag fails closed (401 INVALID_CREDENTIALS)");
+  assert(res2.status === 401 && body2.code === "INVALID_SIGNATURE", "2.1 Tampered auth tag fails closed (401 INVALID_SIGNATURE)");
 
   // --------------------------------------------------------------------------
   // TEST 3: Contract B Blinded Digest Bearer Token Verification
