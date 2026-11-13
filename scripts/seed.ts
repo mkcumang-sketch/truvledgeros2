@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 const SALT_ROUNDS = 12;
 
 export const DEFAULT_ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim().toLowerCase() || "admin@truvtech.com";
-export const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.SEED_DEFAULT_PASSWORD || "Admin12345!";
+export const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.SEED_DEFAULT_PASSWORD;
 
 /**
  * Self-healing admin seed procedure:
@@ -17,7 +17,14 @@ export const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.
  * and links to the canonical practice tenant.
  */
 export async function seedAdmin() {
-  console.log("🌱 Executing Self-Healing Admin Seed Check...");
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Production seeding is disabled. Use the reviewed owner-bootstrap procedure instead.");
+  }
+  if (!DEFAULT_ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD.length < 16) {
+    throw new Error("Set ADMIN_PASSWORD or SEED_DEFAULT_PASSWORD to a unique value of at least 16 characters before running the development/CI seed.");
+  }
+
+  console.log("🌱 Executing isolated development/CI admin seed check...");
 
   // 1. Verify or create canonical practice tenant
   const defaultTenant = await prisma.tenant.upsert({
@@ -123,7 +130,6 @@ export async function seedAdmin() {
   console.log("TRUV LedgerOS — Fallback Admin Credentials Ready");
   console.log("==================================================================");
   console.log(`Email:       ${DEFAULT_ADMIN_EMAIL}`);
-  console.log(`Password:    ${DEFAULT_ADMIN_PASSWORD}`);
   console.log(`SuperAdmin:  true`);
   console.log(`Role:        FIRM_OWNER`);
   console.log(`Tenant:      ${defaultTenant.name} (${defaultTenant.slug})`);
