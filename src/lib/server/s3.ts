@@ -176,7 +176,7 @@ export async function uploadBufferToS3(params: {
 
   const endpoint = process.env.AWS_ENDPOINT_URL_S3;
   const url = endpoint
-    ? `${endpoint.replace(/\\/$/, "")}/${bucket}/${key}`
+    ? `${endpoint.replace(/\/$/, "")}/${bucket}/${key}`
     : `https://${bucket}.s3.${process.env.AWS_REGION || "us-east-2"}.amazonaws.com/${key}`;
 
   return { url, provider: "s3" };
