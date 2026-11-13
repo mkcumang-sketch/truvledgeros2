@@ -555,7 +555,7 @@ export function DocumentsClient({ documents, clients }: Props) {
         onClose={() => {
           if (!isPending) setIsRequestModalOpen(false);
         }}
-        title="Dispatch Client Document Request"
+        title="Create Client Document Request"
         description="Create a trackable request for the client. This action does not send an email or WhatsApp message."
         maxWidth="md"
       >
