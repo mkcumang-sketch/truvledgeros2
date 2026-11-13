@@ -129,7 +129,7 @@ export function Topbar({ onOpenMobileNav }: TopbarProps) {
         {/* AI Practice Bot Quick Link */}
         <Link
           href="/support"
-          className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] text-xs font-semibold rounded-xl bg-[#FFF4EE] border border-[#F26B38]/30 text-[#D95524] hover:bg-[#FFE7DA] transition-colors shadow-2xs"
+          className="hidden min-[400px]:inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] text-xs font-semibold rounded-xl bg-[#FFF4EE] border border-[#F26B38]/30 text-[#D95524] hover:bg-[#FFE7DA] transition-colors shadow-2xs"
           title="Open AI Practice Copilot"
         >
           <Sparkles className="w-3.5 h-3.5 text-[#F26B38]" />
