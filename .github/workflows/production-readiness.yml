@@ -63,6 +63,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Apply migrations to isolated CI database
+        run: npx prisma migrate deploy
+
       - name: Test suite
         run: npm test
 
