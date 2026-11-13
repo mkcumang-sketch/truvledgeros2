@@ -98,6 +98,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Active tenant not found for document ingestion." }, { status: 404 });
     }
 
+    const inboundEventId =
+      rawBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id ||
+      rawBody.messageId ||
+      rawBody.id ||
+      null;
+    if (typeof inboundEventId === "string" && inboundEventId) {
+      const priorEvent = await db.communication.findFirst({
+        where: {
+          tenantId,
+          externalRef: inboundEventId,
+          direction: CommunicationDirection.INBOUND,
+        },
+        select: { id: true },
+      });
+      if (priorEvent) {
+        return NextResponse.json({ success: true, duplicate: true }, { status: 200 });
+      }
+    }
+
     // 2. Parse Omnichannel Payload (WhatsApp Cloud API, Email Webhook, or Direct Unified API)
     let channel: "WHATSAPP" | "EMAIL" = "WHATSAPP";
     let senderIdentifier = "";
@@ -318,7 +337,7 @@ Statutory Risk: ${triageResult.overallRisk}
 Detected Issues: ${triageResult.auditErrorsAndWarnings.length}
 Partner Summary: ${triageResult.partnerSummary}`,
         status: "DELIVERED",
-        externalRef: document.id,
+        externalRef: inboundEventId || document.id,
       },
     });
 
