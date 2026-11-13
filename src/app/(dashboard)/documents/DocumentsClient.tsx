@@ -430,7 +430,7 @@ export function DocumentsClient({ documents, clients }: Props) {
                           )}
                           <span className="hidden sm:inline">AI Audit</span>
                         </button>
-                        {doc.fileUrl?.includes("/users/") && (
+                        {(doc.fileUrl?.includes("/users/") || doc.fileUrl?.includes("/vault/")) && (
                           <Link
                             href={`/api/documents/${doc.id}/download`}
                             className="text-xs font-semibold text-emerald-700 hover:text-emerald-900"
