@@ -485,17 +485,19 @@ async function runTests() {
     // ----------------------------------------------------------------------
     const reqNonExistent = makeFormData({ email: "definitely_does_not_exist@example.com" });
     const reqRes = await requestPasswordResetAction(reqNonExistent);
+    const genericResetMessage = "message" in reqRes ? reqRes.message : "";
     assert(
       reqRes.success === true &&
-        reqRes.message === "If an account matches that email address, password reset instructions will be sent shortly.",
+        genericResetMessage === "If an account matches that email address, password reset instructions will be sent shortly.",
       "7. Unknown email receives the same generic success response (no account enumeration)"
     );
 
     const reqKnown = makeFormData({ email: "test@example.com" });
     const reqKnownRes = await requestPasswordResetAction(reqKnown);
+    const knownResetMessage = "message" in reqKnownRes ? reqKnownRes.message : "";
     assert(
       reqKnownRes.success === reqRes.success &&
-        reqKnownRes.message === reqRes.message &&
+        knownResetMessage === genericResetMessage &&
         !("resetUrl" in reqKnownRes),
       "7b. Known email receives identical response and no raw reset URL is returned"
     );
@@ -513,7 +515,8 @@ async function runTests() {
     const secondKnownRes = await requestPasswordResetAction(makeFormData({ email: "test@example.com" }));
     const stillUnusedLedger = Array.from(harness.tokens.values()).filter((record) => record.usedAt === null);
     assert(
-      secondKnownRes.success === reqRes.success && secondKnownRes.message === reqRes.message,
+      secondKnownRes.success === reqRes.success &&
+        ("message" in secondKnownRes ? secondKnownRes.message : "") === genericResetMessage,
       "7d. Repeated reset requests preserve the same generic public response"
     );
     assert(firstIssuedLedger.usedAt !== null, "7e. Issuing a new reset link invalidates the previous unused token");
