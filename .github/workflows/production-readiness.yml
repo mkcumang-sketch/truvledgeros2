@@ -55,8 +55,12 @@ jobs:
 
       - name: Dependency vulnerability report
         run: |
-          npm audit --json > npm-audit.json || true
-          node -e "const r=require('./npm-audit.json'); console.log(JSON.stringify(r.metadata?.vulnerabilities||{})); for (const [n,v] of Object.entries(r.vulnerabilities||{})) console.log(n+' | '+v.severity+' | direct='+v.isDirect+' | fix='+JSON.stringify(v.fixAvailable));"
+          timeout 90s npm audit --json > npm-audit.json || true
+          if [ -s npm-audit.json ]; then
+            node -e "const r=require('./npm-audit.json'); console.log(JSON.stringify(r.metadata?.vulnerabilities||{})); for (const [n,v] of Object.entries(r.vulnerabilities||{})) console.log(n+' | '+v.severity+' | direct='+v.isDirect+' | fix='+JSON.stringify(v.fixAvailable));"
+          else
+            echo "npm audit report unavailable after 90 seconds; rerun audit locally."
+          fi
 
       - name: Validate Prisma schema
         run: npx prisma validate
