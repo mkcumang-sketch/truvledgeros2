@@ -671,7 +671,7 @@ export function CallingCampaignsClient({
                   <PhoneCall className="w-8 h-8 mx-auto text-[#CBD5E1] mb-2" />
                   <p className="text-sm font-medium">No calling campaigns created yet.</p>
                   <p className="text-xs text-[#718096] mt-1">
-                    Click "New Calling Campaign" above to launch an automated client outreach wave.
+                    Click “New Calling Campaign” above to launch an automated client outreach wave.
                   </p>
                 </div>
               ) : (
@@ -1496,7 +1496,7 @@ export function CallingCampaignsClient({
                       Calling Script Preview ({languagePref})
                     </span>
                     <p className="text-[#4A5568] italic leading-relaxed bg-white p-3 rounded-lg border border-[#E5E4DE]">
-                      "Namaste [Client Name] ji! Main {tenantName} ki automated AI accounts desk se bol rahi hoon. Hum aapke pending invoice ke baare mein connect kar rahe hain... Agar aap busy hain toh callback bol dijiye..."
+                      “Namaste [Client Name] ji! Main {tenantName} ki automated AI accounts desk se bol rahi hoon. Hum aapke pending invoice ke baare mein connect kar rahe hain... Agar aap busy hain toh callback bol dijiye...”
                     </p>
                   </div>
 
