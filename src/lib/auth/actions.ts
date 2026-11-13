@@ -6,10 +6,12 @@ import { verifyPassword, hashPassword, generateSecureToken, hashToken } from "./
 import { createSession, destroySession } from "./session";
 import { checkRateLimit, resetRateLimit } from "./rate-limit";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 import {
   rateLimiter,
   RATE_LIMIT_TIERS,
+  getClientIp,
 } from "@/lib/server/security/rate-limiter";
 import { sendEmail, getAppBaseUrl, sendPasswordResetEmail } from "@/lib/server/email/email-service";
 import crypto from "crypto";
@@ -156,6 +158,20 @@ export async function logoutAction() {
   redirect("/login");
 }
 
+function getPasswordResetRequestIp(): string {
+  try {
+    const requestHeaders = headers();
+    return getClientIp(new Request("https://localhost", { headers: new Headers(requestHeaders) }));
+  } catch {
+    return "unknown";
+  }
+}
+
+const PASSWORD_RESET_GENERIC_RESPONSE = {
+  success: true,
+  message: "If an account matches that email address, password reset instructions will be sent shortly.",
+};
+
 export async function requestPasswordResetAction(
   input: FormData | { email: string } | string
 ) {
@@ -170,10 +186,19 @@ export async function requestPasswordResetAction(
 
   const parsed = ForgotPasswordSchema.safeParse({ email });
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message || "Invalid email format" };
+    return { success: false, error: "Invalid email format" };
   }
 
-  // 1. Strict Server-Side Validation: Check if submitted email strictly exists in the User table
+  // Apply IP and email buckets before account lookup to prevent enumeration.
+  const clientIp = getPasswordResetRequestIp();
+  const [ipLimit, emailLimit] = await Promise.all([
+    rateLimiter.check("account:reset-ip:" + clientIp, RATE_LIMIT_TIERS.AUTH),
+    rateLimiter.check("account:reset:" + email, RATE_LIMIT_TIERS.AUTH),
+  ]);
+  if (!ipLimit.allowed || !emailLimit.allowed) {
+    return PASSWORD_RESET_GENERIC_RESPONSE;
+  }
+
   const user = await db.user.findUnique({
     where: { email },
     include: {
@@ -184,29 +209,16 @@ export async function requestPasswordResetAction(
     },
   });
 
-  // Strict non-existence check: Explicit error, do NOT send any email
-  if (!user) {
-    return {
-      success: false,
-      error: "You don't have an active account with this email. Please check your credentials or register a new practice.",
-    };
+  // Do not disclose whether an account exists or is active.
+  if (!user || !user.active) {
+    return PASSWORD_RESET_GENERIC_RESPONSE;
   }
 
-  // Rate Limiting (5 attempts / 15 mins)
-  const rateLimitResult = await rateLimiter.check(`account:reset:${email}`, RATE_LIMIT_TIERS.AUTH);
-  if (!rateLimitResult.allowed) {
-    return {
-      success: false,
-      error: `Too many password reset requests. Please try again after ${rateLimitResult.retryAfterSeconds} seconds.`,
-    };
-  }
-
-  // 2. Generate secure 64-character crypto token with a 1-hour expiration
-  const rawToken = crypto.randomBytes(32).toString("hex"); // 64 hex characters
+  // Generate a 256-bit token; only its SHA-256 digest is persisted.
+  const rawToken = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1-hour validity
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-  // 3. Store the hash securely in database (User.resetToken and User.resetTokenExpires)
   await db.user.update({
     where: { id: user.id },
     data: {
@@ -215,19 +227,15 @@ export async function requestPasswordResetAction(
     },
   });
 
-  // Maintain PasswordResetToken table synchronization
+  // Keep the normalized token ledger in sync when the model is available.
   try {
     if ((db as any).passwordResetToken) {
       await (db as any).passwordResetToken.create({
-        data: {
-          tokenHash,
-          userId: user.id,
-          expiresAt,
-        },
+        data: { tokenHash, userId: user.id, expiresAt },
       });
     }
-  } catch (tokenErr) {
-    console.warn("[AUTH] PasswordResetToken table sync notice:", tokenErr);
+  } catch {
+    console.error("[AUTH] PasswordResetToken ledger write failed; User reset token remains authoritative.");
   }
 
   await db.auditLog.create({
@@ -239,49 +247,17 @@ export async function requestPasswordResetAction(
     },
   }).catch(() => null);
 
-  // 4. Send password reset email via Nodemailer Direct Gmail SMTP (category: "PASSWORD_RESET")
-  const baseUrl = getAppBaseUrl();
-  const resetUrl = `${baseUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
-  const tenantName = user.memberships[0]?.tenant?.name || "TRUV LedgerOS";
-
-  await sendEmail({
+  // The raw URL is delivered only through the configured email provider.
+  // It is never returned to the browser, including in standby mode or errors.
+  await sendPasswordResetEmail({
     to: email,
-    subject: `Password Reset Request — ${tenantName}`,
-    category: "PASSWORD_RESET",
-    html: `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 550px; margin: 0 auto; padding: 28px; background: #0f172a; color: #f8fafc; border-radius: 12px; border: 1px solid #1e293b;">
-        <div style="margin-bottom: 24px; text-align: left;">
-          <span style="background: #ea580c; color: #ffffff; font-weight: 800; font-size: 13px; padding: 4px 10px; border-radius: 6px;">TRUV</span>
-          <span style="font-size: 16px; font-weight: 700; color: #f8fafc; margin-left: 8px;">LedgerOS</span>
-        </div>
-        <h2 style="color: #f8fafc; font-size: 20px; font-weight: 700; margin-top: 0; margin-bottom: 8px;">Password Recovery Request</h2>
-        <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-          Hello ${user.name || "Practitioner"},<br/>
-          A password reset was requested for your TRUV LedgerOS account (${tenantName}). Click the secure button below to choose a new password:
-        </p>
-        <div style="text-align: center; margin: 32px 0;">
-          <a href="${resetUrl}" style="background-color: #ea580c; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Reset Practice Password</a>
-        </div>
-        <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-top: 24px;">
-          This secure single-use recovery link is valid for <strong>1 hour</strong>. If you did not initiate this request, your account remains secure and no action is required.
-        </p>
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #1e293b;">
-          <p style="color: #64748b; font-size: 11px; word-break: break-all;">
-            Direct reset URL:<br/>
-            <a href="${resetUrl}" style="color: #ea580c;">${resetUrl}</a>
-          </p>
-        </div>
-      </div>
-    `,
-    text: `Password recovery requested for TRUV LedgerOS practice account. Reset your password here (valid for 1 hour): ${resetUrl}`,
-    tenantId: user.memberships[0]?.tenantId,
+    name: user.name || "Practitioner",
+    rawToken,
+  }).catch(() => {
+    console.error("[AUTH] Password reset email dispatch failed; public response remains generic.");
   });
 
-  return {
-    success: true,
-    message: "Password reset link has been dispatched to your registered email address.",
-    resetUrl,
-  };
+  return PASSWORD_RESET_GENERIC_RESPONSE;
 }
 
 export async function resetPasswordAction(
