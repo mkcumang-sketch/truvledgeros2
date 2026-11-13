@@ -6,6 +6,9 @@ ALTER TABLE "User"
   ADD COLUMN IF NOT EXISTS "resetToken" TEXT,
   ADD COLUMN IF NOT EXISTS "resetTokenExpires" TIMESTAMP(3);
 
+ALTER TABLE "Communication"
+  ADD COLUMN IF NOT EXISTS "sentiment" TEXT;
+
 DO $$
 BEGIN
   CREATE TYPE "CommunicationStatus" AS ENUM (
