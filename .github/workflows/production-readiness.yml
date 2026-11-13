@@ -38,7 +38,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/truv_ledgeros_ci?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/truv_ledgeros_ci?schema=public
       SESSION_SECRET: ci-only-session-secret-change-before-production-123456
-      CRON_SECRET: ci-only-cron-secret-change-before-production
+      SEED_DEFAULT_PASSWORD: ci-only-seed-password-never-used-outside-ci
       NEXT_TELEMETRY_DISABLED: 1
     steps:
       - name: Checkout
@@ -73,6 +73,9 @@ jobs:
 
       - name: Apply migrations to isolated CI database
         run: npx prisma migrate deploy
+
+      - name: Seed isolated CI fixtures
+        run: npm run seed
 
       - name: Test suite
         run: npm test
