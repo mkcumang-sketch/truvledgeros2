@@ -18,7 +18,7 @@ No production database migration, production secret change, data deletion, merge
 
 ## Documentation review
 
-All 60 Markdown paths in the repository tree were enumerated and reviewed. They represented 46 unique Markdown contents because several phase reports are duplicated between the repository root and docs folder.
+All 62 Markdown paths in the current release-branch tree were enumerated and reviewed. They represent 48 unique contents because several phase reports are duplicated between the repository root and docs folder. The two current release-authority documents are included in this count.
 
 The documentation set contains historical claims that conflict with the current implementation, including:
 - Older QA reports claim 393/393 or 495 assertions passed and zero release blockers. Those results are date-bound and do not validate the current main commit.
@@ -43,7 +43,7 @@ Use this document and the deployment checklist below for current release decisio
 | tests/login-rate-limiter-fail-closed.test.ts | Added a dedicated production fail-closed test for missing Redis. | Verifies the login limiter does not silently downgrade in production. |
 | scripts/seed.ts | Disabled this demo/admin seed in staging and production; removed the built-in default password and stopped printing seed passwords. | Prevents accidental creation or credential reset of demo/platform admin accounts in a live database. |
 | prisma/seed.ts | Disabled demo-firm and fixture seeding in production. | Prevents accidental insertion of demo users, clients and records into a live practice database. |
-| src/lib/server/email/email-service.ts | Corrected password-reset email copy to match the actual one-hour token expiry. | Removes contradictory security instructions in the email. |
+| src/lib/server/email/email-service.ts | Corrected password-reset email copy to match the actual one-hour token expiry. | Removes contradictory security instructions in the email. |\n| src/components/layout/mobile-bottom-nav.tsx | Added a phone-first bottom navigation bar for Home, Clients, Invoices and Payments, with a More panel that opens the complete module drawer. Includes active-route state and safe-area-aware positioning. | Makes core workflows reachable by thumb on Android/iPhone without hiding secondary modules. |\n| src/components/layout/app-shell.tsx | Uses dynamic viewport sizing and reserves mobile bottom-navigation space while retaining the desktop sidebar layout. | Avoids mobile browser viewport/gesture-bar overlap and content hidden behind navigation. |\n| src/app/globals.css | Added mobile viewport, overscroll and touch-target defaults. | Improves touch interaction and mobile viewport stability. |\n| tests/password-reset-concurrency.test.ts | Narrows discriminated action-result unions before reading error messages. | Fixes a strict TypeScript compilation failure in CI. |\n| prisma/migrations/20261113090000_reconcile_user_and_communication_schema/migration.sql | Adds the missing Communication.durationSeconds column idempotently during schema reconciliation. | Fixes the current CI runtime failure where the generated Prisma client queried a missing column after migrations. |
 | .env.example | Clarified which infrastructure variables are mandatory in staging/production and that in-memory fallback is development/test only. | Makes deployment setup instructions match runtime enforcement. |
 
 The exact commit list is available in the release branch history. CI is the source of truth for whether these changes compile and pass.
@@ -84,10 +84,10 @@ The migration must first pass against a clean isolated PostgreSQL database in CI
 
 ## Remaining release gates
 
-- [ ] New CI run passes migration application, fixture seed, every test suite and Next.js production build.
+- [ ] New CI run passes migration application, fixture seed, every test suite and Next.js production build. The latest observed run (43416417035) failed: 3 of 36 suites failed (password-reset test TypeScript narrowing, missing Communication.durationSeconds after migrations, and credential-migration audit-log assertion). Two known failures have been corrected on this branch; the credential-migration assertion remains under investigation and a fresh CI run is required.
 - [ ] Review CI logs for any skipped tests, flaky tests, audit findings or ignored failures.
 - [ ] Confirm the release-branch Vercel preview is built from the exact latest commit.
-- [ ] Run authenticated browser smoke tests on the preview: login, logout, client isolation, invoices, tasks, GST actions, Document Vault, password reset and mobile layout.
+- [ ] Run authenticated browser smoke tests on the preview: login, logout, client isolation, invoices, tasks, GST actions, Document Vault, password reset and mobile layout. Phone-first bottom navigation is implemented in the release branch but still needs real-device/browser verification at 360px, 390px and 430px widths.
 - [ ] Configure and verify the production environment variables listed above without exposing values.
 - [ ] Test private S3 upload, tenant-scoped download, invalid MIME rejection, oversized-file rejection and cross-tenant denial on preview.
 - [ ] Verify a real transactional email reaches a controlled test inbox; standby mode is not delivery.
