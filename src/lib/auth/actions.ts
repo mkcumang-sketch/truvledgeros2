@@ -297,9 +297,13 @@ export async function resetPasswordAction(
 
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-  // Rate Limiting (5 attempts / 15 mins)
-  const rateLimitResult = await rateLimiter.check(`account:reset-attempt:${tokenHash}`, RATE_LIMIT_TIERS.AUTH);
-  if (!rateLimitResult.allowed) {
+  // Rate limit both by token digest and trusted request IP.
+  const resetAttemptIp = getPasswordResetRequestIp();
+  const [rateLimitResult, ipAttemptLimit] = await Promise.all([
+    rateLimiter.check("account:reset-attempt:" + tokenHash, RATE_LIMIT_TIERS.AUTH),
+    rateLimiter.check("account:reset-attempt-ip:" + resetAttemptIp, RATE_LIMIT_TIERS.AUTH),
+  ]);
+  if (!rateLimitResult.allowed || !ipAttemptLimit.allowed) {
     return {
       success: false,
       error: `Too many attempts. Please try again after ${rateLimitResult.retryAfterSeconds} seconds.`,
@@ -308,6 +312,7 @@ export async function resetPasswordAction(
 
   // 1. Validate token and expiration against User table
   let targetUser: any = null;
+  let userTokenMatched = false;
   if (typeof (db.user as any).findFirst === "function") {
     try {
       targetUser = await (db.user as any).findFirst({
@@ -317,20 +322,21 @@ export async function resetPasswordAction(
           resetTokenExpires: { gt: new Date() },
         },
       });
+      userTokenMatched = Boolean(targetUser);
     } catch {
       targetUser = null;
     }
   }
 
-  // Fallback to PasswordResetToken table if User.resetToken wasn't set or in test harness
+  // Always load the ledger row when available so both token stores are consumed.
   let resetRecord: any = null;
-  if (!targetUser && (db as any).passwordResetToken) {
+  if ((db as any).passwordResetToken) {
     try {
       resetRecord = await (db as any).passwordResetToken.findUnique({
         where: { tokenHash },
         include: { user: true },
       });
-      if (resetRecord?.user) {
+      if (!targetUser && resetRecord?.user) {
         targetUser = resetRecord.user;
       }
     } catch (dbErr) {
@@ -351,32 +357,48 @@ export async function resetPasswordAction(
 
   try {
     await db.$transaction(async (tx) => {
-      // Synchronize atomic PasswordResetToken consumption if record exists
-      if ((tx as any).passwordResetToken && resetRecord?.id) {
-        const claimResult = await (tx as any).passwordResetToken.updateMany({
+      // Atomically claim the User-row token when that compatibility path matched.
+      // This protects single-use semantics even when the ledger model is unavailable.
+      if (userTokenMatched) {
+        const userClaim = await tx.user.updateMany({
           where: {
-            id: resetRecord.id,
-            usedAt: null,
-            expiresAt: { gt: new Date() },
+            id: targetUser!.id,
+            resetToken: tokenHash,
+            resetTokenExpires: { gt: new Date() },
           },
           data: {
-            usedAt: new Date(),
+            resetToken: null,
+            resetTokenExpires: null,
           },
         });
 
-        if (claimResult.count === 0) {
+        if (userClaim.count !== 1) {
           throw new Error("TOKEN_ALREADY_USED_OR_EXPIRED");
         }
       }
 
-      // Clear reset tokens upon success on User table
+      // Atomically claim the ledger token as well when a ledger row exists.
+      if ((tx as any).passwordResetToken && resetRecord?.id) {
+        const claimResult = await (tx as any).passwordResetToken.updateMany({
+          where: {
+            id: resetRecord.id,
+            userId: targetUser!.id,
+            tokenHash,
+            usedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { usedAt: new Date() },
+        });
+
+        if (claimResult.count !== 1) {
+          throw new Error("TOKEN_ALREADY_USED_OR_EXPIRED");
+        }
+      }
+
+      // Password update and session revocation commit with the token claim.
       await tx.user.update({
         where: { id: targetUser!.id },
-        data: {
-          passwordHash: hashedPassword,
-          resetToken: null,
-          resetTokenExpires: null,
-        },
+        data: { passwordHash: hashedPassword },
       });
 
       // Invalidate all active sessions for this user across all devices
