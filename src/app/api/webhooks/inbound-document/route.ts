@@ -1,6 +1,8 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { uploadBufferToS3 } from "@/lib/server/s3";
+import { ALLOWED_MIME_TYPES, uploadBufferToS3, verifyMagicBytes } from "@/lib/server/s3";
+import { MAX_UPLOAD_SIZE_BYTES } from "@/lib/server/security/request-validator";
 import {
   triageAndScanDocument,
   DocumentTriageResult,
@@ -16,6 +18,12 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function constantTimeEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
 /**
  * GET Handler: WhatsApp Cloud API Webhook Handshake Verification
  */
@@ -25,12 +33,13 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const verifyToken =
-    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() ||
-    process.env.WHATSAPP_VERIFY_TOKEN?.trim() ||
-    "truv_whatsapp_webhook_token_2026";
+  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim();
 
-  if (mode === "subscribe" && token === verifyToken) {
+  if (!verifyToken) {
+    return NextResponse.json({ error: "Webhook verification is not configured." }, { status: 503 });
+  }
+
+  if (mode === "subscribe" && token && constantTimeEqual(token, verifyToken)) {
     console.log(">>> [WHATSAPP-WEBHOOK-HANDSHAKE] Verification successful");
     return new NextResponse(challenge, { status: 200 });
   }
@@ -43,22 +52,70 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const rawBody = await req.json();
+    const rawPayload = await req.text();
+    const signature = req.headers.get("x-hub-signature-256") || "";
+    const appSecret = process.env.WHATSAPP_APP_SECRET?.trim();
+    const inboundSecret = process.env.INBOUND_DOCUMENT_WEBHOOK_SECRET?.trim();
+    const suppliedSecret =
+      req.headers.get("x-inbound-webhook-secret") ||
+      req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      "";
 
-    // 1. Resolve Target Practice Tenant
-    let tenantId = req.headers.get("x-tenant-id") || rawBody.tenantId;
-
-    let tenant = tenantId
-      ? await db.tenant.findUnique({ where: { id: tenantId } })
-      : await db.tenant.findFirst({ where: { active: true, isSuspended: false }, orderBy: { createdAt: "asc" } });
-
-    if (!tenant) {
-      return NextResponse.json(
-        { error: "No active practice tenant found for document ingestion" },
-        { status: 400 }
-      );
+    // A trusted gateway secret authenticates the tenant-routing header. Meta-signed
+    // requests must additionally pass the raw-body HMAC check using the Meta App Secret.
+    if (!inboundSecret || !suppliedSecret || !constantTimeEqual(suppliedSecret, inboundSecret)) {
+      return NextResponse.json({ error: "Unauthorized webhook request." }, { status: 401 });
     }
-    tenantId = tenant.id;
+    if (signature) {
+      if (!appSecret) {
+        return NextResponse.json({ error: "WhatsApp webhook signature verification is not configured." }, { status: 503 });
+      }
+      const expectedSignature = `sha256=${crypto.createHmac("sha256", appSecret).update(rawPayload).digest("hex")}`;
+      if (!constantTimeEqual(signature, expectedSignature)) {
+        return NextResponse.json({ error: "Invalid WhatsApp webhook signature." }, { status: 401 });
+      }
+    }
+
+    let rawBody: any;
+    try {
+      rawBody = JSON.parse(rawPayload);
+    } catch {
+      return NextResponse.json({ error: "Invalid webhook JSON payload." }, { status: 400 });
+    }
+
+    // Tenant routing must come from a trusted gateway header, never an untrusted body field
+    // or an arbitrary first-tenant fallback.
+    const tenantId = req.headers.get("x-tenant-id")?.trim();
+    if (!tenantId) {
+      return NextResponse.json({ error: "Trusted x-tenant-id routing header is required." }, { status: 400 });
+    }
+
+    const tenant = await db.tenant.findFirst({
+      where: { id: tenantId, active: true, isSuspended: false },
+      select: { id: true },
+    });
+    if (!tenant) {
+      return NextResponse.json({ error: "Active tenant not found for document ingestion." }, { status: 404 });
+    }
+
+    const inboundEventId =
+      rawBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id ||
+      rawBody.messageId ||
+      rawBody.id ||
+      null;
+    if (typeof inboundEventId === "string" && inboundEventId) {
+      const priorEvent = await db.communication.findFirst({
+        where: {
+          tenantId,
+          externalRef: inboundEventId,
+          direction: CommunicationDirection.INBOUND,
+        },
+        select: { id: true },
+      });
+      if (priorEvent) {
+        return NextResponse.json({ success: true, duplicate: true }, { status: 200 });
+      }
+    }
 
     // 2. Parse Omnichannel Payload (WhatsApp Cloud API, Email Webhook, or Direct Unified API)
     let channel: "WHATSAPP" | "EMAIL" = "WHATSAPP";
@@ -68,7 +125,7 @@ export async function POST(req: NextRequest) {
     let fileBuffer: Buffer | null = null;
     let messageText = "";
 
-    // Case A: WhatsApp Cloud API Webhook payload
+    // Case A: Trusted-gateway-normalized WhatsApp Cloud API payload (media bytes must be base64-enriched)
     if (rawBody.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
       channel = "WHATSAPP";
       const message = rawBody.entry[0].changes[0].value.messages[0];
@@ -106,7 +163,7 @@ export async function POST(req: NextRequest) {
     // Case C: Unified Omnichannel / Testing Payload
     else {
       channel = rawBody.channel?.toUpperCase() === "EMAIL" ? "EMAIL" : "WHATSAPP";
-      senderIdentifier = rawBody.sender || rawBody.senderPhone || rawBody.senderEmail || rawBody.from || "+919876543210";
+      senderIdentifier = rawBody.sender || rawBody.senderPhone || rawBody.senderEmail || rawBody.from || "";
       fileName = rawBody.fileName || fileName;
       mimeType = rawBody.mimeType || mimeType;
 
@@ -115,16 +172,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fallback simulated document buffer if none provided in webhook payload
     if (!fileBuffer || fileBuffer.length === 0) {
-      fileBuffer = Buffer.from(
-        `%PDF-1.4 simulated tax invoice document data for ${fileName} received via ${channel}`,
-        "utf-8"
-      );
+      return NextResponse.json({ error: "Webhook payload does not contain a real document attachment." }, { status: 400 });
+    }
+    if (fileBuffer.length > MAX_UPLOAD_SIZE_BYTES) {
+      return NextResponse.json({ error: "Inbound document exceeds the 10 MB limit." }, { status: 413 });
+    }
+    mimeType = (mimeType || "").trim().toLowerCase();
+    if (!ALLOWED_MIME_TYPES.includes(mimeType as (typeof ALLOWED_MIME_TYPES)[number])) {
+      return NextResponse.json({ error: "Inbound document file type is not supported." }, { status: 415 });
+    }
+    if (!verifyMagicBytes(fileBuffer, mimeType)) {
+      return NextResponse.json({ error: "Inbound file content does not match its declared type." }, { status: 415 });
     }
 
-    // 3. Match Sender to Existing Client or Tag as "Unassigned / New Lead"
+    // 3. Match Sender to Existing Client or Tag as "Unassigned / New Leads Queue"
     const cleanSender = senderIdentifier.trim();
+    if (!cleanSender) {
+      return NextResponse.json({ error: "Webhook sender identity is required." }, { status: 400 });
+    }
     let matchedClient = null;
 
     if (channel === "WHATSAPP") {
@@ -170,7 +236,7 @@ export async function POST(req: NextRequest) {
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storageKey = `${tenantId}/vault/${Date.now()}_${sanitizedFileName}`;
 
-    const uploadResult = await uploadBufferToS3({
+    await uploadBufferToS3({
       key: storageKey,
       buffer: fileBuffer,
       contentType: mimeType,
@@ -202,7 +268,7 @@ export async function POST(req: NextRequest) {
         tenantId,
         clientId: matchedClient.id,
         name: fileName,
-        fileUrl: uploadResult.url,
+        fileUrl: storageKey,
         fileSize: fileBuffer.length,
         mimeType,
         category: triageResult.documentType,
@@ -271,7 +337,7 @@ Statutory Risk: ${triageResult.overallRisk}
 Detected Issues: ${triageResult.auditErrorsAndWarnings.length}
 Partner Summary: ${triageResult.partnerSummary}`,
         status: "DELIVERED",
-        externalRef: document.id,
+        externalRef: inboundEventId || document.id,
       },
     });
 

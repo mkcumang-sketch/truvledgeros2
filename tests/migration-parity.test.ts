@@ -76,7 +76,7 @@ async function runTests() {
     schemaModels.push(m[1]);
   }
 
-  const baselineTableRegex = /CREATE TABLE "([^"]+)"/g;
+  const baselineTableRegex = /CREATE TABLE(?:\s+IF NOT EXISTS)?\s+"([^"]+)"/g;
   const baselineTables: string[] = [];
   while ((m = baselineTableRegex.exec(cumulativeSql)) !== null) {
     baselineTables.push(m[1]);

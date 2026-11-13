@@ -78,6 +78,16 @@ export function AiDocumentTriageFeed({
   const handleSendReply = () => {
     if (!activeReplyDoc || !replyText.trim()) return;
 
+    const whatsappDraftWindow =
+      replyChannel === "WHATSAPP" && activeReplyDoc.client.phone
+        ? window.open("about:blank", "_blank")
+        : null;
+
+    if (replyChannel === "WHATSAPP" && !whatsappDraftWindow) {
+      toast.error("Allow pop-ups to open the WhatsApp draft. No message was sent.");
+      return;
+    }
+
     startTransition(async () => {
       const res = await sendClientTriageReplyAction({
         documentId: activeReplyDoc.id,
@@ -86,15 +96,21 @@ export function AiDocumentTriageFeed({
       });
 
       if (res.success) {
-        toast.success(`Follow-up dispatched to ${activeReplyDoc.client.name} via ${replyChannel}`);
-        // If WhatsApp, also offer direct WhatsApp Web link opening
-        if (replyChannel === "WHATSAPP" && activeReplyDoc.client.phone) {
+        if (replyChannel === "WHATSAPP" && activeReplyDoc.client.phone && whatsappDraftWindow) {
           const cleanPhone = activeReplyDoc.client.phone.replace(/[^0-9]/g, "");
-          window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(replyText.trim())}`, "_blank");
+          const normalizedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+          whatsappDraftWindow.opener = null;
+          whatsappDraftWindow.location.href = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(replyText.trim())}`;
+          toast.success(`WhatsApp draft ready for ${activeReplyDoc.client.name}. Press Send in WhatsApp to deliver it.`);
+        } else if (res.data?.status === "STANDBY") {
+          toast.error("Email provider is in standby. The message was not sent.");
+        } else {
+          toast.success(`Email accepted by the delivery gateway for ${activeReplyDoc.client.name}.`);
         }
         setActiveReplyDoc(null);
       } else {
-        toast.error(res.error || "Failed to dispatch client reply.");
+        whatsappDraftWindow?.close();
+        toast.error(res.error || "Failed to prepare client reply.");
       }
     });
   };

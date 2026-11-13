@@ -591,18 +591,17 @@ export async function saveAndAttachInvoicePdf(params: {
   const sanitizedNumber = invoice.invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, "_");
   const s3Key = `${tenantId}/invoices/${sanitizedNumber}.pdf`;
 
-  const uploadResult = await uploadBufferToS3({
+  await uploadBufferToS3({
     key: s3Key,
     buffer,
     contentType: "application/pdf",
   });
 
-  // 3. Update PostgreSQL record
-  const pdfUrl = uploadResult.url || `/api/invoices/${invoiceId}/pdf`;
+  // Store only the private object key. Never persist a public S3 URL.
   await db.invoice.update({
     where: { id: invoiceId },
-    data: { pdfUrl },
+    data: { pdfUrl: s3Key },
   });
 
-  return { pdfUrl, buffer };
+  return { pdfUrl: `/api/invoices/${invoiceId}/pdf`, buffer };
 }

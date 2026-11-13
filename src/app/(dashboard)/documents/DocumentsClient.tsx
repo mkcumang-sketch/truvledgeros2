@@ -31,7 +31,6 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
-  createDocumentAction,
   createDocumentRequestAction,
   updateDocumentStatusAction,
   runAiDocumentAnomalyScanAction,
@@ -45,6 +44,7 @@ interface DocumentItem {
   category: string;
   status: string;
   fileSize: number | null;
+  fileUrl: string | null;
   createdAt: Date;
   client: {
     id: string;
@@ -74,6 +74,7 @@ export function DocumentsClient({ documents, clients }: Props) {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadClientId, setUploadClientId] = useState(clients[0]?.id || "");
   const [uploadDocName, setUploadDocName] = useState("");
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
   const [uploadCategory, setUploadCategory] = useState("Bank Statement");
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -119,8 +120,8 @@ export function DocumentsClient({ documents, clients }: Props) {
     e.preventDefault();
     setUploadError(null);
 
-    if (!uploadDocName.trim()) {
-      setUploadError("Please enter a document title or description.");
+    if (!selectedUploadFile) {
+      setUploadError("Choose a PDF, image, spreadsheet, or CSV file to upload.");
       return;
     }
     if (!uploadClientId) {
@@ -129,22 +130,27 @@ export function DocumentsClient({ documents, clients }: Props) {
     }
 
     startTransition(async () => {
-      const res = await createDocumentAction({
-        clientId: uploadClientId,
-        name: uploadDocName.trim(),
-        category: uploadCategory,
-        fileSize: Math.floor(Math.random() * 800000) + 120000,
-        mimeType: "application/pdf",
-      });
+      try {
+        const body = new FormData();
+        body.append("file", selectedUploadFile);
+        body.append("clientId", uploadClientId);
+        body.append("title", uploadDocName.trim() || selectedUploadFile.name);
+        body.append("category", uploadCategory);
 
-      if (res.success) {
+        const response = await fetch("/api/documents/upload", { method: "POST", body });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Secure document upload failed.");
+        }
+
         setIsUploadModalOpen(false);
         setUploadDocName("");
-        setActionFeedback("Document successfully deposited into client vault.");
+        setSelectedUploadFile(null);
+        setActionFeedback("Document securely uploaded to the client vault.");
         setTimeout(() => setActionFeedback(null), 4000);
         router.refresh();
-      } else {
-        setUploadError(res.error || "Failed to upload document.");
+      } catch (error: any) {
+        setUploadError(error?.message || "Secure document upload failed.");
       }
     });
   };
@@ -170,11 +176,11 @@ export function DocumentsClient({ documents, clients }: Props) {
       });
 
       if (res.success) {
-        toast.success("Formal document request dispatched to client contact.");
+        toast.success("Document request created. No email or WhatsApp was sent.");
         setIsRequestModalOpen(false);
         setRequestTitle("");
         setRequestDesc("");
-        setActionFeedback("Formal document request dispatched to client contact.");
+        setActionFeedback("Document request created and added to the tracking queue.");
         setTimeout(() => setActionFeedback(null), 4000);
         router.refresh();
       } else {
@@ -250,6 +256,7 @@ export function DocumentsClient({ documents, clients }: Props) {
             size="md"
             onClick={() => {
               setUploadError(null);
+              setSelectedUploadFile(null);
               setIsUploadModalOpen(true);
             }}
           >
@@ -423,6 +430,14 @@ export function DocumentsClient({ documents, clients }: Props) {
                           )}
                           <span className="hidden sm:inline">AI Audit</span>
                         </button>
+                        {(doc.fileUrl?.includes("/users/") || doc.fileUrl?.includes("/vault/")) && (
+                          <Link
+                            href={`/api/documents/${doc.id}/download`}
+                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-900"
+                          >
+                            Download
+                          </Link>
+                        )}
                         <Link
                           href={`/clients/${doc.client.id}`}
                           className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 ml-1"
@@ -483,6 +498,20 @@ export function DocumentsClient({ documents, clients }: Props) {
           </div>
 
           <div>
+            <label className="block text-xs font-semibold text-graphite-900 mb-1">
+              Select File <span className="text-rose-600">*</span>
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx,.xls,application/pdf,image/png,image/jpeg,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              required
+              onChange={(event) => setSelectedUploadFile(event.target.files?.[0] || null)}
+              className="block w-full text-xs text-graphite-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-emerald-800 hover:file:bg-emerald-100"
+            />
+            <p className="mt-1 text-[11px] text-graphite-500">Maximum 10 MB. Files are stored in private object storage.</p>
+          </div>
+
+          <div>
             <Select
               label="Document Category"
               value={uploadCategory}
@@ -526,8 +555,8 @@ export function DocumentsClient({ documents, clients }: Props) {
         onClose={() => {
           if (!isPending) setIsRequestModalOpen(false);
         }}
-        title="Dispatch Client Document Request"
-        description="Send a formal trackable request to client signatories with automated reminder tracking."
+        title="Create Client Document Request"
+        description="Create a trackable request for the client. This action does not send an email or WhatsApp message."
         maxWidth="md"
       >
         <form onSubmit={handleRequestSubmit} className="space-y-4">

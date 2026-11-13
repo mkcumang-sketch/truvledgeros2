@@ -251,7 +251,7 @@ export function evaluateDatabaseIsolation(options: {
   expectedProjectRef?: string;
 }): IsolationEvaluation {
   const isLiveInspection = options.databaseUrl === undefined;
-  const dbUrl = options.databaseUrl || process.env.DATABASE_URL || "";
+  const dbUrl = options.databaseUrl !== undefined ? options.databaseUrl : (process.env.DATABASE_URL || "");
   const directUrl = options.directUrl !== undefined ? options.directUrl : (isLiveInspection ? process.env.DIRECT_URL : undefined);
   const confirmFlag =
     options.confirmFlag !== undefined

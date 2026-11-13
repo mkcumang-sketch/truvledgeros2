@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { CommunicationChannel, CommunicationDirection } from "@prisma/client";
+import { CommunicationChannel, CommunicationDirection, CommunicationStatus } from "@prisma/client";
 import crypto from "crypto";
 
 export interface SendWhatsAppMessageParams {
@@ -15,6 +15,7 @@ export interface SendWhatsAppMessageParams {
 export interface WhatsAppMessageResult {
   success: boolean;
   messageId: string;
+  communicationId?: string;
   status: "SENT" | "DELIVERED" | "STANDBY" | "FAILED";
   provider: "whatsapp_cloud_api" | "whatsapp_standby";
   detail: string;
@@ -22,41 +23,44 @@ export interface WhatsAppMessageResult {
 }
 
 /**
- * Standard WhatsApp Message Dispatcher for TRUV LedgerOS
- * Uses Meta Cloud API when credentials exist, with graceful fallback to DB outbox/standby logging.
+ * Sends a WhatsApp text message when Meta Cloud API is configured.
+ * Without credentials it records a STANDBY intent; it never reports standby
+ * or API acceptance as recipient delivery.
  */
 export async function sendWhatsAppMessage(
   params: SendWhatsAppMessageParams
 ): Promise<WhatsAppMessageResult> {
-  const {
-    tenantId,
-    clientId,
-    invoiceId,
-    recipientPhone,
-    recipientName,
-    message,
-  } = params;
+  const { tenantId, clientId, invoiceId, recipientPhone, recipientName, message } = params;
+  const digits = recipientPhone.replace(/\D/g, "");
+  const normalizedDigits = digits.length === 10 ? `91${digits}` : digits;
+  let messageId = `wa_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 
-  // 1. Normalize phone to E.164 (+91...)
-  let digits = recipientPhone.replace(/\D/g, "");
-  if (digits.length === 10) {
-    digits = `91${digits}`;
+  if (!tenantId || !normalizedDigits || normalizedDigits.length < 10 || normalizedDigits.length > 15 || !message.trim()) {
+    return {
+      success: false,
+      messageId,
+      status: "FAILED",
+      provider: "whatsapp_standby",
+      detail: "A valid tenant, recipient phone number, and message are required.",
+      error: "INVALID_WHATSAPP_MESSAGE",
+    };
   }
-  const formattedPhone = `+${digits}`;
 
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+  const configuredApiVersion = process.env.WHATSAPP_GRAPH_API_VERSION?.trim();
+  const graphApiVersion = configuredApiVersion && /^v\d{1,2}\.0$/.test(configuredApiVersion) ? configuredApiVersion : "v26.0";
 
-  let messageId = `wa_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
   let provider: WhatsAppMessageResult["provider"] = "whatsapp_standby";
-  let status: WhatsAppMessageResult["status"] = "SENT";
-  let detail = "Message recorded and logged to LedgerOS outbox (Standby mode).";
+  let status: WhatsAppMessageResult["status"] = "STANDBY";
+  let detail = "No live WhatsApp provider is configured. Message intent was recorded in standby; nothing was sent.";
+  let error: string | undefined;
 
-  // 2. Meta WhatsApp Cloud API Attempt if keys configured
   if (accessToken && phoneNumberId) {
+    provider = "whatsapp_cloud_api";
     try {
       const response = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+        `https://graph.facebook.com/${graphApiVersion}/${phoneNumberId}/messages`,
         {
           method: "POST",
           headers: {
@@ -66,35 +70,34 @@ export async function sendWhatsAppMessage(
           body: JSON.stringify({
             messaging_product: "whatsapp",
             recipient_type: "individual",
-            to: digits,
+            to: normalizedDigits,
             type: "text",
-            text: {
-              preview_url: true,
-              body: message,
-            },
+            text: { preview_url: true, body: message },
           }),
+          signal: AbortSignal.timeout(10000),
         }
       );
 
       const data = await response.json();
       if (response.ok && data.messages?.[0]?.id) {
         messageId = data.messages[0].id;
-        provider = "whatsapp_cloud_api";
-        status = "DELIVERED";
-        detail = "Delivered via Meta WhatsApp Cloud API gateway.";
+        status = "SENT";
+        detail = "Accepted by Meta WhatsApp Cloud API. Recipient delivery is not confirmed until a delivery webhook arrives.";
       } else {
-        console.warn("[WHATSAPP-CLOUD-API-NOTICE]", data?.error?.message || data);
-        detail = `Meta API Notice: ${data?.error?.message || "Fallback to audit logging"}`;
+        status = "FAILED";
+        error = data?.error?.message || `Meta WhatsApp API returned HTTP ${response.status}.`;
+        detail = "Meta WhatsApp Cloud API rejected the message.";
       }
     } catch (err: any) {
-      console.warn("[WHATSAPP-SEND-EXCEPTION]", err.message);
-      detail = `Network error: ${err.message}`;
+      status = "FAILED";
+      error = err?.message || "WhatsApp provider request failed.";
+      detail = "WhatsApp provider request failed before acceptance.";
     }
   }
 
-  // 3. Persist authoritative log to Communication table
+  let communicationId: string | undefined;
   try {
-    await db.communication.create({
+    const communication = await db.communication.create({
       data: {
         tenantId,
         clientId,
@@ -103,22 +106,27 @@ export async function sendWhatsAppMessage(
         direction: CommunicationDirection.OUTBOUND,
         purpose: "INVOICE",
         category: "AUTONOMOUS_WHATSAPP_DISPATCH",
-        recipient: formattedPhone,
-        subject: `WhatsApp Update to ${recipientName}`,
+        recipient: `+${normalizedDigits}`,
+        subject: `WhatsApp Update to ${recipientName || "Client"}`,
         content: message,
-        status: status === "DELIVERED" ? "DELIVERED" : "SENT",
+        status: status as CommunicationStatus,
         externalRef: messageId,
       },
+      select: { id: true },
     });
+    communicationId = communication.id;
   } catch (dbErr: any) {
-    console.error("[WHATSAPP-COMM-LOG-ERROR]", dbErr.message);
+    console.error("[WHATSAPP-COMM-LOG-ERROR]", dbErr?.message || dbErr);
+    detail += " Communication audit record could not be saved.";
   }
 
   return {
-    success: true,
+    success: status !== "FAILED",
     messageId,
+    communicationId,
     status,
     provider,
     detail,
+    error,
   };
 }

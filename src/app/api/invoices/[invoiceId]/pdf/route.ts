@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenant } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { generateTaxInvoicePdf } from "@/lib/server/pdf/tax-invoice-generator";
+import { getDownloadPresignedUrl } from "@/lib/server/s3";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function GET(
 
     const invoice = await db.invoice.findFirst({
       where: { id: invoiceId, tenantId },
-      select: { id: true, invoiceNumber: true },
+      select: { id: true, invoiceNumber: true, pdfUrl: true },
     });
 
     if (!invoice) {
@@ -39,10 +40,21 @@ export async function GET(
       );
     }
 
-    // Generate statutory PDF buffer
-    const pdfBuffer = await generateTaxInvoicePdf(invoiceId, tenantId);
-
     const filename = `Invoice-${invoice.invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+    const storedKey = invoice.pdfUrl;
+
+    // Stored S3 object keys are private and are signed only for this authenticated tenant.
+    if (storedKey && storedKey.startsWith(`${tenantId}/invoices/`)) {
+      const signedUrl = await getDownloadPresignedUrl({
+        key: storedKey,
+        tenantId,
+        originalFileName: filename,
+      });
+      return NextResponse.redirect(signedUrl, { status: 302 });
+    }
+
+    // Backward compatibility for invoices created before private object-key storage.
+    const pdfBuffer = await generateTaxInvoicePdf(invoiceId, tenantId);
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,

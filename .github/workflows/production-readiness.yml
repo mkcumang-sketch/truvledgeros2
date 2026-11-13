@@ -1,0 +1,84 @@
+name: Production readiness
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-readiness-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: truv_ledgeros_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d truv_ledgeros_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/truv_ledgeros_ci?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/truv_ledgeros_ci?schema=public
+      SESSION_SECRET: ci-only-session-secret-change-before-production-123456
+      SEED_DEFAULT_PASSWORD: ci-only-seed-password-never-used-outside-ci
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit
+
+      - name: Dependency vulnerability report
+        run: |
+          timeout 90s npm audit --json > npm-audit.json || true
+          if [ -s npm-audit.json ]; then
+            node -e "const r=require('./npm-audit.json'); console.log(JSON.stringify(r.metadata?.vulnerabilities||{})); for (const [n,v] of Object.entries(r.vulnerabilities||{})) console.log(n+' | '+v.severity+' | direct='+v.isDirect+' | fix='+JSON.stringify(v.fixAvailable));"
+          else
+            echo "npm audit report unavailable after 90 seconds; rerun audit locally."
+          fi
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Apply migrations to isolated CI database
+        run: npx prisma migrate deploy
+
+      - name: Seed isolated CI fixtures
+        run: npm run seed
+
+      - name: Test suite
+        run: npm test
+
+      - name: Production build
+        run: npm run build

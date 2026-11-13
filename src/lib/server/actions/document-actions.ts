@@ -9,6 +9,7 @@ import {
   TaskStatus,
   CommunicationChannel,
   CommunicationDirection,
+  CommunicationStatus,
 } from "@prisma/client";
 import {
   generateAiAnomalyAuditScan,
@@ -478,11 +479,15 @@ export async function sendClientTriageReplyAction(params: {
   documentId: string;
   message: string;
   channel?: "WHATSAPP" | "EMAIL";
-}): Promise<ActionResult<{ communicationId: string }>> {
+}): Promise<ActionResult<{ communicationId: string; status: "SENT" | "STANDBY" }>> {
   try {
     const context = await requireTenant();
     const tenantId = context.membership.tenantId;
     const { documentId, message, channel = "WHATSAPP" } = params;
+
+    if (!message?.trim() || message.length > 4000) {
+      return { success: false, error: "Message must contain 1–4,000 characters." };
+    }
 
     const doc = await db.document.findFirst({
       where: { id: documentId, tenantId },
@@ -503,18 +508,45 @@ export async function sendClientTriageReplyAction(params: {
     const clientEmail = doc.client.contacts[0]?.email || doc.client.email || "";
     const recipient = channel === "WHATSAPP" ? clientPhone : clientEmail;
 
-    if (channel === "EMAIL" && clientEmail) {
+    if (!recipient.trim()) {
+      return {
+        success: false,
+        error: channel === "WHATSAPP" ? "This client has no phone number on file." : "This client has no email address on file.",
+      };
+    }
+
+    let deliveryStatus: CommunicationStatus = CommunicationStatus.STANDBY;
+    let externalRef: string | null = null;
+
+    if (channel === "EMAIL") {
       const { sendEmail } = await import("@/lib/server/email/email-service");
-      await sendEmail({
+      const escapedMessage = message
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+        .replace(/\r?\n/g, "<br/>");
+
+      const emailResult = await sendEmail({
         to: clientEmail,
         subject: `Update on your document: ${doc.name} — ${context.tenant.name}`,
-        html: `<p>${message.replace(/\n/g, "<br/>")}</p>`,
+        html: `<p>${escapedMessage}</p>`,
         text: message,
         tenantId,
         category: "NOTIFICATION",
       });
+
+      if (!emailResult.success || emailResult.status === "FAILED") {
+        return { success: false, error: emailResult.error || "Email provider did not accept the message." };
+      }
+
+      deliveryStatus = emailResult.delivered ? CommunicationStatus.SENT : CommunicationStatus.STANDBY;
+      externalRef = emailResult.messageId || null;
     }
 
+    // WhatsApp is deliberately prepared as a WhatsApp Web draft in the client UI.
+    // Opening wa.me does not send the message; the user must press Send in WhatsApp.
     const comm = await db.communication.create({
       data: {
         tenantId,
@@ -523,11 +555,11 @@ export async function sendClientTriageReplyAction(params: {
         direction: CommunicationDirection.OUTBOUND,
         purpose: "DOCS",
         category: "TRIAGE_FOLLOWUP",
-        recipient: recipient || "Unspecified",
+        recipient,
         subject: `Document Triage Follow-Up: ${doc.name}`,
         content: message,
-        status: "DELIVERED",
-        externalRef: doc.id,
+        status: deliveryStatus,
+        externalRef,
       },
     });
 
@@ -536,10 +568,13 @@ export async function sendClientTriageReplyAction(params: {
 
     return {
       success: true,
-      data: serializeForClient({ communicationId: comm.id }),
+      data: serializeForClient({
+        communicationId: comm.id,
+        status: deliveryStatus === CommunicationStatus.SENT ? "SENT" : "STANDBY",
+      }),
     };
   } catch (err: any) {
     console.error("[sendClientTriageReplyAction Error]", err);
-    return { success: false, error: err.message || "Failed to dispatch client reply." };
+    return { success: false, error: err.message || "Failed to prepare client reply." };
   }
 }
