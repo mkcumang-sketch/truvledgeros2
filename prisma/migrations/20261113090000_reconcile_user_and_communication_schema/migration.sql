@@ -25,7 +25,7 @@ END $$;
 
 -- Fail safely if legacy status values are outside the Prisma enum. Do not
 -- silently rewrite historical communication states during a production migration.
-DO $
+DO $$
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -34,7 +34,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Communication.status contains values outside CommunicationStatus; review and reconcile them before migrating.';
   END IF;
-END $;
+END $$;
 
 ALTER TABLE "Communication"
   ALTER COLUMN "status" TYPE "CommunicationStatus"
