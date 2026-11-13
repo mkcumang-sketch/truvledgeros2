@@ -305,9 +305,10 @@ export async function resetPasswordAction(
     rateLimiter.check("account:reset-attempt-ip:" + resetAttemptIp, RATE_LIMIT_TIERS.AUTH),
   ]);
   if (!rateLimitResult.allowed || !ipAttemptLimit.allowed) {
+    const blockedLimit = !rateLimitResult.allowed ? rateLimitResult : ipAttemptLimit;
     return {
       success: false,
-      error: `Too many attempts. Please try again after ${rateLimitResult.retryAfterSeconds} seconds.`,
+      error: `Too many attempts. Please try again after ${blockedLimit.retryAfterSeconds} seconds.`,
     };
   }
 
@@ -406,7 +407,7 @@ export async function resetPasswordAction(
       if ((tx as any).session) {
         await (tx as any).session.deleteMany({
           where: { userId: targetUser!.id },
-        }).catch(() => null);
+        });
       }
     });
   } catch (txErr: any) {
