@@ -193,7 +193,9 @@ export async function requestPasswordResetAction(
   // Apply IP and email buckets before account lookup to prevent enumeration.
   const clientIp = getPasswordResetRequestIp();
   const [ipLimit, emailLimit] = await Promise.all([
-    rateLimiter.check("account:reset-ip:" + clientIp, RATE_LIMIT_TIERS.AUTH),
+    clientIp === "unknown"
+      ? Promise.resolve({ allowed: true, retryAfterSeconds: 0 })
+      : rateLimiter.check("account:reset-ip:" + clientIp, RATE_LIMIT_TIERS.AUTH),
     rateLimiter.check("account:reset:" + email, RATE_LIMIT_TIERS.AUTH),
   ]);
   if (!ipLimit.allowed || !emailLimit.allowed) {
@@ -302,7 +304,9 @@ export async function resetPasswordAction(
   const resetAttemptIp = getPasswordResetRequestIp();
   const [rateLimitResult, ipAttemptLimit] = await Promise.all([
     rateLimiter.check("account:reset-attempt:" + tokenHash, RATE_LIMIT_TIERS.AUTH),
-    rateLimiter.check("account:reset-attempt-ip:" + resetAttemptIp, RATE_LIMIT_TIERS.AUTH),
+    resetAttemptIp === "unknown"
+      ? Promise.resolve({ allowed: true, retryAfterSeconds: 0 })
+      : rateLimiter.check("account:reset-attempt-ip:" + resetAttemptIp, RATE_LIMIT_TIERS.AUTH),
   ]);
   if (!rateLimitResult.allowed || !ipAttemptLimit.allowed) {
     const blockedLimit = !rateLimitResult.allowed ? rateLimitResult : ipAttemptLimit;
