@@ -112,7 +112,99 @@ export async function seedAdmin() {
     },
   });
 
-  // 4. Also verify Godmode platform account
+  // 4. Seed deterministic, isolated practice fixtures used by integration tests.
+  const demoIsolationTenant = await prisma.tenant.upsert({
+    where: { slug: "demo-firm" },
+    update: { active: true },
+    create: {
+      name: "TRUV E2E Isolation Firm",
+      slug: "demo-firm",
+      email: "e2e-isolation@example.invalid",
+      phone: "+910000000001",
+      active: true,
+    },
+  });
+
+  const roleFixtures = [
+    { email: "partner@truvdemo.in", name: "Demo Practice Partner", role: Role.PARTNER },
+    { email: "manager@truvdemo.in", name: "Demo Practice Manager", role: Role.MANAGER },
+    { email: "associate@truvdemo.in", name: "Demo Practice Associate", role: Role.EXECUTIVE },
+    { email: "client@truvdemo.in", name: "Demo Client Portal User", role: Role.CLIENT },
+  ];
+
+  for (const fixture of roleFixtures) {
+    const fixtureUser = await prisma.user.upsert({
+      where: { email: fixture.email },
+      update: { active: true },
+      create: {
+        name: fixture.name,
+        email: fixture.email,
+        passwordHash,
+        active: true,
+      },
+    });
+
+    await prisma.membership.upsert({
+      where: {
+        tenantId_userId: {
+          tenantId: defaultTenant.id,
+          userId: fixtureUser.id,
+        },
+      },
+      update: { role: fixture.role, status: "ACTIVE" },
+      create: {
+        tenantId: defaultTenant.id,
+        userId: fixtureUser.id,
+        role: fixture.role,
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  const clientFixtures = [
+    {
+      name: "Kaveri Logistics Ltd",
+      email: "ops@kaveri.example.invalid",
+      phone: "+919800000101",
+      pan: "AAACK1111A",
+      gstin: "27AAACK1111A1Z1",
+    },
+    {
+      name: "Godavari Sugar Mills LLP",
+      email: "admin@godavari.example.invalid",
+      phone: "+919800000102",
+      pan: "AAACG2222B",
+      gstin: "27AAACG2222B1Z2",
+    },
+    {
+      name: "Apex Technologies Pvt Ltd",
+      email: "finance@apex.example.invalid",
+      phone: "+919800000103",
+      pan: "AAACA3333C",
+      gstin: "27AAACA3333C1Z3",
+    },
+  ];
+
+  for (const fixture of clientFixtures) {
+    const existingClient = await prisma.client.findFirst({
+      where: { tenantId: defaultTenant.id, email: fixture.email },
+    });
+    if (existingClient) {
+      await prisma.client.update({
+        where: { id: existingClient.id },
+        data: { active: true },
+      });
+    } else {
+      await prisma.client.create({
+        data: { ...fixture, tenantId: defaultTenant.id, active: true },
+      });
+    }
+  }
+
+  console.log("CI/dev fixture tenant ready:", demoIsolationTenant.slug);
+  console.log("CI/dev role and client fixtures ready for accounting and E2E suites.");
+
+  // 5. Also verify Godmode platform account
   const godmodeEmail = "godmode@truvtech.com";
   let godmode = await prisma.user.findUnique({ where: { email: godmodeEmail } });
   if (!godmode) {
