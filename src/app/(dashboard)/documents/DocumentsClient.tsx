@@ -44,6 +44,7 @@ interface DocumentItem {
   category: string;
   status: string;
   fileSize: number | null;
+  fileUrl: string | null;
   createdAt: Date;
   client: {
     id: string;
@@ -175,11 +176,11 @@ export function DocumentsClient({ documents, clients }: Props) {
       });
 
       if (res.success) {
-        toast.success("Formal document request dispatched to client contact.");
+        toast.success("Document request created. No email or WhatsApp was sent.");
         setIsRequestModalOpen(false);
         setRequestTitle("");
         setRequestDesc("");
-        setActionFeedback("Formal document request dispatched to client contact.");
+        setActionFeedback("Document request created and added to the tracking queue.");
         setTimeout(() => setActionFeedback(null), 4000);
         router.refresh();
       } else {
@@ -429,6 +430,14 @@ export function DocumentsClient({ documents, clients }: Props) {
                           )}
                           <span className="hidden sm:inline">AI Audit</span>
                         </button>
+                        {doc.fileUrl?.includes("/users/") && (
+                          <Link
+                            href={`/api/documents/${doc.id}/download`}
+                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-900"
+                          >
+                            Download
+                          </Link>
+                        )}
                         <Link
                           href={`/clients/${doc.client.id}`}
                           className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 ml-1"
@@ -547,7 +556,7 @@ export function DocumentsClient({ documents, clients }: Props) {
           if (!isPending) setIsRequestModalOpen(false);
         }}
         title="Dispatch Client Document Request"
-        description="Send a formal trackable request to client signatories with automated reminder tracking."
+        description="Create a trackable request for the client. This action does not send an email or WhatsApp message."
         maxWidth="md"
       >
         <form onSubmit={handleRequestSubmit} className="space-y-4">
