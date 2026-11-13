@@ -507,6 +507,21 @@ async function runTests() {
       "7c. Reset token digest is persisted on the user record"
     );
 
+    const firstIssuedLedger = Array.from(harness.tokens.values()).find(
+      (record) => record.tokenHash === (resetUser as any).resetToken
+    )!;
+    const secondKnownRes = await requestPasswordResetAction(makeFormData({ email: "test@example.com" }));
+    const stillUnusedLedger = Array.from(harness.tokens.values()).filter((record) => record.usedAt === null);
+    assert(
+      secondKnownRes.success === reqRes.success && secondKnownRes.message === reqRes.message,
+      "7d. Repeated reset requests preserve the same generic public response"
+    );
+    assert(firstIssuedLedger.usedAt !== null, "7e. Issuing a new reset link invalidates the previous unused token");
+    assert(
+      stillUnusedLedger.length === 1 && stillUnusedLedger[0].tokenHash === (resetUser as any).resetToken,
+      "7f. Only the newest reset token remains redeemable"
+    );
+
     const reqInvalidEmail = makeFormData({ email: "invalid-email-format" });
     const reqInvalidRes = await requestPasswordResetAction(reqInvalidEmail);
     assert(
