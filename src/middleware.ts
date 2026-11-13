@@ -28,7 +28,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/logout",
 ];
 
-const UPLOAD_ROUTES = ["/api/documents/upload", "/clients/import"];
+const UPLOAD_ROUTES = ["/api/documents/upload", "/clients/import", "/api/webhooks/inbound-document"];
 
 const AUTH_COOKIE_NAMES = [
   "truv_session",
@@ -115,8 +115,14 @@ export async function middleware(request: NextRequest) {
   const contentLengthHeader = request.headers.get("content-length");
   if (contentLengthHeader) {
     const bytes = parseInt(contentLengthHeader, 10);
+    const isInboundWebhook = pathname === "/api/webhooks/inbound-document";
     const isUpload = UPLOAD_ROUTES.some((r) => pathname.startsWith(r));
-    const maxAllowed = isUpload ? MAX_UPLOAD_SIZE_BYTES : MAX_BODY_SIZE_BYTES;
+    // Base64 JSON attachments expand by roughly 4/3; validate actual file bytes in the route.
+    const maxAllowed = isInboundWebhook
+      ? Math.ceil(MAX_UPLOAD_SIZE_BYTES * 1.4)
+      : isUpload
+        ? MAX_UPLOAD_SIZE_BYTES
+        : MAX_BODY_SIZE_BYTES;
 
     if (!isNaN(bytes) && bytes > maxAllowed) {
       const res = NextResponse.json(
