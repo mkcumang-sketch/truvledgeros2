@@ -455,7 +455,7 @@ async function runTests() {
     });
     const nonExistentResult = await resetPasswordAction(nonExistentFd);
     assert(
-      nonExistentResult.error === "Invalid or expired password reset link.",
+      ("error" in nonExistentResult ? nonExistentResult.error : "") === "Invalid or expired password reset link.",
       "6. Non-existent token returns generic invalid/expired error"
     );
 
@@ -465,7 +465,7 @@ async function runTests() {
     });
     const shortPasswordResult = await resetPasswordAction(shortPasswordFd);
     assert(
-      shortPasswordResult.error === "Password must be at least 8 characters",
+      ("error" in shortPasswordResult ? shortPasswordResult.error : "") === "Password must be at least 8 characters",
       "6b. Password length validation rejects passwords < 8 characters"
     );
 
@@ -475,7 +475,7 @@ async function runTests() {
     });
     const emptyTokenResult = await resetPasswordAction(emptyTokenFd);
     assert(
-      emptyTokenResult.error === "Reset token is required",
+      ("error" in emptyTokenResult ? emptyTokenResult.error : "") === "Reset token is required",
       "6c. Missing token rejects request immediately"
     );
 
