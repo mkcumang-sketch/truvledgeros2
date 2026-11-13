@@ -75,6 +75,10 @@ async function runEnvValidationTests() {
     NODE_ENV: "staging",
     DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/truv_staging",
     ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    APP_BASE_URL: "https://staging.truvledgeros.in",
+    DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/truv_staging",
+    CRON_SECRET: "ci-staging-cron-secret-0123456789abcdef",
+    REDIS_URL: "redis://localhost:6379",
     RESEND_API_KEY: "re_mock_test_key_123",
     AWS_ACCESS_KEY_ID: "AKIA_MOCK_KEY_ID_123",
     AWS_SECRET_ACCESS_KEY: "mock_secret_key_abc_456",
@@ -85,7 +89,35 @@ async function runEnvValidationTests() {
   const s3Active = test5.providers.find((p) => p.name.includes("Object Storage"));
   assert(s3Active?.mode === "ACTIVE", "5.3 Configured S3 is marked ACTIVE");
 
-  // TEST 6: Zero secret leakage in sanitized summary
+  // TEST 6: Deployed environments require persistent storage, email, Redis and cron config
+  const test6 = validateEnvironment({
+    NODE_ENV: "production",
+    DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/truv_prod",
+    ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    APP_BASE_URL: "https://app.truvledgeros.in",
+    DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/truv_prod",
+    CRON_SECRET: "prod-cron-secret-0123456789abcdef0123456789",
+    REDIS_URL: "redis://localhost:6379",
+    RESEND_API_KEY: "re_mock_test_key_123",
+    AWS_ACCESS_KEY_ID: "AKIA_MOCK_KEY_ID_123",
+    AWS_SECRET_ACCESS_KEY: "mock_secret_key_abc_456",
+  });
+  assert(test6.valid, "6.1 Production passes only when all critical infrastructure prerequisites are configured");
+
+  const test6Missing = validateEnvironment({
+    NODE_ENV: "production",
+    DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/truv_prod",
+    ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    APP_BASE_URL: "https://app.truvledgeros.in",
+    DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/truv_prod",
+    CRON_SECRET: "prod-cron-secret-0123456789abcdef0123456789",
+  });
+  assert(!test6Missing.valid, "6.2 Production without Redis, S3 and email fails validation");
+  assert(test6Missing.missingRequired.some((m) => m.includes("REDIS_URL")), "6.3 Production requires Redis for distributed auth rate limits");
+  assert(test6Missing.missingRequired.some((m) => m.includes("AWS_ACCESS_KEY_ID")), "6.4 Production requires private persistent document storage");
+  assert(test6Missing.missingRequired.some((m) => m.includes("RESEND_API_KEY")), "6.5 Production requires a live transactional email provider");
+
+  // TEST 7: Zero secret leakage in sanitized summary
   const summary = getSanitizedConfigSummary();
   for (const [key, value] of Object.entries(summary)) {
     assert(
