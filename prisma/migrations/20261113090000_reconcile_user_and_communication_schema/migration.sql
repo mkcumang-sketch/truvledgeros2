@@ -23,17 +23,22 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
--- Preserve all known status values. Legacy or unknown values are retained as
--- STANDBY rather than causing a migration failure on older installations.
+-- Fail safely if legacy status values are outside the Prisma enum. Do not
+-- silently rewrite historical communication states during a production migration.
+DO $
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM "Communication"
+    WHERE "status" NOT IN ('DRAFT', 'ANSWERED', 'QUEUED', 'INITIATED', 'SENT', 'DELIVERED', 'FAILED', 'BOUNCED', 'STANDBY')
+  ) THEN
+    RAISE EXCEPTION 'Communication.status contains values outside CommunicationStatus; review and reconcile them before migrating.';
+  END IF;
+END $;
+
 ALTER TABLE "Communication"
   ALTER COLUMN "status" TYPE "CommunicationStatus"
-  USING (
-    CASE
-      WHEN "status" IN ('DRAFT', 'ANSWERED', 'QUEUED', 'INITIATED', 'SENT', 'DELIVERED', 'FAILED', 'BOUNCED', 'STANDBY')
-        THEN "status"
-      ELSE 'STANDBY'
-    END
-  )::"CommunicationStatus";
+  USING "status"::"CommunicationStatus";
 
 ALTER TABLE "Communication"
   ALTER COLUMN "status" SET DEFAULT 'DRAFT';
