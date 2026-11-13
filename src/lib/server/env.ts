@@ -142,6 +142,16 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
     }
   }
 
+  const hasValidM2MEncryptionKey = /^[a-fA-F0-9]{64}$/.test(envToValidate.ENCRYPTION_KEY_M2M?.trim() || "");
+  if (isDeployedEnvironment && !hasValidM2MEncryptionKey) {
+    missingRequired.push("ENCRYPTION_KEY_M2M (64 hexadecimal characters; required by the active M2M keyring)");
+  }
+
+  const hasValidTokenPepper = /^[a-fA-F0-9]{64}$/.test(envToValidate.TOKEN_PEPPER?.trim() || "");
+  if (isDeployedEnvironment && !hasValidTokenPepper) {
+    missingRequired.push("TOKEN_PEPPER (64 hexadecimal characters; required for machine-token digest peppering)");
+  }
+
   if (isDeployedEnvironment && !envToValidate.APP_BASE_URL?.trim()) {
     missingRequired.push("APP_BASE_URL (canonical HTTPS application URL)");
   } else if (isDeployedEnvironment && !envToValidate.APP_BASE_URL.trim().toLowerCase().startsWith("https://")) {
