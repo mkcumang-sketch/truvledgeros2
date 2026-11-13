@@ -49,7 +49,8 @@ export async function loginAction(formData: FormData) {
   }
 
   // 1. Upstash Redis Token-Bucket Limiting (5 attempts / 15 mins)
-  const rateLimitResult = await upstashLoginLimiter.check(email);
+  const loginRateLimitKey = getPasswordResetRequestIp() + ":" + email;
+  const rateLimitResult = await upstashLoginLimiter.check(loginRateLimitKey);
   if (!rateLimitResult.allowed) {
     return {
       error: rateLimitResult.errorMessage,
@@ -124,7 +125,7 @@ export async function loginAction(formData: FormData) {
 
   const user = authRace.user;
 
-  await upstashLoginLimiter.reset(email);
+  await upstashLoginLimiter.reset(loginRateLimitKey);
   resetRateLimit(`login:${email}`);
 
   // Resolve primary tenant
