@@ -44,6 +44,7 @@ function AcceptInviteContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [sessionCreated, setSessionCreated] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -82,9 +83,11 @@ function AcceptInviteContent() {
     setSubmitting(false);
 
     if (res?.success) {
+      const hasSession = res.data?.sessionCreated === true;
+      setSessionCreated(hasSession);
       setSuccess(true);
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push(hasSession ? "/dashboard" : "/login");
       }, 1500);
     } else {
       setError(res?.error || "Failed to accept invitation. Please try again.");
@@ -169,7 +172,9 @@ function AcceptInviteContent() {
             variant="success"
             icon={<CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
           >
-            Account activated successfully! Redirecting you to the workspace...
+            {sessionCreated
+              ? "Account activated successfully! Redirecting you to the workspace..."
+              : "Invitation accepted. Please sign in with your new credentials to continue."}
           </Alert>
         </div>
       )}
