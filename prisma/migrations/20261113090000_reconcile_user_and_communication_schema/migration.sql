@@ -7,7 +7,8 @@ ALTER TABLE "User"
   ADD COLUMN IF NOT EXISTS "resetTokenExpires" TIMESTAMP(3);
 
 ALTER TABLE "Communication"
-  ADD COLUMN IF NOT EXISTS "sentiment" TEXT;
+  ADD COLUMN IF NOT EXISTS "sentiment" TEXT,
+  ADD COLUMN IF NOT EXISTS "durationSeconds" INTEGER;
 
 DO $$
 BEGIN
