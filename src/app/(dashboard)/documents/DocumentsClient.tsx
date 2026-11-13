@@ -31,7 +31,6 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
-  createDocumentAction,
   createDocumentRequestAction,
   updateDocumentStatusAction,
   runAiDocumentAnomalyScanAction,
@@ -74,6 +73,7 @@ export function DocumentsClient({ documents, clients }: Props) {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadClientId, setUploadClientId] = useState(clients[0]?.id || "");
   const [uploadDocName, setUploadDocName] = useState("");
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
   const [uploadCategory, setUploadCategory] = useState("Bank Statement");
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -119,8 +119,8 @@ export function DocumentsClient({ documents, clients }: Props) {
     e.preventDefault();
     setUploadError(null);
 
-    if (!uploadDocName.trim()) {
-      setUploadError("Please enter a document title or description.");
+    if (!selectedUploadFile) {
+      setUploadError("Choose a PDF, image, spreadsheet, or CSV file to upload.");
       return;
     }
     if (!uploadClientId) {
@@ -129,22 +129,27 @@ export function DocumentsClient({ documents, clients }: Props) {
     }
 
     startTransition(async () => {
-      const res = await createDocumentAction({
-        clientId: uploadClientId,
-        name: uploadDocName.trim(),
-        category: uploadCategory,
-        fileSize: Math.floor(Math.random() * 800000) + 120000,
-        mimeType: "application/pdf",
-      });
+      try {
+        const body = new FormData();
+        body.append("file", selectedUploadFile);
+        body.append("clientId", uploadClientId);
+        body.append("title", uploadDocName.trim() || selectedUploadFile.name);
+        body.append("category", uploadCategory);
 
-      if (res.success) {
+        const response = await fetch("/api/documents/upload", { method: "POST", body });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Secure document upload failed.");
+        }
+
         setIsUploadModalOpen(false);
         setUploadDocName("");
-        setActionFeedback("Document successfully deposited into client vault.");
+        setSelectedUploadFile(null);
+        setActionFeedback("Document securely uploaded to the client vault.");
         setTimeout(() => setActionFeedback(null), 4000);
         router.refresh();
-      } else {
-        setUploadError(res.error || "Failed to upload document.");
+      } catch (error: any) {
+        setUploadError(error?.message || "Secure document upload failed.");
       }
     });
   };
@@ -250,6 +255,7 @@ export function DocumentsClient({ documents, clients }: Props) {
             size="md"
             onClick={() => {
               setUploadError(null);
+              setSelectedUploadFile(null);
               setIsUploadModalOpen(true);
             }}
           >
@@ -480,6 +486,20 @@ export function DocumentsClient({ documents, clients }: Props) {
               value={uploadDocName}
               onChange={(e) => setUploadDocName(e.target.value)}
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-graphite-900 mb-1">
+              Select File <span className="text-rose-600">*</span>
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx,.xls,application/pdf,image/png,image/jpeg,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              required
+              onChange={(event) => setSelectedUploadFile(event.target.files?.[0] || null)}
+              className="block w-full text-xs text-graphite-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-emerald-800 hover:file:bg-emerald-100"
+            />
+            <p className="mt-1 text-[11px] text-graphite-500">Maximum 10 MB. Files are stored in private object storage.</p>
           </div>
 
           <div>
