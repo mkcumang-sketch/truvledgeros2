@@ -156,7 +156,10 @@ async function runRedisRateLimiterSuite() {
   console.log("\n>>> [Test 4] Redis Outage & Fail-Closed Security Policy <<<");
   mockRedis.shouldFail = true;
 
-  // Sensitive auth endpoint (failClosed: true)
+  // Exercise the production fail-closed policy explicitly. Test mode normally
+  // falls back to memory to keep local tests deterministic.
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
   const authStatus = await podA.check("ip:auth:1.2.3.4", RATE_LIMIT_TIERS.AUTH);
   assert(!authStatus.allowed, "4.1 Sensitive auth operation fails closed during Redis outage");
   assert(authStatus.error === "REDIS_UNAVAILABLE", "4.2 Explicit REDIS_UNAVAILABLE error reported");
@@ -164,7 +167,8 @@ async function runRedisRateLimiterSuite() {
   const failClosedRes = createRateLimitResponse(authStatus);
   assert(failClosedRes.status === 503, "4.3 HTTP 503 Service Unavailable returned for degraded auth route");
 
-  // Reset Redis health
+  // Restore isolated test environment and Redis health.
+  process.env.NODE_ENV = previousNodeEnv;
   mockRedis.shouldFail = false;
 
   // --------------------------------------------------------------------------
