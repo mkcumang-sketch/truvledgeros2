@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - "production-readiness/**"
   pull_request:
     branches:
       - main
@@ -13,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-readiness-${{ github.ref }}
+  group: production-readiness-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -52,7 +51,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit
 
       - name: Dependency vulnerability report
         run: |
