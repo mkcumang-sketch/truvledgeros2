@@ -145,7 +145,7 @@ export async function seedAdmin() {
   return { admin, defaultTenant };
 }
 
-if (process.argv[1] && /(?:^|[\\/])scripts[\\/]seed\\.ts$/.test(process.argv[1])) {
+if (process.argv[1] && /(?:^|[\\/])scripts[\\/]seed\.ts$/.test(process.argv[1])) {
   seedAdmin()
     .catch((err) => {
       console.error("❌ Admin seed failed:", err);
