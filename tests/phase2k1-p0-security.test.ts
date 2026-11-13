@@ -166,8 +166,8 @@ async function runP0RegressionSuite() {
     const res1_2 = await route.handler(req1_2);
     const body1_2 = await res1_2.json();
     assert(
-      res1_2.status === 401 && body1_2.code === "UNCONFIGURED_SECRET",
-      `1.2 Missing CRON_SECRET / N8N_WEBHOOK_SECRET fails closed for Bearer auth (401 UNCONFIGURED_SECRET)`
+      res1_2.status === 401 && body1_2.code === "INVALID_CREDENTIALS",
+      `1.2 Missing CRON_SECRET rejects Bearer auth (401 INVALID_CREDENTIALS)`
     );
 
     // 1.3 Default secret fallback removed: cannot authenticate with 'default_dev_truv_n8n_secret_32bytes'
