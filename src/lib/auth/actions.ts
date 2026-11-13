@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { verifyPassword, hashToken } from "./password";
+import { verifyPassword } from "./password";
 import { createSession, destroySession } from "./session";
 import { resetRateLimit } from "./rate-limit";
 import { redirect } from "next/navigation";
