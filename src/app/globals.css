@@ -163,3 +163,15 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Phone-first application shell: stable viewport and bottom navigation safe area. */
+@supports (height: 100dvh) {
+  html, body { min-height: 100dvh; }
+}
+@media (max-width: 1023px) {
+  body { overscroll-behavior-y: none; }
+  input, select, textarea, button { touch-action: manipulation; }
+  /* Keep interactive controls comfortably tappable on phone screens. */
+  button, a { -webkit-tap-highlight-color: transparent; }
+}
