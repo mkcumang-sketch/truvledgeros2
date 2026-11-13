@@ -109,6 +109,11 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
   const providers: ProviderStatus[] = [];
 
   const parsed = ServerEnvSchema.safeParse(envToValidate);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      missingRequired.push("ENV_" + issue.path.join("_") + ": " + issue.message);
+    }
+  }
   const isVercelPreview = envToValidate.VERCEL_ENV === "preview" || envToValidate.APP_ENV === "staging";
   const isLiveProduction = (envToValidate.NODE_ENV === "production" || envToValidate.VERCEL_ENV === "production") && !isVercelPreview;
 
@@ -139,12 +144,14 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
 
   if (isDeployedEnvironment && !envToValidate.APP_BASE_URL?.trim()) {
     missingRequired.push("APP_BASE_URL (canonical HTTPS application URL)");
+  } else if (isDeployedEnvironment && !envToValidate.APP_BASE_URL.trim().toLowerCase().startsWith("https://")) {
+    missingRequired.push("APP_BASE_URL must use HTTPS in deployed environments");
   }
   if (isDeployedEnvironment && !envToValidate.DIRECT_URL?.trim()) {
     missingRequired.push("DIRECT_URL (direct PostgreSQL connection for migration operations)");
   }
-  if (isDeployedEnvironment && !envToValidate.CRON_SECRET?.trim()) {
-    missingRequired.push("CRON_SECRET (authenticated scheduled outbox dispatch)");
+  if (isDeployedEnvironment && (!envToValidate.CRON_SECRET?.trim() || envToValidate.CRON_SECRET.trim().length < 32)) {
+    missingRequired.push("CRON_SECRET (at least 32 characters for authenticated scheduled outbox dispatch)");
   }
 
   // Check Email Provider Status (Direct Gmail SMTP / Resend)
@@ -270,7 +277,7 @@ export function getSanitizedConfigSummary(): Record<string, string> {
     DATABASE_URL: env.DATABASE_URL ? "postgresql://●●●●●●:●●●●●●@... [CONFIGURED]" : "[UNSET]",
     DIRECT_URL: mask(env.DIRECT_URL),
     ENCRYPTION_KEY: mask(env.ENCRYPTION_KEY || env.ENCRYPTION_KEY_M2M),
-    SMTP: env.SMTP_USER ? `smtp.gmail.com (${env.SMTP_USER}) [CONFIGURED]` : "[UNSET]",
+    SMTP: env.SMTP_USER && env.SMTP_PASS ? "[CONFIGURED]" : "[UNSET]",
     RESEND_API_KEY: mask(env.RESEND_API_KEY),
     AWS_S3: mask(env.AWS_ACCESS_KEY_ID),
     RAZORPAY: mask(env.RAZORPAY_KEY_ID),
