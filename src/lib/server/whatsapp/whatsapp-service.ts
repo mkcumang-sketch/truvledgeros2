@@ -48,6 +48,8 @@ export async function sendWhatsAppMessage(
 
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+  const configuredApiVersion = process.env.WHATSAPP_GRAPH_API_VERSION?.trim();
+  const graphApiVersion = configuredApiVersion && /^v\\d{1,2}\\.0$/.test(configuredApiVersion) ? configuredApiVersion : "v26.0";
 
   let provider: WhatsAppMessageResult["provider"] = "whatsapp_standby";
   let status: WhatsAppMessageResult["status"] = "STANDBY";
@@ -58,7 +60,7 @@ export async function sendWhatsAppMessage(
     provider = "whatsapp_cloud_api";
     try {
       const response = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+        `https://graph.facebook.com/${graphApiVersion}/${phoneNumberId}/messages`,
         {
           method: "POST",
           headers: {
