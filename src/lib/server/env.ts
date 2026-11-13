@@ -6,7 +6,7 @@ import { z } from "zod";
  * Strict architectural rules:
  * 1. Server-side only (never imported into client components or client bundles).
  * 2. Never print, log, or serialize secret values or plaintext tokens.
- * 3. Graceful degradation for optional providers (Resend, WhatsApp, Razorpay, S3, Redis).
+ * 3. Graceful degradation for optional business integrations; mandatory production infrastructure is validated explicitly.
  * 4. Fail-closed validation for core security invariants (Database, Encryption Keyring).
  */
 
@@ -114,7 +114,7 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
       missingRequired.push("ENV_" + issue.path.join("_") + ": " + issue.message);
     }
   }
-  const isVercelPreview = envToValidate.VERCEL_ENV === "preview" || envToValidate.APP_ENV === "staging";
+  const isVercelPreview = envToValidate.VERCEL_ENV === "preview" || envToValidate.APP_ENV === "staging" || envToValidate.NODE_ENV === "staging";
   const isLiveProduction = (envToValidate.NODE_ENV === "production" || envToValidate.VERCEL_ENV === "production") && !isVercelPreview;
 
   let resolvedEnvironment: "development" | "staging" | "production" | "test" = "development";
@@ -286,7 +286,9 @@ export function getSanitizedConfigSummary(): Record<string, string> {
     APP_BASE_URL: env.APP_BASE_URL || env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     DATABASE_URL: env.DATABASE_URL ? "postgresql://●●●●●●:●●●●●●@... [CONFIGURED]" : "[UNSET]",
     DIRECT_URL: mask(env.DIRECT_URL),
-    ENCRYPTION_KEY: mask(env.ENCRYPTION_KEY || env.ENCRYPTION_KEY_M2M),
+    ENCRYPTION_KEY: mask(env.ENCRYPTION_KEY),
+    ENCRYPTION_KEY_M2M: mask(env.ENCRYPTION_KEY_M2M),
+    TOKEN_PEPPER: mask(env.TOKEN_PEPPER),
     SMTP: env.SMTP_USER && env.SMTP_PASS ? "[CONFIGURED]" : "[UNSET]",
     RESEND_API_KEY: mask(env.RESEND_API_KEY),
     AWS_S3: mask(env.AWS_ACCESS_KEY_ID),
