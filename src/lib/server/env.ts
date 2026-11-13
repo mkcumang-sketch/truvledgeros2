@@ -91,7 +91,6 @@ const ServerEnvSchema = z.object({
 
   // 12. Rate Limiter (Redis)
   REDIS_URL: z.string().optional(),
-  CRON_SECRET: z.string().optional(),
   UPSTASH_REDIS_REST_URL: z.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   RATE_LIMIT_REDIS_TIMEOUT_MS: z.string().optional().default("1000"),
