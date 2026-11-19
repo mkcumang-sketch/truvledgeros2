@@ -30,6 +30,8 @@ const activeSessions: Record<
     reason: string;
     personaId: string;
     direction: "OUTBOUND" | "INBOUND";
+    ollamaModel?: string;
+    customOllamaHost?: string;
     startedAt: number;
     history: Array<{ speaker: "agent" | "client"; text: string; timestamp: string }>;
   }
@@ -63,6 +65,8 @@ export async function POST(req: NextRequest) {
           amount: body.amount,
           dueDate: body.dueDate,
           personaId: persona.id,
+          ollamaModel: body.ollamaModel,
+          customOllamaHost: body.customOllamaHost,
         });
       }
 
@@ -75,6 +79,8 @@ export async function POST(req: NextRequest) {
         reason: body.reason || "PAYMENT_RECOVERY",
         personaId: persona.id,
         direction,
+        ollamaModel: body.ollamaModel,
+        customOllamaHost: body.customOllamaHost,
         startedAt: Date.now(),
         history: [{ speaker: "agent", text: greeting, timestamp: new Date().toISOString() }],
       };
@@ -132,6 +138,8 @@ export async function POST(req: NextRequest) {
         dueDate: body.dueDate,
         history: (body.history || session?.history || []).slice(-6),
         clientUtterance,
+        ollamaModel: body.ollamaModel || session?.ollamaModel,
+        customOllamaHost: body.customOllamaHost || session?.customOllamaHost,
       });
 
       // Append agent reply to history

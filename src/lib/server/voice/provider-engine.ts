@@ -27,6 +27,7 @@ export interface ProviderStatus {
   description: string;
   activeModel?: string;
   latencyMs?: number;
+  installedModels?: string[];
 }
 
 export interface VoiceTurnParams {
@@ -41,6 +42,8 @@ export interface VoiceTurnParams {
   history: Array<{ speaker: "agent" | "client"; text: string }>;
   clientUtterance: string;
   preferredProvider?: VoiceProviderType;
+  ollamaModel?: string;
+  customOllamaHost?: string;
 }
 
 export interface CallAnalysisResult {
@@ -50,6 +53,7 @@ export interface CallAnalysisResult {
     | "PAID_ALREADY"
     | "DISPUTE_RAISED"
     | "CALLBACK_REQUESTED"
+    | "DO_NOT_CALL"
     | "UNREACHABLE"
     | "WRONG_NUMBER"
     | "RESOLVED"
@@ -62,52 +66,75 @@ export interface CallAnalysisResult {
   escalationReason?: string | null;
 }
 
-const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://localhost:11434";
-const PREFERRED_OLLAMA_MODELS = ["llama3.2:3b", "gemma4:12b", "llama3:latest", "llama3", "mistral"];
+export const DEFAULT_OLLAMA_HOST = process.env.OLLAMA_HOST || "http://localhost:11434";
+export const PREFERRED_OLLAMA_MODELS = ["llama3.2:3b", "gemma4:12b", "llama3:latest", "llama3", "mistral"];
+
+/**
+ * Probes and queries local Ollama tags API for installed models.
+ */
+export async function getInstalledOllamaModels(customHost?: string): Promise<{
+  available: boolean;
+  models: string[];
+  host: string;
+  latencyMs: number;
+}> {
+  const host = customHost || DEFAULT_OLLAMA_HOST;
+  const start = Date.now();
+  try {
+    const res = await fetch(`${host}/api/tags`, {
+      method: "GET",
+      signal: AbortSignal.timeout(2000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models = (data.models || []).map((m: any) => m.name || m.model);
+      return {
+        available: models.length > 0,
+        models,
+        host,
+        latencyMs: Date.now() - start,
+      };
+    }
+  } catch {
+    // Unreachable or offline
+  }
+  return {
+    available: false,
+    models: [],
+    host,
+    latencyMs: Date.now() - start,
+  };
+}
 
 /**
  * Probes and detects all available zero-cost and configured voice providers.
  */
-export async function detectVoiceProviders(): Promise<ProviderStatus[]> {
+export async function detectVoiceProviders(customOllamaHost?: string): Promise<ProviderStatus[]> {
   const providers: ProviderStatus[] = [];
 
   // 1. Check Local Ollama
-  let ollamaOperational = false;
+  const ollamaInfo = await getInstalledOllamaModels(customOllamaHost);
   let activeOllamaModel = "";
-  let ollamaLatency = 0;
-
-  try {
-    const start = Date.now();
-    const res = await fetch(`${OLLAMA_HOST}/api/tags`, {
-      method: "GET",
-      signal: AbortSignal.timeout(1800),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const installedModels = (data.models || []).map((m: any) => m.name || m.model);
-      ollamaOperational = installedModels.length > 0;
-      ollamaLatency = Date.now() - start;
-
-      // Select best matching local model
-      activeOllamaModel =
-        PREFERRED_OLLAMA_MODELS.find((m) => installedModels.some((im: string) => im.startsWith(m))) ||
-        installedModels[0] ||
-        "llama3.2:3b";
-    }
-  } catch {
-    ollamaOperational = false;
+  if (ollamaInfo.available) {
+    activeOllamaModel =
+      PREFERRED_OLLAMA_MODELS.find((m) =>
+        ollamaInfo.models.some((im: string) => im.startsWith(m))
+      ) ||
+      ollamaInfo.models[0] ||
+      "llama3.2:3b";
   }
 
   providers.push({
     id: "OLLAMA_LOCAL",
     name: "Local Ollama (Zero Cost / On-Device)",
     isFree: true,
-    isOperational: ollamaOperational,
-    description: ollamaOperational
-      ? `Active local model: ${activeOllamaModel} (${ollamaLatency}ms latency, 100% private, 0 tokens billed).`
-      : "Ollama not running locally on http://localhost:11434. Start Ollama for free local voice intelligence.",
+    isOperational: ollamaInfo.available,
+    description: ollamaInfo.available
+      ? `Active local model: ${activeOllamaModel} (${ollamaInfo.latencyMs}ms latency, 100% private, 0 tokens billed).`
+      : `Ollama not reachable on ${ollamaInfo.host}. Start Ollama ('ollama serve') for free on-device intelligence.`,
     activeModel: activeOllamaModel || undefined,
-    latencyMs: ollamaLatency || undefined,
+    latencyMs: ollamaInfo.available ? ollamaInfo.latencyMs : undefined,
+    installedModels: ollamaInfo.models,
   });
 
   // 2. Check Browser Web Speech / Audio Studio
@@ -180,6 +207,8 @@ export async function generateInitialCallScript(params: {
   amount?: number;
   dueDate?: string;
   personaId?: string;
+  ollamaModel?: string;
+  customOllamaHost?: string;
 }): Promise<string> {
   const persona = getAgentPersona(params.personaId);
   const firm = params.firmName || "TRUV Advisory";
@@ -198,21 +227,26 @@ Due Date: ${formattedDate}
 Language: ${persona.language}
 
 Rules:
-1. Speak naturally as ${persona.name}. Keep it under 35 words.
-2. State the firm name and purpose clearly.
-3. No emojis, asterisks, or markdown formatting. Output plain spoken text only.`;
+1. Start with an Indian greeting appropriate to ${persona.language} ("Namaste", "Hello").
+2. Clearly introduce yourself and the firm.
+3. State the purpose in 1-2 conversational sentences.
+4. Keep under 35 spoken words.
+5. Return ONLY the spoken words with no quotes or metadata.`;
 
-  // 1. Try Local Ollama
+  // 1. Try Local Ollama if running
+  const ollamaHost = params.customOllamaHost || DEFAULT_OLLAMA_HOST;
+  const targetModel = params.ollamaModel || "llama3.2:3b";
+
   try {
-    const res = await fetch(`${OLLAMA_HOST}/api/generate`, {
+    const res = await fetch(`${ollamaHost}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3.2:3b",
-        prompt: `${persona.systemPrompt}\n\n${prompt}`,
+        model: targetModel,
+        prompt,
         stream: false,
       }),
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(2500),
     });
     if (res.ok) {
       const data = await res.json();
@@ -220,7 +254,7 @@ Rules:
       if (text.length > 20) return text;
     }
   } catch {
-    // Fallback to next provider
+    // Fallback to Gemini or deterministic
   }
 
   // 2. Try Gemini API
@@ -248,9 +282,9 @@ Rules:
     return `Hello ${params.clientName}, I am ${persona.name} from ${firm}. We are preparing your statutory GST return before the upcoming filing deadline. Could you please confirm if all sales and purchase invoices have been uploaded to your document vault?`;
   }
   if (params.reason === "DOCUMENT_COLLECTION") {
-    return `Namaste ${params.clientName} ji, ${persona.name} here from ${firm}. We require your updated bank statements and GST data to close your quarterly accounts. Please let us know when you can share these documents.`;
+    return `Namaste ${params.clientName}, this is ${persona.name} from ${firm}. We are conducting our quarterly audit review and require your updated bank statements. Please let us know if you can upload them today.`;
   }
-  return `Hello ${params.clientName}, I am ${persona.name} from ${firm} following up on your accounting and tax compliance status. Do you have two minutes to speak with us today?`;
+  return `Namaste ${params.clientName}, I am ${persona.name} from ${firm}. Reaching out for your periodic accounting and tax advisory check-in. How are your operations running this month?`;
 }
 
 /**
@@ -265,6 +299,25 @@ export async function generateTurnResponse(params: VoiceTurnParams): Promise<{
   const persona = getAgentPersona(params.personaId);
   const firm = params.firmName || "TRUV Advisory";
   const formattedAmount = params.amount ? formatInrAmount(params.amount) : "the invoice amount";
+  const clientText = (params.clientUtterance || "").toLowerCase();
+
+  // 0. TRAI Opt-Out / DND Handling (Instant Rule Enforcement)
+  if (
+    clientText.includes("do not call") ||
+    clientText.includes("stop calling") ||
+    clientText.includes("remove my number") ||
+    clientText.includes("dnd") ||
+    clientText.includes("opt out") ||
+    clientText.includes("unsubscribe") ||
+    clientText.includes("don't call")
+  ) {
+    return {
+      replyText: `Understood. We have logged your request and removed your contact number from our automated calling list. You will not receive further automated reminders from ${firm}. Dhanyawad.`,
+      sentiment: "COOPERATIVE",
+      shouldEndCall: true,
+      detectedDisposition: "DO_NOT_CALL",
+    };
+  }
 
   // Build conversational context
   const dialogTranscript = params.history
@@ -297,12 +350,15 @@ Output JSON strictly in this format:
 }`;
 
   // 1. Try Local Ollama
+  const ollamaHost = params.customOllamaHost || DEFAULT_OLLAMA_HOST;
+  const targetModel = params.ollamaModel || "llama3.2:3b";
+
   try {
-    const res = await fetch(`${OLLAMA_HOST}/api/generate`, {
+    const res = await fetch(`${ollamaHost}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3.2:3b",
+        model: targetModel,
         prompt,
         format: "json",
         stream: false,
@@ -344,11 +400,11 @@ Output JSON strictly in this format:
         };
       }
     } catch {
-      // Fallback
+      // Fallback to deterministic
     }
   }
 
-  // 3. Fallback Heuristic Turn Engine
+  // 3. High-Fidelity Deterministic Fallback
   return generateDeterministicTurn(params, persona);
 }
 
@@ -370,7 +426,13 @@ export async function analyzeCallOutcome(params: {
   let escalationReason: string | null = null;
   let promisedDate: string | null = null;
 
-  if (lower.includes("dispute") || lower.includes("wrong amount") || lower.includes("not paying") || lower.includes("overcharge")) {
+  // 0. TRAI Opt-Out / DND check
+  if (lower.includes("do not call") || lower.includes("stop calling") || lower.includes("remove my number") || lower.includes("dnd") || lower.includes("opt out")) {
+    sentiment = "COOPERATIVE";
+    disposition = "DO_NOT_CALL";
+    partnerTaskRequired = true;
+    escalationReason = "Client explicitly requested Do-Not-Call (DND) opt-out. Update CRM contact status to DO_NOT_CALL.";
+  } else if (lower.includes("dispute") || lower.includes("wrong amount") || lower.includes("not paying") || lower.includes("overcharge") || lower.includes("incorrect")) {
     sentiment = "DISPUTING";
     disposition = "DISPUTE_RAISED";
     partnerTaskRequired = true;
@@ -421,7 +483,7 @@ function generateDeterministicTurn(
 } {
   const text = params.clientUtterance.toLowerCase();
 
-  // 1. Check Dispute first (e.g. client says "amount is incorrect, we paid TDS and your bill is wrong")
+  // 1. Check Dispute first
   if (
     text.includes("dispute") ||
     text.includes("wrong") ||
@@ -450,7 +512,8 @@ function generateDeterministicTurn(
     };
   }
 
-  if (text.includes("will pay") || text.includes("tomorrow") || text.includes("friday") || text.includes("monday") || text.includes("next week")) {
+  // 3. Check Commitment to Pay
+  if (text.includes("will pay") || text.includes("tomorrow") || text.includes("friday") || text.includes("monday") || text.includes("next week") || text.includes("by ")) {
     return {
       replyText: `Understood, we have logged your commitment to settle the account. We will share the UPI and bank transfer details to your registered WhatsApp. Thank you, and have a wonderful day!`,
       sentiment: "PROMISED_TO_PAY",
@@ -459,31 +522,28 @@ function generateDeterministicTurn(
     };
   }
 
-  if (text.includes("busy") || text.includes("driving") || text.includes("call back") || text.includes("later")) {
+  // 4. Check Busy / Callback request
+  if (text.includes("busy") || text.includes("call later") || text.includes("driving") || text.includes("in a meeting")) {
     return {
-      replyText: `Apologies for interrupting your schedule. We will reschedule this call for a more convenient time today between 10 AM and 6 PM. Thank you!`,
+      replyText: `No problem at all. We will schedule a callback during our standard office hours between 10 AM and 6 PM. Thank you for your time.`,
       sentiment: "COOPERATIVE",
       shouldEndCall: true,
       detectedDisposition: "CALLBACK_REQUESTED",
     };
   }
 
-  // Default natural turn
+  // Default natural acknowledgement
   return {
-    replyText: `Thank you, ${params.clientName}. We appreciate your ongoing partnership with our firm. Is there any particular query regarding your tax filings or statement that I can assist you with right now?`,
+    replyText: `Noted. I have updated our records with your feedback. If you have any questions regarding your invoice or tax filing, feel free to reach back out to our office. Dhanyawad!`,
     sentiment: "COOPERATIVE",
     shouldEndCall: false,
     detectedDisposition: "IN_PROGRESS",
   };
 }
 
-function cleanSpokenText(text?: string): string {
-  if (!text) return "";
+function cleanSpokenText(text: string): string {
   return text
-    .replace(/\*+/g, "")
-    .replace(/\[.*?\]/g, "")
-    .replace(/\(.*?\)/g, "")
-    .replace(/["']/g, "")
+    .replace(/^["'\s]+|["'\s]+$/g, "")
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();

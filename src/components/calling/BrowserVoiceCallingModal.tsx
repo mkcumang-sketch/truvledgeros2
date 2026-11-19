@@ -18,6 +18,10 @@ import {
   Calendar,
   X,
   Radio,
+  Send,
+  Pause,
+  Play,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -34,6 +38,8 @@ interface BrowserVoiceCallingModalProps {
   reason?: "PAYMENT_RECOVERY" | "DOCUMENT_COLLECTION" | "GST_DEADLINE" | "CLIENT_CHECKIN" | "INBOUND_SUPPORT";
   direction?: "OUTBOUND" | "INBOUND";
   personaId?: string;
+  ollamaModel?: string;
+  customOllamaHost?: string;
   onCallCompleted?: (summary: any) => void;
 }
 
@@ -50,6 +56,8 @@ export function BrowserVoiceCallingModal({
   reason = "PAYMENT_RECOVERY",
   direction = "OUTBOUND",
   personaId = "PRIYA",
+  ollamaModel,
+  customOllamaHost,
   onCallCompleted,
 }: BrowserVoiceCallingModalProps) {
   // Call States: "connecting" | "active" | "ended"
@@ -57,15 +65,19 @@ export function BrowserVoiceCallingModal({
   const [sessionId, setSessionId] = useState<string>("");
   const [duration, setDuration] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isAgentSpeaking, setIsAgentSpeaking] = useState<boolean>(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState<boolean>(false);
+  const [manualTextInput, setManualTextInput] = useState<string>("");
+  const [micStatus, setMicStatus] = useState<"active" | "denied" | "unsupported" | "standby">("standby");
+
   const [activePersona, setActivePersona] = useState<any>({
     name: "Priya Sharma",
     title: "Senior Payment Recovery Specialist",
     voiceSettings: { pitch: 1.05, rate: 1.0, langCode: "hi-IN" },
   });
 
-  // Transcript state: Array<{ speaker: 'agent' | 'client'; text: string; time: string }>
+  // Transcript state
   const [transcript, setTranscript] = useState<
     Array<{ speaker: "agent" | "client"; text: string; time: string }>
   >([]);
@@ -90,6 +102,8 @@ export function BrowserVoiceCallingModal({
     setTranscript([]);
     setCurrentUtterance("");
     setAnalysisResult(null);
+    setIsPaused(false);
+    setIsMuted(false);
 
     async function initSession() {
       try {
@@ -107,6 +121,8 @@ export function BrowserVoiceCallingModal({
             reason,
             direction,
             personaId,
+            ollamaModel,
+            customOllamaHost,
           }),
         });
 
@@ -124,16 +140,15 @@ export function BrowserVoiceCallingModal({
           speakAgentUtterance(data.greetingText, data.persona?.voiceSettings);
 
           // Start Timer
-          timerIntervalRef.current = setInterval(() => {
-            setDuration((prev) => prev + 1);
-          }, 1000);
+          startTimer();
 
           // Start Microphone & Audio Waveform
           startMicrophone();
         }
       } catch (err) {
         console.error("Failed to start live calling session:", err);
-        setCallState("active"); // fallback to manual active
+        setCallState("active");
+        startTimer();
       }
     }
 
@@ -143,6 +158,13 @@ export function BrowserVoiceCallingModal({
       cleanupAudio();
     };
   }, [isOpen]);
+
+  function startTimer() {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current = setInterval(() => {
+      setDuration((prev) => prev + 1);
+    }, 1000);
+  }
 
   // Scroll to bottom of transcript automatically
   useEffect(() => {
@@ -155,13 +177,12 @@ export function BrowserVoiceCallingModal({
   function speakAgentUtterance(text: string, voiceSettings?: any) {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
 
-    window.speechSynthesis.cancel(); // Stop any pending speech
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.pitch = voiceSettings?.pitch || activePersona.voiceSettings?.pitch || 1.05;
     utterance.rate = voiceSettings?.rate || activePersona.voiceSettings?.rate || 1.0;
     utterance.lang = voiceSettings?.langCode || activePersona.voiceSettings?.langCode || "hi-IN";
 
-    // Attempt to pick an Indian English or Hindi voice if installed in the OS
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(
       (v) =>
@@ -176,12 +197,20 @@ export function BrowserVoiceCallingModal({
     utterance.onstart = () => setIsAgentSpeaking(true);
     utterance.onend = () => {
       setIsAgentSpeaking(false);
-      // Restart speech recognition after agent finishes speaking
-      restartRecognition();
+      if (!isPaused && !isMuted) restartRecognition();
     };
     utterance.onerror = () => setIsAgentSpeaking(false);
 
     window.speechSynthesis.speak(utterance);
+  }
+
+  // Interrupt Agent Speech
+  function interruptAgent() {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsAgentSpeaking(false);
+    restartRecognition();
   }
 
   // 3. Browser Speech Recognition (STT - Zero Cost)
@@ -192,7 +221,7 @@ export function BrowserVoiceCallingModal({
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      console.warn("SpeechRecognition API not available in this browser. Fallback to manual typing.");
+      setMicStatus("unsupported");
       return;
     }
 
@@ -204,11 +233,17 @@ export function BrowserVoiceCallingModal({
 
       recognition.onstart = () => {
         setIsUserSpeaking(false);
+        setMicStatus("active");
       };
 
       recognition.onresult = (event: any) => {
         let interimTranscript = "";
         let finalTranscript = "";
+
+        // If agent was speaking and user speaks, auto-interrupt agent
+        if (isAgentSpeaking) {
+          interruptAgent();
+        }
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
@@ -231,7 +266,9 @@ export function BrowserVoiceCallingModal({
       };
 
       recognition.onerror = (e: any) => {
-        if (e.error !== "no-speech") {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+          setMicStatus("denied");
+        } else if (e.error !== "no-speech") {
           console.warn("Speech recognition notice:", e.error);
         }
       };
@@ -240,6 +277,7 @@ export function BrowserVoiceCallingModal({
       recognitionRef.current = recognition;
     } catch (err) {
       console.warn("Speech recognition init error:", err);
+      setMicStatus("denied");
     }
 
     // Initialize Waveform Canvas
@@ -247,7 +285,7 @@ export function BrowserVoiceCallingModal({
   }
 
   function restartRecognition() {
-    if (recognitionRef.current && !isMuted) {
+    if (recognitionRef.current && !isMuted && !isPaused) {
       try {
         recognitionRef.current.start();
       } catch {
@@ -258,14 +296,13 @@ export function BrowserVoiceCallingModal({
 
   // 4. Handle User Turn Submission & Fetch Next Agent Reply
   async function handleUserFinishedSpeaking(userText: string) {
-    if (!userText || isAgentSpeaking) return;
+    if (!userText || isPaused) return;
 
     const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const updatedHistory = [...transcript, { speaker: "client" as const, text: userText, time: nowStr }];
     setTranscript(updatedHistory);
 
     try {
-      // Pause recognition while waiting for AI response
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -285,6 +322,8 @@ export function BrowserVoiceCallingModal({
           invoiceNumber,
           reason,
           personaId: activePersona.id,
+          ollamaModel,
+          customOllamaHost,
         }),
       });
 
@@ -349,7 +388,9 @@ export function BrowserVoiceCallingModal({
 
         drawWaveform();
       })
-      .catch((e) => console.warn("Microphone access denied:", e));
+      .catch(() => {
+        setMicStatus("denied");
+      });
   }
 
   // 6. End Call & Save Outcome
@@ -384,6 +425,48 @@ export function BrowserVoiceCallingModal({
     }
   }
 
+  function restartCall() {
+    cleanupAudio();
+    setDuration(0);
+    setTranscript([]);
+    setCurrentUtterance("");
+    setAnalysisResult(null);
+    setIsPaused(false);
+    setCallState("connecting");
+
+    // Re-trigger start
+    fetch("/api/voice/live-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "start",
+        clientName,
+        clientId,
+        invoiceId,
+        invoiceNumber,
+        amount,
+        dueDate,
+        reason,
+        direction,
+        personaId,
+        ollamaModel,
+        customOllamaHost,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setSessionId(data.sessionId);
+          const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          setTranscript([{ speaker: "agent", text: data.greetingText, time: nowStr }]);
+          setCallState("active");
+          speakAgentUtterance(data.greetingText, data.persona?.voiceSettings);
+          startTimer();
+          startMicrophone();
+        }
+      });
+  }
+
   function cleanupAudio() {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -403,12 +486,32 @@ export function BrowserVoiceCallingModal({
   }
 
   function toggleMute() {
-    setIsMuted(!isMuted);
-    if (!isMuted && recognitionRef.current) {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    if (nextMuted && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch {}
+    } else if (!nextMuted) {
+      restartRecognition();
+    }
+  }
+
+  function togglePause() {
+    const nextPaused = !isPaused;
+    setIsPaused(nextPaused);
+    if (nextPaused) {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
     } else {
+      startTimer();
       restartRecognition();
     }
   }
@@ -435,7 +538,7 @@ export function BrowserVoiceCallingModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-white dark:bg-[#0B0F19] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
         
         {/* Header Bar */}
@@ -447,14 +550,14 @@ export function BrowserVoiceCallingModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {direction === "INBOUND" ? "Inbound Client Session" : "Outbound AI Call"}
+                  {direction === "INBOUND" ? "Simulated Inbound Session" : "Outbound AI Call Studio"}
                 </h3>
                 <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Zero-PSTN WebRTC
+                  Zero-PSTN Web Audio
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Connected: <span className="font-semibold text-slate-700 dark:text-slate-300">{clientName}</span>{" "}
+                Contact: <span className="font-semibold text-slate-700 dark:text-slate-300">{clientName}</span>{" "}
                 {recipientPhone ? `(${recipientPhone})` : ""}
               </p>
             </div>
@@ -485,8 +588,15 @@ export function BrowserVoiceCallingModal({
               Autonomous Agent: <strong>{activePersona.name}</strong> ({activePersona.title})
             </span>
           </div>
-          <span className="text-[11px] opacity-80 hidden sm:inline">Recorded Indian CA Ledger Line</span>
+          <span className="text-[11px] opacity-80 hidden sm:inline">TRAI Consent & Recording Disclosed</span>
         </div>
+
+        {/* Mic Warning if Denied or Unsupported */}
+        {micStatus === "denied" && (
+          <div className="px-5 py-2 bg-rose-500/10 border-b border-rose-500/20 text-rose-400 text-xs flex items-center justify-between">
+            <span>Microphone access blocked. You can still test conversation turns by typing in the input box below.</span>
+          </div>
+        )}
 
         {/* Main Body */}
         {callState !== "ended" ? (
@@ -494,7 +604,7 @@ export function BrowserVoiceCallingModal({
             {/* Live Dual-Color Transcript Feed */}
             <div
               ref={scrollRef}
-              className="flex-1 overflow-y-auto space-y-3.5 pr-1 min-h-[220px] max-h-[360px] p-2"
+              className="flex-1 overflow-y-auto space-y-3.5 pr-1 min-h-[200px] max-h-[320px] p-2"
             >
               {transcript.map((item, idx) => (
                 <div
@@ -546,8 +656,39 @@ export function BrowserVoiceCallingModal({
               )}
             </div>
 
+            {/* Manual Typing Input Fallback for Full Turn Verification */}
+            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+              <input
+                type="text"
+                value={manualTextInput}
+                onChange={(e) => setManualTextInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && manualTextInput.trim()) {
+                    handleUserFinishedSpeaking(manualTextInput.trim());
+                    setManualTextInput("");
+                  }
+                }}
+                placeholder="Type client response (e.g. 'We already paid TDS' or 'Will pay Friday')..."
+                className="flex-1 h-9 px-3 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-400"
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (manualTextInput.trim()) {
+                    handleUserFinishedSpeaking(manualTextInput.trim());
+                    setManualTextInput("");
+                  }
+                }}
+                disabled={!manualTextInput.trim() || isAgentSpeaking}
+                className="h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Send</span>
+              </Button>
+            </div>
+
             {/* Audio Waveform Canvas & Live Indicator */}
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div
                   className={`w-2.5 h-2.5 rounded-full ${
@@ -563,39 +704,72 @@ export function BrowserVoiceCallingModal({
                     ? `${activePersona.name} is speaking...`
                     : isUserSpeaking
                     ? "Listening to your voice..."
-                    : "Speak freely into your microphone"}
+                    : isPaused
+                    ? "Call session paused."
+                    : "Speak or type client responses"}
                 </span>
+
+                {isAgentSpeaking && (
+                  <button
+                    onClick={interruptAgent}
+                    className="ml-2 text-[11px] text-amber-500 hover:text-amber-400 underline font-medium"
+                  >
+                    Interrupt Agent
+                  </button>
+                )}
               </div>
 
               {/* Mini Audio Visualizer Canvas */}
               <canvas
                 ref={canvasRef}
-                width={120}
-                height={24}
+                width={100}
+                height={20}
                 className="rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
               />
             </div>
 
             {/* Interactive Call Action Bar */}
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleMute}
-                className={`min-h-[44px] px-4 rounded-xl flex items-center gap-2 ${
-                  isMuted ? "border-rose-500 text-rose-600" : ""
-                }`}
-              >
-                {isMuted ? <MicOff className="w-4 h-4 text-rose-500" /> : <Mic className="w-4 h-4" />}
-                <span>{isMuted ? "Unmute" : "Mute"}</span>
-              </Button>
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleMute}
+                  className={`min-h-[40px] px-3 rounded-xl flex items-center gap-1.5 text-xs ${
+                    isMuted ? "border-rose-500 text-rose-600" : ""
+                  }`}
+                >
+                  {isMuted ? <MicOff className="w-3.5 h-3.5 text-rose-500" /> : <Mic className="w-3.5 h-3.5" />}
+                  <span>{isMuted ? "Unmute" : "Mute"}</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={togglePause}
+                  className="min-h-[40px] px-3 rounded-xl flex items-center gap-1.5 text-xs"
+                >
+                  {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                  <span>{isPaused ? "Resume" : "Pause"}</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={restartCall}
+                  className="min-h-[40px] px-3 rounded-xl flex items-center gap-1.5 text-xs"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restart</span>
+                </Button>
+              </div>
 
               <div className="flex items-center gap-2">
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={endCall}
-                  className="min-h-[44px] px-6 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-2 shadow-lg shadow-rose-600/20"
+                  className="min-h-[40px] px-5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-2 shadow-lg shadow-rose-600/20 text-xs"
                 >
                   <PhoneOff className="w-4 h-4" />
                   <span>End Call</span>
@@ -663,14 +837,13 @@ export function BrowserVoiceCallingModal({
               <Button
                 size="sm"
                 onClick={onClose}
-                className="min-h-[44px] px-6 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 text-white font-bold"
+                className="min-h-[44px] px-6 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-bold"
               >
                 Done
               </Button>
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

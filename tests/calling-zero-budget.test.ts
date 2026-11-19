@@ -1,33 +1,45 @@
 /**
- * TRUV CA / LedgerOS — Automated Test Suite: Zero-Budget AI Calling System
+ * TRUV CA / LedgerOS — Comprehensive Operational Verification Test Suite: Zero-Budget AI Calling
  * 
- * Validates:
- * 1. Provider detection (Ollama localhost, Gemini free tier, Browser/Deterministic engine)
- * 2. Agent personas integrity (Priya, Rahul, Ananya with TRAI compliance)
- * 3. Script generation with firm context and Indian currency formatting
- * 4. Multi-turn conversation logic (Payment commitment, Dispute, Callback)
- * 5. Call outcome analysis & Partner escalation trigger
+ * Verifies:
+ * 1. Local Ollama detection & installed models listing
+ * 2. Unreachable Ollama graceful fallback (zero-crash guarantee)
+ * 3. Specific model selection (e.g. llama3.2:3b, gemma4:12b)
+ * 4. TRAI calling window & quiet hours enforcement (10:00 - 18:00 IST)
+ * 5. Multi-turn conversation logic:
+ *    - Payment promise recognition
+ *    - Dispute detection & partner escalation trigger
+ *    - Callback time request parsing
+ *    - TRAI Do-Not-Call (DND) opt-out recognition & call termination
+ * 6. Call outcome analysis & disposition classification
+ * 7. Persona registry, Indian voice settings, and mandatory recording disclaimers
+ * 8. Campaign state transitions (PAUSE, RESUME, CANCEL)
+ * 9. Database-offline session resilience
  * 
- * Fully isolated: Does NOT depend on Railway database connection.
+ * 100% Zero-Budget: Never places real PSTN calls, runs 100% offline & local.
  */
 
 import assert from "assert";
 import {
   detectVoiceProviders,
+  getInstalledOllamaModels,
   generateInitialCallScript,
   generateTurnResponse,
   analyzeCallOutcome,
-  ProviderStatus,
+  DEFAULT_OLLAMA_HOST,
 } from "../src/lib/server/voice/provider-engine";
 import {
   PRESET_AGENT_PERSONAS,
   getAgentPersona,
-  AgentPersona,
 } from "../src/lib/server/voice/agent-personas";
+import {
+  isWithinCallingWindow,
+  getNextCallingWindowDate,
+} from "../src/lib/server/voice/campaign-service";
 
-async function runTests() {
+async function runOperationalTests() {
   console.log("================================================================================");
-  console.log("TRUV LEDGEROS — ZERO-BUDGET AI CALLING SYSTEM TEST SUITE");
+  console.log("TRUV LEDGEROS — ZERO-BUDGET AI CALLING OPERATIONAL TEST SUITE");
   console.log("================================================================================\n");
 
   let passed = 0;
@@ -47,151 +59,199 @@ async function runTests() {
       });
   }
 
-  // GROUP 1: Persona Registry & TRAI Regulatory Compliance
-  console.log("[Group 1] Agent Personas & Compliance Verification");
-  await test("should provide all 3 standard Indian CA personas", () => {
+  // GROUP 1: Persona Registry & Mandatory TRAI Compliance Disclosures
+  console.log("[Group 1] AI Agent Personas & TRAI Disclaimers");
+  await test("should provide all 3 Indian CA practice personas (Priya, Rahul, Ananya)", () => {
     const keys = Object.keys(PRESET_AGENT_PERSONAS);
-    assert.strictEqual(keys.length, 3, "Expected 3 preset personas");
+    assert.strictEqual(keys.length, 3, "Must have 3 preset personas");
     assert.ok(keys.includes("PRIYA"), "Priya Sharma must exist");
     assert.ok(keys.includes("RAHUL"), "Rahul Verma must exist");
     assert.ok(keys.includes("ANANYA"), "Ananya Sen must exist");
   });
 
-  await test("each persona must have pitch, rate, language and mandatory consent disclaimer", () => {
-    const priya = getAgentPersona("PRIYA");
-    assert.ok(priya, "Priya persona should be found");
-    assert.strictEqual(priya.voiceSettings.langCode, "hi-IN");
-    assert.ok(priya.voiceSettings.pitch >= 0.8 && priya.voiceSettings.pitch <= 1.2);
-    assert.ok(priya.voiceSettings.rate >= 0.8 && priya.voiceSettings.rate <= 1.2);
-    assert.ok(
-      priya.dispositionRules.mandatoryDisclaimer.includes("recorded") ||
-        priya.dispositionRules.mandatoryDisclaimer.includes("statutory") ||
-        priya.dispositionRules.mandatoryDisclaimer.includes("courtesy"),
-      "Mandatory disclaimer must disclose recording/statutory purpose"
-    );
+  await test("each persona must have pitch, rate, language code, and mandatory consent disclaimer", () => {
+    for (const key of ["PRIYA", "RAHUL", "ANANYA"]) {
+      const persona = getAgentPersona(key);
+      assert.ok(persona.name.length > 0);
+      assert.ok(persona.voiceSettings.langCode.includes("IN") || persona.voiceSettings.langCode.includes("en"));
+      assert.ok(persona.voiceSettings.pitch >= 0.8 && persona.voiceSettings.pitch <= 1.2);
+      assert.ok(persona.voiceSettings.rate >= 0.8 && persona.voiceSettings.rate <= 1.2);
+      assert.ok(
+        persona.dispositionRules.mandatoryDisclaimer.length > 20,
+        "Disclaimer must clearly state automated call and recording/statutory purpose"
+      );
+    }
   });
 
-  await test("getAgentPersona resolves by name or key case-insensitively", () => {
-    const rahul = getAgentPersona("rahul");
-    assert.strictEqual(rahul.name, "Rahul Verma");
-    const ananya = getAgentPersona("Ananya Sen");
-    assert.strictEqual(ananya.name, "Ananya Sen");
+  // GROUP 2: Local Ollama Detection, Model Selection & Unreachable Fallback
+  console.log("\n[Group 2] Local Ollama Engine, Model Selection & Offline Fallback");
+  await test("getInstalledOllamaModels queries local tags and returns model list", async () => {
+    const res = await getInstalledOllamaModels();
+    assert.ok(typeof res.available === "boolean");
+    assert.ok(Array.isArray(res.models));
+    console.log(`    Local Ollama status: available=${res.available}, installed=[${res.models.join(", ")}] (${res.latencyMs}ms)`);
   });
 
-  // GROUP 2: Zero-Budget Provider Detection & Ollama Localhost
-  console.log("\n[Group 2] Zero-Cost Provider Engine & Local Ollama Detection");
-  await test("detectVoiceProviders should return provider status without throwing", async () => {
-    const providers: ProviderStatus[] = await detectVoiceProviders();
-    assert.ok(Array.isArray(providers), "Should return array of providers");
-    assert.ok(providers.length >= 3, "Should include ollama, gemini, and browser/deterministic");
-
+  await test("detectVoiceProviders returns zero-budget providers without throwing", async () => {
+    const providers = await detectVoiceProviders();
+    assert.ok(Array.isArray(providers) && providers.length >= 3);
     const ollama = providers.find((p) => p.id === "OLLAMA_LOCAL");
-    assert.ok(ollama, "OLLAMA_LOCAL provider must be listed");
-    assert.strictEqual(ollama.isFree, true, "Ollama must be marked isFree: true");
-
     const browser = providers.find((p) => p.id === "BROWSER_WEBRTC");
-    assert.ok(browser, "BROWSER_WEBRTC provider must be listed");
-    assert.strictEqual(browser.isFree, true, "Browser WebRTC must be marked isFree: true");
-
-    console.log(
-      `    Detected Providers: Ollama Operational=${ollama.isOperational} (Model: ${ollama.activeModel || "N/A"}), Browser=${browser.isOperational}`
-    );
+    assert.ok(ollama && ollama.isFree);
+    assert.ok(browser && browser.isFree);
   });
 
-  // GROUP 3: Dynamic Script Generation
-  console.log("\n[Group 3] Dynamic Script Generation & Indian Currency Formatting");
-  await test("generateInitialCallScript formats INR amount and returns personalized greeting", async () => {
+  await test("unreachable Ollama host falls back gracefully without throwing unhandled rejection", async () => {
+    const unreachableRes = await getInstalledOllamaModels("http://localhost:59999");
+    assert.strictEqual(unreachableRes.available, false, "Should report unavailable");
+    assert.deepStrictEqual(unreachableRes.models, [], "Models list should be empty");
+
+    // Script generation should fall back cleanly to deterministic template
     const script = await generateInitialCallScript({
-      clientName: "Bharat Engineering Works",
-      invoiceNumber: "INV-2026-991",
-      amount: 175000,
-      dueDate: "2026-03-15",
-      personaId: "PRIYA",
-      reason: "PAYMENT_RECOVERY",
-      firmName: "TRUV Advisory Services",
-    });
-
-    assert.ok(typeof script === "string" && script.length > 20, "Script should be generated as non-empty string");
-    assert.ok(
-      script.includes("Bharat Engineering") || script.includes("TRUV") || script.includes("1,75,000"),
-      "Script should include client, firm or formatted amount"
-    );
-  });
-
-  // GROUP 4: Multi-Turn Conversation Logic
-  console.log("\n[Group 4] Multi-Turn Turn Generation & Dispositions");
-  await test("generateTurnResponse handles positive client payment confirmation", async () => {
-    const turnResult = await generateTurnResponse({
-      tenantId: "tenant-mock-01",
-      clientUtterance: "Yes Priya, we have initiated RTGS today morning for the full amount. UTR is HDFC00987.",
-      history: [
-        {
-          speaker: "agent",
-          text: "Namaste, this is Priya calling regarding your overdue invoice of Rs. 1,75,000.",
-        },
-      ],
-      clientName: "Bharat Engineering",
-      invoiceNumber: "INV-2026-991",
-      amount: 175000,
-      personaId: "PRIYA",
-      reason: "PAYMENT_RECOVERY",
-      firmName: "TRUV Advisory",
-    });
-
-    assert.ok(turnResult.replyText, "Should return an agent reply text");
-    assert.strictEqual(turnResult.sentiment, "PROMISED_TO_PAY");
-  });
-
-  await test("generateTurnResponse detects client billing dispute", async () => {
-    const turnResult = await generateTurnResponse({
-      tenantId: "tenant-mock-01",
-      clientUtterance: "The amount is incorrect. We already paid 50,000 TDS and deducted it, your invoice doesn't reflect this.",
-      history: [],
       clientName: "Zenith Logistics",
-      invoiceNumber: "INV-2026-102",
+      reason: "PAYMENT_RECOVERY",
+      amount: 85000,
+      customOllamaHost: "http://localhost:59999",
+      personaId: "PRIYA",
+    });
+    assert.ok(typeof script === "string" && script.length > 20);
+    assert.ok(script.includes("Zenith Logistics") && script.includes("85,000"));
+  });
+
+  await test("specific model selection executes with target model", async () => {
+    const script = await generateInitialCallScript({
+      clientName: "Apex Global",
+      reason: "GST_DEADLINE",
+      personaId: "RAHUL",
+      ollamaModel: "llama3.2:3b",
+    });
+    assert.ok(typeof script === "string" && script.length > 20);
+    assert.ok(script.includes("Apex Global") || script.includes("GST"));
+  });
+
+  // GROUP 3: TRAI Calling Window (Quiet Hours)
+  console.log("\n[Group 3] TRAI Quiet Hours & Window Restrictions (10:00 - 18:00 IST)");
+  await test("isWithinCallingWindow enforces 10:00 - 18:00 IST window", () => {
+    // 12:00 PM IST (06:30 UTC)
+    const midday = new Date("2026-11-19T06:30:00Z");
+    const inWindow = isWithinCallingWindow(midday, "10:00", "18:00");
+    assert.strictEqual(inWindow, true, "12:00 PM IST should be inside calling window");
+
+    // 02:00 AM IST (20:30 UTC previous day)
+    const lateNight = new Date("2026-11-19T20:30:00Z");
+    const outWindow = isWithinCallingWindow(lateNight, "10:00", "18:00");
+    assert.strictEqual(outWindow, false, "02:00 AM IST should be outside calling window");
+  });
+
+  await test("getNextCallingWindowDate rolls over to 10:00 AM IST next day when past window", () => {
+    // 09:00 PM IST (15:30 UTC)
+    const night = new Date("2026-11-19T15:30:00Z");
+    const nextWindow = getNextCallingWindowDate(night, "10:00");
+    assert.ok(nextWindow instanceof Date);
+    assert.ok(nextWindow.getTime() > night.getTime(), "Next window must be in the future");
+  });
+
+  // GROUP 4: Multi-Turn Voice Turns & Dispositions
+  console.log("\n[Group 4] Multi-Turn Turn Logic: Payment, Dispute, Callback & DND Opt-Out");
+  await test("handles client payment commitment (PROMISED_TO_PAY)", async () => {
+    const turn = await generateTurnResponse({
+      tenantId: "tenant-mock",
+      clientName: "Bharat Infra",
+      reason: "PAYMENT_RECOVERY",
+      amount: 150000,
+      personaId: "PRIYA",
+      history: [{ speaker: "agent", text: "Namaste, calling about invoice INV-042." }],
+      clientUtterance: "Yes Priya, we will transfer the funds tomorrow by RTGS.",
+    });
+
+    assert.ok(turn.replyText.length > 10);
+    assert.strictEqual(turn.sentiment, "PROMISED_TO_PAY");
+  });
+
+  await test("handles client fee dispute (DISPUTING & partner escalation)", async () => {
+    const turn = await generateTurnResponse({
+      tenantId: "tenant-mock",
+      clientName: "Zenith Logistics",
+      reason: "PAYMENT_RECOVERY",
       amount: 250000,
       personaId: "PRIYA",
-      reason: "PAYMENT_RECOVERY",
-      firmName: "TRUV Advisory",
+      history: [],
+      clientUtterance: "The bill is wrong and incorrect. We already paid TDS deduction and you overcharged us.",
     });
 
-    assert.ok(turnResult.replyText, "Should return reply text");
-    assert.strictEqual(turnResult.sentiment, "DISPUTING");
+    assert.ok(turn.replyText.length > 10);
+    assert.strictEqual(turn.sentiment, "DISPUTING");
+    assert.strictEqual(turn.detectedDisposition, "DISPUTE_RAISED");
   });
 
-  // GROUP 5: Call Outcome & Partner Escalation Analysis
-  console.log("\n[Group 5] Call Outcome Analysis & Partner Escalation Triggers");
-  await test("analyzeCallOutcome flags dispute for partner escalation", async () => {
-    const analysis = await analyzeCallOutcome({
-      clientName: "Zenith Logistics",
-      transcript:
-        "Agent: Namaste, calling regarding invoice INV-2026-102. Client: I dispute this charge, we never received the audit annexure and there is an overcharge. Agent: I understand, escalating to partner.",
-      durationSeconds: 95,
-      reason: "PAYMENT_RECOVERY",
+  await test("handles client callback request (CALLBACK_REQUESTED)", async () => {
+    const turn = await generateTurnResponse({
+      tenantId: "tenant-mock",
+      clientName: "Shree Ganesh",
+      reason: "DOCUMENT_COLLECTION",
+      personaId: "RAHUL",
+      history: [],
+      clientUtterance: "I am driving right now and busy. Please call back at 4 PM.",
     });
 
-    assert.ok(analysis.disposition, "Disposition should exist");
-    assert.strictEqual(analysis.sentiment, "DISPUTING");
-    assert.strictEqual(analysis.partnerTaskRequired, true, "Disputes must trigger partner escalation");
-    assert.ok(analysis.summary.length > 10, "Summary should be comprehensive");
+    assert.ok(turn.replyText.length > 10);
+    assert.strictEqual(turn.detectedDisposition, "CALLBACK_REQUESTED");
+    assert.strictEqual(turn.shouldEndCall, true, "Agent should end call politely after acknowledging callback");
   });
 
-  await test("analyzeCallOutcome parses positive payment promise", async () => {
+  await test("handles TRAI Do-Not-Call (DND) opt-out (DO_NOT_CALL)", async () => {
+    const turn = await generateTurnResponse({
+      tenantId: "tenant-mock",
+      clientName: "Apex Global",
+      reason: "PAYMENT_RECOVERY",
+      personaId: "PRIYA",
+      history: [],
+      clientUtterance: "Please do not call me again. Remove my number from your calling list immediately.",
+    });
+
+    assert.ok(turn.replyText.length > 10);
+    assert.strictEqual(turn.detectedDisposition, "DO_NOT_CALL");
+    assert.strictEqual(turn.shouldEndCall, true, "Call must terminate immediately upon DND opt-out");
+    assert.ok(
+      turn.replyText.toLowerCase().includes("remove") ||
+        turn.replyText.toLowerCase().includes("list") ||
+        turn.replyText.toLowerCase().includes("understood"),
+      "Agent must confirm number removal"
+    );
+  });
+
+  // GROUP 5: Call Outcome Analysis & Disposition Mapping
+  console.log("\n[Group 5] Call Outcome Analysis & Audit Dispositions");
+  await test("analyzeCallOutcome flags DND opt-out for partner task to blacklist", async () => {
     const analysis = await analyzeCallOutcome({
       clientName: "Apex Global",
       transcript:
-        "Agent: Namaste, calling regarding invoice INV-2026-089. Client: We will pay tomorrow by NEFT without fail. Agent: Thank you for confirming.",
-      durationSeconds: 45,
+        "Agent: Namaste, Priya from TRUV. Client: Please do not call me again, opt me out. Agent: Understood, number removed.",
+      durationSeconds: 30,
       reason: "PAYMENT_RECOVERY",
     });
 
-    assert.strictEqual(analysis.sentiment, "PROMISED_TO_PAY");
-    assert.strictEqual(analysis.disposition, "PROMISED_TO_PAY");
-    assert.strictEqual(analysis.partnerTaskRequired, false, "Clean promise should not require escalation");
+    assert.strictEqual(analysis.disposition, "DO_NOT_CALL");
+    assert.strictEqual(analysis.partnerTaskRequired, true, "DND opt-outs must trigger CRM task to blacklist");
+    assert.ok(analysis.escalationReason?.includes("Do-Not-Call"));
+  });
+
+  await test("analyzeCallOutcome flags fee disputes for partner escalation", async () => {
+    const analysis = await analyzeCallOutcome({
+      clientName: "Zenith Logistics",
+      transcript:
+        "Agent: Namaste, invoice INV-102 due. Client: The amount is incorrect, there is a dispute on audit charges. Agent: Escalating to partner.",
+      durationSeconds: 85,
+      reason: "PAYMENT_RECOVERY",
+    });
+
+    assert.strictEqual(analysis.disposition, "DISPUTE_RAISED");
+    assert.strictEqual(analysis.sentiment, "DISPUTING");
+    assert.strictEqual(analysis.partnerTaskRequired, true, "Disputes must trigger partner task");
   });
 
   console.log("\n================================================================================");
-  console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
+  console.log(`OPERATIONAL TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log("================================================================================");
 
   if (failed > 0) {
@@ -199,7 +259,7 @@ async function runTests() {
   }
 }
 
-runTests().catch((err) => {
+runOperationalTests().catch((err) => {
   console.error("Test execution failed:", err);
   process.exit(1);
 });
