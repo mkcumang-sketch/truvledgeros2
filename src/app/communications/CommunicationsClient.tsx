@@ -451,11 +451,11 @@ export function CommunicationsClient({
         {/* Quick Action Touch Bar */}
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
-            href="/communications/campaigns"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-[#F8FAFC] text-[#263238] border border-[#E5E7EB] shadow-xs transition-all cursor-pointer active:scale-95"
+            href="/calling"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold bg-[#0F1422] hover:bg-[#1A2234] text-amber-300 border border-amber-500/30 shadow-xs transition-all cursor-pointer active:scale-95"
           >
-            <Calendar className="w-4 h-4 text-[#F26B38]" />
-            <span>Calling Operations & Campaigns</span>
+            <PhoneCall className="w-4 h-4 text-amber-400" />
+            <span>AI Calling Center & Studio</span>
           </Link>
 
           <button
