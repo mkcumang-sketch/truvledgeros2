@@ -528,7 +528,7 @@ async function runTests() {
     const reqInvalidEmail = makeFormData({ email: "invalid-email-format" });
     const reqInvalidRes = await requestPasswordResetAction(reqInvalidEmail);
     assert(
-      reqInvalidRes.error === "Invalid email format",
+      "error" in reqInvalidRes && reqInvalidRes.error === "Invalid email format",
       "7b. Invalid email format correctly rejected with validation error"
     );
 

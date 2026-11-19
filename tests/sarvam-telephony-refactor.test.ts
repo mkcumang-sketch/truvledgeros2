@@ -332,9 +332,15 @@ async function runTestSuite() {
   });
 
   // Scenario A: Disputing Sentiment Webhook
+  const webhookToken = process.env.SARVAM_WEBHOOK_SECRET?.trim() || process.env.VOICE_WEBHOOK_SECRET?.trim() || process.env.CRON_SECRET?.trim();
+  const testHeaders: Record<string, string> = { "Content-Type": "application/json" };
+  if (webhookToken) {
+    testHeaders["x-webhook-token"] = webhookToken;
+  }
+
   const disputeWebhookReq = new NextRequest("http://localhost:3000/api/webhooks/sarvam-voice", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: testHeaders,
     body: JSON.stringify({
       call_id: testCallSid,
       status: "completed",
@@ -365,7 +371,7 @@ async function runTestSuite() {
   // Scenario B: Idempotency Verification
   const repeatWebhookReq = new NextRequest("http://localhost:3000/api/webhooks/sarvam-voice", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: testHeaders,
     body: JSON.stringify({
       call_id: testCallSid,
       status: "completed",
@@ -402,7 +408,7 @@ async function runTestSuite() {
 
   const noAnswerWebhookReq = new NextRequest("http://localhost:3000/api/webhooks/sarvam-voice", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: testHeaders,
     body: JSON.stringify({
       call_id: noAnswerCallSid,
       status: "no-answer",
