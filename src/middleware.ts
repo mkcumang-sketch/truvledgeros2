@@ -14,7 +14,6 @@ import {
 const PUBLIC_ROUTES = [
   "/login",
   "/logout",
-  "/register",
   "/pricing",
   "/contact",
   "/about",
@@ -81,11 +80,12 @@ function applySecurityHeaders(response: NextResponse): void {
   // 7. Content Security Policy (CSP)
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https: blob:",
     "font-src 'self' data:",
-    "connect-src 'self' https:",
+    "connect-src 'self' https://challenges.cloudflare.com",
+    "frame-src https://challenges.cloudflare.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -137,6 +137,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // 1.5. Permanent Public Registration Block (redirect immediately to login)
+  if (pathname === "/register" || pathname.startsWith("/register/")) {
+    const redirectUrl = new URL("/login?error=REGISTRATION_DISABLED", request.url);
+    const redirectRes = NextResponse.redirect(redirectUrl);
+    applySecurityHeaders(redirectRes);
+    return redirectRes;
+  }
+
   const isPublicRoute =
     pathname === "/" || PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
   const isApiRoute = pathname.startsWith("/api/");
@@ -144,12 +152,14 @@ export async function middleware(request: NextRequest) {
   // 2. Edge / App Rate Limiting
   // Tier A: Auth & Reset Routes (5 per 15 min per IP)
   if (
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password" ||
-    pathname === "/accept-invite" ||
-    pathname.startsWith("/api/auth/login")
+    request.method !== "GET" &&
+    request.method !== "HEAD" &&
+    (pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/forgot-password" ||
+      pathname === "/reset-password" ||
+      pathname === "/accept-invite" ||
+      pathname.startsWith("/api/auth/login"))
   ) {
     const rateStatus = await edgeRateLimiter.check(`ip:auth:${clientIp}`, RATE_LIMIT_TIERS.AUTH);
     if (!rateStatus.allowed) {

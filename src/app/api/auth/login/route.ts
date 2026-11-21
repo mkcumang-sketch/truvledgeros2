@@ -20,18 +20,27 @@ const LoginRequestSchema = z.object({
   "cf-turnstile-response": z.string().optional(),
 });
 
-const AUTH_TIMEOUT_MS = 10000; // Explicit 10-second guardrail
+const AUTH_TIMEOUT_MS = 5000;
+
+async function recordLoginFailure(userId?: string): Promise<void> {
+  try {
+    await db.auditLog.create({
+      data: {
+        userId: userId ?? null,
+        action: "LOGIN_FAILED",
+        entityType: "USER",
+        entityId: userId ?? null,
+      },
+    });
+  } catch {
+    console.warn("[AUTH] Failed-login audit event could not be recorded.");
+  }
+}
 
 export async function POST(req: Request) {
   const clientIp = getClientIp(req);
 
-  // 1. Upstash Redis Token-Bucket / Sliding Window Rate Limiting (5 attempts / 15 mins per IP)
-  const rateLimitResult = await upstashLoginLimiter.check(clientIp);
-  if (!rateLimitResult.allowed) {
-    return create429RateLimitResponse(rateLimitResult);
-  }
-
-  // 2. Parse request payload (JSON or FormData)
+  // 1. Parse request payload (JSON or FormData)
   let rawBody: Record<string, any> = {};
   const contentType = req.headers.get("content-type") || "";
   try {
@@ -57,29 +66,73 @@ export async function POST(req: Request) {
   const { email, password } = parsed.data;
   const captchaToken = parsed.data.turnstileToken || parsed.data["cf-turnstile-response"];
 
-  // 3. Cloudflare Turnstile Captcha: Verify token BEFORE touching database to shield against brute force
-  if (captchaToken) {
-    const captchaResult = await verifyTurnstileToken(captchaToken, clientIp);
-    if (!captchaResult.success) {
-      return NextResponse.json(
-        { error: captchaResult.error || "Captcha verification failed. Please try again." },
-        { status: 400 }
-      );
-    }
-  } else if (process.env.ENFORCE_TURNSTILE === "true" && process.env.NODE_ENV === "production") {
+  // 2. Apply independent IP and account limits before checking credentials.
+  let rateLimitResult;
+  try {
+    rateLimitResult = await upstashLoginLimiter.check(clientIp, email);
+  } catch {
     return NextResponse.json(
-      { error: "Captcha verification is required. Please solve the captcha." },
-      { status: 400 }
+      { error: "Authentication is temporarily unavailable. Please try again shortly." },
+      { status: 503 }
+    );
+  }
+  if (!rateLimitResult.allowed) {
+    return create429RateLimitResponse(rateLimitResult);
+  }
+
+  // 3. Cloudflare Turnstile: a configured or required challenge cannot be omitted.
+  const hasTurnstileSecret = Boolean(
+    process.env.TURNSTILE_SECRET_KEY?.trim() || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY?.trim()
+  );
+  const hasTurnstileSiteKey = Boolean(
+    process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY?.trim() ||
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()
+  );
+  const turnstileRequired =
+    hasTurnstileSecret ||
+    process.env.ENFORCE_TURNSTILE === "true" ||
+    process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true" ||
+    (process.env.NODE_ENV === "production" && hasTurnstileSiteKey);
+
+  if (turnstileRequired && !hasTurnstileSecret) {
+    return NextResponse.json(
+      { error: "Captcha service temporarily unavailable. Please retry." },
+      { status: 503 }
     );
   }
 
-  // 4. Authentication Execution with Explicit 10s Timeout Guardrail
-  const timeoutPromise = new Promise<{ isTimeout: true }>((resolve) =>
-    setTimeout(() => resolve({ isTimeout: true }), AUTH_TIMEOUT_MS)
-  );
+  if (captchaToken || turnstileRequired) {
+    let captchaResult;
+    try {
+      captchaResult = await verifyTurnstileToken(captchaToken, clientIp);
+    } catch {
+      return NextResponse.json(
+        { error: "Captcha service temporarily unavailable. Please retry." },
+        { status: 503 }
+      );
+    }
+    if (!captchaResult.success) {
+      const serviceUnavailable = captchaResult.error?.toLowerCase().includes("temporarily unreachable");
+      return NextResponse.json(
+        { error: captchaResult.error || "Captcha verification failed. Please try again." },
+        { status: serviceUnavailable ? 503 : 400 }
+      );
+    }
+  }
+
+  // 4. Authentication execution: wrong passwords resolve immediately; only
+  // actual database or verification failures enter the temporary-error path.
+  let authenticationTimedOut = false;
+  let timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<{ isTimeout: true }>((resolve) => {
+    timeoutHandle = setTimeout(() => {
+      authenticationTimedOut = true;
+      resolve({ isTimeout: true });
+    }, AUTH_TIMEOUT_MS);
+  });
 
   const authExecutionPromise = (async () => {
-    const user = await (db.user as any).findUnique({
+    const user = await db.user.findUnique({
       where: { email },
       include: {
         memberships: {
@@ -88,43 +141,56 @@ export async function POST(req: Request) {
       },
     });
 
+    if (authenticationTimedOut) {
+      return { authenticated: false };
+    }
+
     if (!user || !user.passwordHash || !user.active) {
       return { authenticated: false };
     }
 
     const isValidPassword = await verifyPassword(password, user.passwordHash);
     if (!isValidPassword) {
-      await db.auditLog.create({
-        data: {
-          userId: user.id,
-          action: "LOGIN_FAILED",
-          entityType: "USER",
-          entityId: user.id,
-        },
-      }).catch(() => null);
-
-      return { authenticated: false };
+      return { authenticated: false, userId: user.id };
     }
 
     return { authenticated: true, user };
   })();
 
-  const authRace = await Promise.race([authExecutionPromise, timeoutPromise]);
+  let authRace;
+  try {
+    authRace = await Promise.race([authExecutionPromise, timeoutPromise]);
+  } catch {
+    console.error("[AUTH] Login credential verification failed.");
+    await recordLoginFailure();
+    return NextResponse.json(
+      { error: "Authentication is temporarily unavailable. Please try again shortly." },
+      { status: 503 }
+    );
+  } finally {
+    clearTimeout(timeoutHandle!);
+  }
 
-  // Handle timeout guardrail: Return clean JSON error instead of hanging gateway timeout
   if ("isTimeout" in authRace) {
-    console.warn(`[AUTH_TIMEOUT_GUARD] Login timed out after ${AUTH_TIMEOUT_MS}ms for email: ${email}`);
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    console.warn(`[AUTH_TIMEOUT_GUARD] Login timed out after ${AUTH_TIMEOUT_MS}ms.`);
+    await recordLoginFailure();
+    return NextResponse.json(
+      { error: "Authentication is temporarily unavailable. Please try again shortly." },
+      { status: 503 }
+    );
   }
 
   if (!authRace.authenticated || !authRace.user) {
+    await recordLoginFailure(authRace.userId);
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
   const user = authRace.user;
 
-  // 5. Successful Login: Reset rate limit for this IP
-  await upstashLoginLimiter.reset(clientIp);
+  // 5. Successful Login: clear the account and IP failure counters.
+  await upstashLoginLimiter.reset(clientIp, email).catch(() => {
+    console.warn("[AUTH] Login rate-limit counters could not be reset.");
+  });
 
   // Resolve primary tenant
   const activeMemberships = (user.memberships || []).filter(
@@ -132,7 +198,15 @@ export async function POST(req: Request) {
   );
   const defaultTenantId = activeMemberships[0]?.tenantId;
 
-  await createSession(user.id, defaultTenantId, { ipAddress: clientIp });
+  try {
+    await createSession(user.id, defaultTenantId, { ipAddress: clientIp });
+  } catch {
+    console.error("[AUTH] Login session creation failed.");
+    return NextResponse.json(
+      { error: "Authentication is temporarily unavailable. Please try again shortly." },
+      { status: 503 }
+    );
+  }
 
   await db.auditLog.create({
     data: {

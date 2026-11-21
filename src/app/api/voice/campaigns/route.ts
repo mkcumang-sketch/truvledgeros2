@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionContext } from "@/lib/auth/session";
+import { getTenantContextForApi } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   createCallingCampaign,
   validateClientEligibility,
   getAuthoritativeCallingMetrics,
 } from "@/lib/server/voice/campaign-service";
+import { canManageCalling, canViewCalling } from "@/lib/server/voice/authorization";
 
 export const runtime = "nodejs";
 
@@ -14,11 +15,13 @@ const sessionCampaignsStore: Record<string, any[]> = {};
 
 export async function GET(req: NextRequest) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const tenantId = context.membership.tenantId;
+    if (!canViewCalling(context.membership?.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     try {
@@ -64,18 +67,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const tenantId = context.membership.tenantId;
 
-    // Role check: Only Owner, Partner, Admin, or Manager can create calling campaigns
-    const role = context.membership?.role;
-    if (role !== "FIRM_OWNER" && role !== "FIRM_ADMIN" && role !== "PARTNER" && role !== "GODMODE_ADMIN" && role !== "MANAGER") {
+    if (!canManageCalling(context.membership?.role, context.user.isSuperAdmin)) {
       return NextResponse.json(
-        { error: "Forbidden: Executive role cannot create calling campaigns." },
+        { error: "Forbidden" },
         { status: 403 }
       );
     }

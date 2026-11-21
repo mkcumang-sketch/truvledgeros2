@@ -144,7 +144,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
       });
 
       const messageId = info?.messageId || `smtp_${Date.now()}`;
-      console.log(`[EMAIL-SERVICE] Dispatched to ${params.to} (Message ID: ${messageId}) via SMTP`);
+      console.log(`[EMAIL-SERVICE] Transactional email dispatched via SMTP (Message ID: ${messageId}).`);
 
       return {
         success: true,
@@ -155,11 +155,11 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
         provider: "smtp",
         detail: "Confirmed dispatched via direct Gmail SMTP.",
       };
-    } catch (smtpErr: any) {
-      console.error("[SMTP-DELIVERY-ERROR]", smtpErr?.message || smtpErr);
+    } catch {
+      console.error("[SMTP-DELIVERY-ERROR] SMTP delivery failed.");
       // If Resend is not configured, fall through to standby or throw
       if (!resendApiKey) {
-        console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (SMTP error and no Resend configured)`);
+        console.log("[EMAIL-STANDBY] SMTP delivery failed and no fallback provider is configured.");
         return {
           success: true,
           delivered: false,
@@ -167,7 +167,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
           deliveryOutcome: "SIMULATED_STANDBY",
           messageId: `standby_${Date.now()}`,
           provider: "standby",
-          detail: `SMTP failure (${smtpErr.message}); logged to standby audit.`,
+          detail: "SMTP delivery failed; no active fallback provider is configured.",
         };
       }
       console.log("[EMAIL-SERVICE] Falling back from SMTP to Resend API gateway...");
@@ -216,13 +216,12 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
       }
 
       if (!response.ok) {
-        const errorDetail = data.message || data.error || rawResponseText;
-        console.error(`[RESEND-API-ERROR] HTTP ${response.status}:`, errorDetail);
-        throw new Error(`Resend API Error (HTTP ${response.status}): ${errorDetail}`);
+        console.error(`[RESEND-API-ERROR] Resend returned HTTP ${response.status}.`);
+        throw new Error(`Resend API Error (HTTP ${response.status}).`);
       }
 
       const messageId = data.id || `resend_${Date.now()}`;
-      console.log(`[EMAIL-SERVICE] Dispatched to ${params.to} (Message ID: ${messageId}) via Resend`);
+      console.log(`[EMAIL-SERVICE] Transactional email dispatched via Resend (Message ID: ${messageId}).`);
 
       return {
         success: true,
@@ -233,14 +232,14 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
         provider: "resend",
         detail: "Confirmed dispatched to Resend mail gateway.",
       };
-    } catch (err: any) {
-      console.error("[RESEND-SEND-EXCEPTION]", err.message || err);
-      throw err;
+    } catch {
+      console.error("[RESEND-SEND-EXCEPTION] Resend delivery failed.");
+      throw new Error("Email provider delivery failed.");
     }
   }
 
   // 3. Fallback: Standby Mode (Neither SMTP nor Resend configured)
-  console.log(`[EMAIL-STANDBY] To: ${params.to} | Subject: ${params.subject} (No live email credentials; recorded in standby)`);
+  console.log("[EMAIL-STANDBY] No live email provider is configured; delivery was not attempted.");
   return {
     success: true,
     delivered: false,

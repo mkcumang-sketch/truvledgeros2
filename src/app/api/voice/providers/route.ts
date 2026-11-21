@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenant } from "@/lib/auth/session";
+import { getTenantContextForApi } from "@/lib/auth/session";
 import {
   detectVoiceProviders,
   getInstalledOllamaModels,
   DEFAULT_OLLAMA_HOST,
 } from "@/lib/server/voice/provider-engine";
 import { db } from "@/lib/db";
+import { canManageCalling } from "@/lib/server/voice/authorization";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,7 +17,13 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   try {
-    await requireTenant();
+    const context = await getTenantContextForApi();
+    if (!context) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canManageCalling(context.membership.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const customHost = searchParams.get("host") || DEFAULT_OLLAMA_HOST;

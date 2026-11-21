@@ -291,6 +291,50 @@ export async function requireTenant(): Promise<Required<SessionContext>> {
   return context as Required<SessionContext>;
 }
 
+export async function getTenantContextForApi(): Promise<Required<SessionContext> | null> {
+  let context = await getSessionContext().catch(() => null);
+  if (!context) return null;
+
+  if (!context.membership || !context.tenant) {
+    if (!context.user.isSuperAdmin) return null;
+
+    const defaultTenant = await db.tenant
+      .findFirst({
+        where: { active: true, isSuspended: false },
+        orderBy: { createdAt: "asc" },
+      })
+      .catch(() => null);
+    if (!defaultTenant) return null;
+
+    context = {
+      ...context,
+      tenant: {
+        id: defaultTenant.id,
+        name: defaultTenant.name,
+        slug: defaultTenant.slug,
+        active: defaultTenant.active,
+        isSuspended: defaultTenant.isSuspended,
+      },
+      membership: {
+        id: `superadmin-${defaultTenant.id}`,
+        tenantId: defaultTenant.id,
+        role: Role.FIRM_OWNER,
+        status: "ACTIVE",
+      },
+    };
+  }
+
+  if (
+    context.membership.status !== "ACTIVE" ||
+    !context.tenant.active ||
+    context.tenant.isSuspended
+  ) {
+    return null;
+  }
+
+  return context as Required<SessionContext>;
+}
+
 export async function requireRole(allowedRoles: Role[]): Promise<Required<SessionContext>> {
   const context = await requireTenant();
   if (!allowedRoles.includes(context.membership.role) && !context.user.isSuperAdmin) {

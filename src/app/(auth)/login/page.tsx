@@ -25,23 +25,16 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
-  const [failedAttempts, setFailedAttempts] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  // Development-safe bypass:
-  // If NODE_ENV !== "production" or NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY / NEXT_PUBLIC_TURNSTILE_SITE_KEY
-  // is missing or dummy test key, bypass Turnstile enforcement so login is never blocked.
-  const isProduction = process.env.NODE_ENV === "production";
   const configuredSiteKey =
     process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY ||
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const hasValidTurnstileKey =
     Boolean(configuredSiteKey) && configuredSiteKey !== "1x00000000000000000000AA";
 
-  const isTurnstileEnforced = isProduction && hasValidTurnstileKey;
   const requireTurnstile =
-    isTurnstileEnforced &&
-    (failedAttempts >= 2 || process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true");
+    hasValidTurnstileKey || process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true";
 
   useEffect(() => {
     if (urlError === "SESSION_EXPIRED") {
@@ -52,6 +45,8 @@ function LoginForm() {
       setError("This practice firm account is currently suspended. Please contact support.");
     } else if (urlError === "MEMBERSHIP_INACTIVE") {
       setError("Your firm membership is currently inactive.");
+    } else if (urlError === "REGISTRATION_DISABLED") {
+      setError("Public registration is disabled. Access to TRUV LedgerOS is strictly by administrator invitation.");
     }
   }, [urlError]);
 
@@ -90,16 +85,20 @@ function LoginForm() {
       formData.set("cf-turnstile-response", turnstileToken);
     }
 
-    const res = await loginAction(formData);
-
-    if (res?.error) {
-      setError(res.error);
-      setLoading(false);
-      setFailedAttempts((prev) => prev + 1);
-      setTurnstileToken(null);
-      if (res.retryAfter && typeof res.retryAfter === "number") {
-        setLockoutSeconds(res.retryAfter);
+    try {
+      const res = await loginAction(formData);
+      if (res?.error) {
+        setError(res.error);
+        setTurnstileToken(null);
+        if (res.retryAfter && typeof res.retryAfter === "number") {
+          setLockoutSeconds(res.retryAfter);
+        }
       }
+    } catch {
+      setError("Authentication is temporarily unavailable. Please try again shortly.");
+      setTurnstileToken(null);
+    } finally {
+      setLoading(false);
     }
   }
 

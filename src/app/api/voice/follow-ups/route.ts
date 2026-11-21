@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionContext } from "@/lib/auth/session";
+import { getTenantContextForApi } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { TaskType, TaskStatus } from "@prisma/client";
+import { hasPermission } from "@/lib/server/rbac/permissions";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const tenantId = context.membership.tenantId;
+    if (
+      !context.membership ||
+      (!context.user.isSuperAdmin &&
+        !hasPermission(context.membership.role, "tasks", "view"))
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -57,11 +64,17 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const tenantId = context.membership.tenantId;
+    if (
+      !context.membership ||
+      (!context.user.isSuperAdmin &&
+        !hasPermission(context.membership.role, "tasks", "edit"))
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));

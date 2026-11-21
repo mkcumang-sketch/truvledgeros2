@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSessionContext } from "@/lib/auth/session";
 import { verifyGodmodeAuthorization } from "@/lib/server/rbac/godmode-guard";
@@ -325,5 +326,181 @@ export async function resetPracticeDataAction(params?: { targetTenantId?: string
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to reset practice data." };
   }
+}
+
+// =========================================================================
+// 6. ENTERPRISE USER ACCESS, ROLES & PRIVILEGE MANAGEMENT
+// =========================================================================
+
+const ToggleUserStatusSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  suspend: z.boolean(),
+  reason: z.string().min(3, "Reason is required"),
+});
+
+export async function toggleUserStatusAction(params: z.infer<typeof ToggleUserStatusSchema>): Promise<ActionResult> {
+  try {
+    const context = await assertGodmodePrivilege();
+    const validated = ToggleUserStatusSchema.parse(params);
+
+    if (validated.userId === context.user.id) {
+      return { success: false, error: "Administrators cannot suspend their own active identity." };
+    }
+
+    const targetUser = await db.user.findUnique({
+      where: { id: validated.userId },
+      select: { id: true, email: true, isSuperAdmin: true, active: true },
+    });
+
+    if (!targetUser) {
+      return { success: false, error: "User account not found." };
+    }
+
+    const updated = await db.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: validated.userId },
+        data: { active: !validated.suspend },
+      });
+
+      if (validated.suspend) {
+        // Invalidate all active sessions immediately
+        await tx.session.deleteMany({ where: { userId: validated.userId } });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: context.user.id,
+          action: validated.suspend ? "USER_SUSPENDED" : "USER_ACTIVATED",
+          entityType: "USER",
+          entityId: validated.userId,
+          oldValue: { active: targetUser.active },
+          newValue: {
+            active: !validated.suspend,
+            reason: validated.reason,
+            actor: context.user.name,
+          },
+        },
+      });
+
+      return u;
+    });
+
+    revalidatePath("/godmode");
+    return { success: true, data: serializeForClient(updated) };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to alter user status." };
   }
+}
+
+const RevokeSessionsSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  reason: z.string().min(3, "Reason is required"),
+});
+
+export async function revokeUserSessionsAction(params: z.infer<typeof RevokeSessionsSchema>): Promise<ActionResult> {
+  try {
+    const context = await assertGodmodePrivilege();
+    const validated = RevokeSessionsSchema.parse(params);
+
+    const deleteResult = await db.session.deleteMany({
+      where: { userId: validated.userId },
+    });
+
+    await logSecurityEvent({
+      tenantId: null,
+      userId: context.user.id,
+      action: "USER_SESSIONS_REVOKED" as any,
+      entityType: "SESSION",
+      entityId: validated.userId,
+      newValue: {
+        targetUserId: validated.userId,
+        sessionsTerminated: deleteResult.count,
+        reason: validated.reason,
+        actor: context.user.name,
+      },
+    });
+
+    revalidatePath("/godmode");
+    return {
+      success: true,
+      data: { sessionsTerminated: deleteResult.count },
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to revoke user sessions." };
+  }
+}
+
+const UpdatePrivilegeSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  tenantId: z.string().optional(),
+  role: z.nativeEnum(Role).optional(),
+  isSuperAdmin: z.boolean().optional(),
+  reason: z.string().min(3, "Reason is required"),
+});
+
+export async function updateUserPrivilegeAction(params: z.infer<typeof UpdatePrivilegeSchema>): Promise<ActionResult> {
+  try {
+    const context = await assertGodmodePrivilege();
+    const validated = UpdatePrivilegeSchema.parse(params);
+
+    const targetUser = await db.user.findUnique({
+      where: { id: validated.userId },
+      include: { memberships: true },
+    });
+
+    if (!targetUser) {
+      return { success: false, error: "User account not found." };
+    }
+
+    await db.$transaction(async (tx) => {
+      // 1. Update Super Admin flag if specified
+      if (typeof validated.isSuperAdmin === "boolean") {
+        await tx.user.update({
+          where: { id: validated.userId },
+          data: { isSuperAdmin: validated.isSuperAdmin },
+        });
+      }
+
+      // 2. Update tenant membership role if specified
+      if (validated.tenantId && validated.role) {
+        await tx.membership.upsert({
+          where: {
+            tenantId_userId: {
+              tenantId: validated.tenantId,
+              userId: validated.userId,
+            },
+          },
+          update: { role: validated.role },
+          create: {
+            tenantId: validated.tenantId,
+            userId: validated.userId,
+            role: validated.role,
+            status: "ACTIVE",
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: context.user.id,
+          action: "USER_PRIVILEGES_UPDATED",
+          entityType: "USER",
+          entityId: validated.userId,
+          newValue: {
+            isSuperAdmin: validated.isSuperAdmin,
+            tenantId: validated.tenantId,
+            role: validated.role,
+            reason: validated.reason,
+            actor: context.user.name,
+          },
+        },
+      });
+    });
+
+    revalidatePath("/godmode");
+    return { success: true, data: { updated: true } };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to update privileges." };
+  }
+}
 

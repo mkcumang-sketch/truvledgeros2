@@ -7,6 +7,7 @@ import {
   TaskStatus,
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { timingSafeEqualCompare } from "@/lib/server/m2m-auth";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,20 @@ export const runtime = "nodejs";
  */
 export async function POST(req: NextRequest) {
   try {
+    const expectedSecret = process.env.INBOUND_EMAIL_WEBHOOK_SECRET?.trim();
+    if (!expectedSecret) {
+      console.error("[INBOUND-EMAIL-WEBHOOK] INBOUND_EMAIL_WEBHOOK_SECRET is not configured");
+      return NextResponse.json(
+        { error: "Inbound email webhook is not configured" },
+        { status: 503 }
+      );
+    }
+
+    const suppliedSecret = req.headers.get("x-webhook-token")?.trim();
+    if (!suppliedSecret || !timingSafeEqualCompare(suppliedSecret, expectedSecret)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     let body: any = {};
     const contentType = req.headers.get("content-type") || "";
 
@@ -94,14 +109,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    let tenantId = matchedClient?.tenantId;
-    if (!tenantId) {
-      const defaultTenant = await db.tenant.findFirst({
-        where: { active: true },
-        select: { id: true },
-      });
-      tenantId = defaultTenant?.id || "default_tenant";
+    if (!matchedClient) {
+      return NextResponse.json(
+        { success: true, ignored: true, message: "Sender is not associated with a client." },
+        { status: 200 }
+      );
     }
+    const tenantId = matchedClient.tenantId;
 
     // 3. Match Invoice Context (from subject, body, or client's latest invoice)
     let matchedInvoiceId: string | null = null;

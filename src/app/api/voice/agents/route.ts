@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenant } from "@/lib/auth/session";
+import { getTenantContextForApi } from "@/lib/auth/session";
 import { PRESET_AGENT_PERSONAS, AgentPersona } from "@/lib/server/voice/agent-personas";
 import { db } from "@/lib/db";
+import {
+  canManageCalling,
+  canViewCalling,
+} from "@/lib/server/voice/authorization";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,7 +19,13 @@ const inMemoryPersonas: Record<string, AgentPersona[]> = {};
  */
 export async function GET() {
   try {
-    const context = await requireTenant();
+    const context = await getTenantContextForApi();
+    if (!context) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canViewCalling(context.membership.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const tenantId = context.membership.tenantId;
 
     const presets = Object.values(PRESET_AGENT_PERSONAS);
@@ -43,7 +53,13 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const context = await requireTenant();
+    const context = await getTenantContextForApi();
+    if (!context) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canManageCalling(context.membership.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const tenantId = context.membership.tenantId;
     const body = await req.json();
 

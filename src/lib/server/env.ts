@@ -57,6 +57,7 @@ const ServerEnvSchema = z.object({
   SMTP_PASS: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional().default("TRUV LedgerOS <notifications@truvledgeros.in>"),
+  INBOUND_EMAIL_WEBHOOK_SECRET: z.string().optional(),
 
   // 6. Object Storage (S3 / R2 / MinIO)
   AWS_REGION: z.string().optional().default("us-east-2"),

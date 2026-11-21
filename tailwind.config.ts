@@ -96,18 +96,18 @@ const config: Config = {
         },
         // TRUV LedgerOS Design Tokens
         surface: {
-          canvas: "#090d16", // Deep app background
-          base: "#0f172a",   // Card base, table row base
-          raised: "#1e293b", // Elevated card, dropdowns, modal background
-          overlay: "#334155",// Active selection, hovered row
-          muted: "#182234",  // Table headers, nested inset panels
-          light: "#FFFFFF",  // Light mode card base
-          lightMuted: "#FAF9F5", // Light mode table header / inset
+          canvas: "#F7F8FA",
+          base: "#FFFFFF",
+          raised: "#FFFFFF",
+          overlay: "#FFF4EE",
+          muted: "#FAF9F5",
+          light: "#FFFFFF",
+          lightMuted: "#FAF9F5",
         },
         brand: {
-          primary: "#6366f1", // Indigo primary action
-          hover: "#4f46e5",   // Primary action hover
-          subtle: "rgba(99, 102, 241, 0.12)", // Badge fill, active nav link
+          primary: "#F26B38",
+          hover: "#D95524",
+          subtle: "rgba(242, 107, 56, 0.12)",
           indigo: "#4F46E5",
           charcoal: "#1E293B",
           emerald: "#059669",
@@ -135,7 +135,7 @@ const config: Config = {
           subtle: "#1e293b", // Table cell dividers, subtle card separators
           strong: "#334155", // Card borders, input strokes
           light: "#EBE9E1",  // Light mode card & table border
-          focused: "#6366f1",// Active focus ring & focused input outline
+          focused: "#F26B38",
         },
         // Magical Frosted Glass Tokens
         glass: {

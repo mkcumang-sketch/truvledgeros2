@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/session";
+import {
+  canManageCalling,
+  resolveCallingTenantId,
+} from "@/lib/server/voice/authorization";
 import { dispatchSarvamVoiceAgentCall } from "@/lib/server/voice/sarvam-telephony";
 import { db } from "@/lib/db";
 
@@ -12,58 +16,40 @@ export const runtime = "nodejs";
  * (Vercel, Railway, Render) bypassing local development ISP / network blocks.
  * 
  * Method: POST
- * Accepts: { phone, clientName, amount, invoiceNumber, tenantId?, clientId? }
+ * Accepts: { phone, clientName, amount, invoiceNumber, clientId? }
+ * A tenantId may be supplied only by a platform superadmin without an active tenant.
  * Returns: { success, callSid, status, communicationId }
  */
 export async function POST(req: NextRequest) {
   try {
-    // 1. Authenticate Request (Session Cookie or API Secret Header)
+    // Tenant-scoped voice dispatch requires an authenticated calling manager.
     const session = await getSessionContext().catch(() => null);
-    const authHeader = req.headers.get("authorization") || "";
-    const apiKeyHeader = req.headers.get("x-api-key") || "";
-
-    const bearerToken = authHeader.startsWith("Bearer ")
-      ? authHeader.substring(7).trim()
-      : "";
-
-    const configuredSecret =
-      process.env.INTERNAL_API_SECRET ||
-      process.env.CRON_SECRET ||
-      process.env.SARVAM_API_KEY ||
-      process.env.ENCRYPTION_KEY;
-
-    const isApiKeyValid =
-      Boolean(configuredSecret) &&
-      (apiKeyHeader === configuredSecret || bearerToken === configuredSecret);
-
-    const isDev = process.env.NODE_ENV !== "production";
-
-    // In production, require either valid session context or verified API secret
-    if (!session && !isApiKeyValid && !isDev) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-          message: "Valid user session or x-api-key required to trigger voice calls.",
-        },
-        { status: 401 }
-      );
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canManageCalling(session.membership?.role, session.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // 2. Parse and Validate Request Body
-    const body = await req.json().catch(() => ({}));
-    const {
-      phone,
-      clientName,
-      amount,
-      invoiceNumber,
-      dueDate,
-      serviceDescription,
-      paymentLinkUrl,
-      handlingPartnerName,
-      caFirmName,
-    } = body;
+    const body: unknown = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "A valid JSON object is required" }, { status: 400 });
+    }
+    const payload = body as Record<string, unknown>;
+    const { phone, clientName, amount, invoiceNumber } = payload;
 
-    if (!phone || !clientName || amount === undefined || !invoiceNumber) {
+    if (
+      typeof phone !== "string" ||
+      !phone.trim() ||
+      typeof clientName !== "string" ||
+      !clientName.trim() ||
+      (typeof amount !== "string" && typeof amount !== "number") ||
+      (typeof amount === "string" && !amount.trim()) ||
+      (typeof amount === "number" && !Number.isFinite(amount)) ||
+      typeof invoiceNumber !== "string" ||
+      !invoiceNumber.trim()
+    ) {
       return NextResponse.json(
         {
           error: "Missing required fields",
@@ -75,23 +61,60 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Resolve Tenant Context
-    let resolvedTenantId = body.tenantId || session?.tenant?.id || session?.membership?.tenantId;
-
+    let resolvedTenantId = resolveCallingTenantId(session, payload.tenantId);
+    if (
+      resolvedTenantId &&
+      !session.membership?.tenantId &&
+      !session.tenant?.id &&
+      session.user.isSuperAdmin
+    ) {
+      const tenant = await db.tenant.findUnique({
+        where: { id: resolvedTenantId },
+        select: { id: true, active: true, isSuspended: true },
+      });
+      if (!tenant?.active || tenant.isSuspended) {
+        return NextResponse.json({ error: "Tenant not found or unavailable" }, { status: 404 });
+      }
+      resolvedTenantId = tenant.id;
+    }
     if (!resolvedTenantId) {
-      const activeTenant = await db.tenant.findFirst({
-        where: { active: true },
-        select: { id: true },
-      }).catch(() => null);
-      resolvedTenantId = activeTenant?.id;
+      return NextResponse.json({ error: "Tenant context is required" }, { status: 400 });
     }
 
     // 4. Resolve Client and Invoice Context (if not explicitly provided)
-    let resolvedClientId = body.clientId;
-    let resolvedInvoiceId = body.invoiceId;
+    if (payload.clientId !== undefined && typeof payload.clientId !== "string") {
+      return NextResponse.json({ error: "clientId must be a string" }, { status: 400 });
+    }
+    if (payload.invoiceId !== undefined && typeof payload.invoiceId !== "string") {
+      return NextResponse.json({ error: "invoiceId must be a string" }, { status: 400 });
+    }
+    let resolvedClientId =
+      typeof payload.clientId === "string" ? payload.clientId : undefined;
+    let resolvedInvoiceId =
+      typeof payload.invoiceId === "string" ? payload.invoiceId : undefined;
+
+    if (resolvedClientId) {
+      const client = await db.client.findFirst({
+        where: { id: resolvedClientId, tenantId: resolvedTenantId },
+        select: { id: true },
+      });
+      if (!client) {
+        return NextResponse.json({ error: "Client not found in tenant" }, { status: 404 });
+      }
+    }
+    if (resolvedInvoiceId) {
+      const invoice = await db.invoice.findFirst({
+        where: { id: resolvedInvoiceId, tenantId: resolvedTenantId },
+        select: { id: true },
+      });
+      if (!invoice) {
+        return NextResponse.json({ error: "Invoice not found in tenant" }, { status: 404 });
+      }
+    }
 
     if (resolvedTenantId) {
       if (!resolvedClientId) {
-        const cleanDigits = String(phone).replace(/\D/g, "");
+        const cleanDigits = phone.replace(/\D/g, "");
         const phoneSuffix = cleanDigits.slice(-10);
 
         const matchedClient = await db.client.findFirst({
@@ -99,7 +122,7 @@ export async function POST(req: NextRequest) {
             tenantId: resolvedTenantId,
             OR: [
               { phone: { contains: phoneSuffix } },
-              { name: { equals: String(clientName).trim(), mode: "insensitive" } },
+              { name: { equals: clientName.trim(), mode: "insensitive" } },
             ],
           },
           select: { id: true },
@@ -114,7 +137,7 @@ export async function POST(req: NextRequest) {
         const matchedInvoice = await db.invoice.findFirst({
           where: {
             tenantId: resolvedTenantId,
-            invoiceNumber: String(invoiceNumber).trim(),
+            invoiceNumber: invoiceNumber.trim(),
           },
           select: { id: true },
         }).catch(() => null);
@@ -127,15 +150,22 @@ export async function POST(req: NextRequest) {
 
     // 5. Dispatch Sarvam Voice Call Server-Side
     const dispatchResult = await dispatchSarvamVoiceAgentCall({
-      phone: String(phone),
-      clientName: String(clientName),
-      amount: amount,
-      invoiceNumber: String(invoiceNumber),
-      dueDate,
-      serviceDescription,
-      paymentLinkUrl,
-      handlingPartnerName,
-      caFirmName,
+      phone,
+      clientName,
+      amount,
+      invoiceNumber,
+      dueDate: typeof payload.dueDate === "string" ? payload.dueDate : undefined,
+      serviceDescription:
+        typeof payload.serviceDescription === "string"
+          ? payload.serviceDescription
+          : undefined,
+      paymentLinkUrl:
+        typeof payload.paymentLinkUrl === "string" ? payload.paymentLinkUrl : undefined,
+      handlingPartnerName:
+        typeof payload.handlingPartnerName === "string"
+          ? payload.handlingPartnerName
+          : undefined,
+      caFirmName: typeof payload.caFirmName === "string" ? payload.caFirmName : undefined,
       tenantId: resolvedTenantId,
       clientId: resolvedClientId,
       invoiceId: resolvedInvoiceId,

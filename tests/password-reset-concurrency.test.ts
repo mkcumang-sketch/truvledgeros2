@@ -1,6 +1,8 @@
 import { resetPasswordAction, requestPasswordResetAction } from "../src/lib/auth/actions";
 import { hashToken, generateSecureToken, hashPassword, verifyPassword } from "../src/lib/auth/password";
 import { db } from "../src/lib/db";
+import { rateLimiter } from "../src/lib/server/security/rate-limiter";
+import * as emailService from "../src/lib/server/email/email-service";
 
 let passed = 0;
 let failed = 0;
@@ -226,6 +228,14 @@ async function runTests() {
   const originalSession = (db as any).session;
   const originalAuditLog = db.auditLog;
   const originalTx = db.$transaction;
+  const originalRateCheck = rateLimiter.check;
+  const originalSendResetEmail = emailService.sendPasswordResetEmail;
+  const originalSmtpUser = process.env.SMTP_USER;
+  const originalSmtpPass = process.env.SMTP_PASS;
+  const originalResendApiKey = process.env.RESEND_API_KEY;
+  delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASS;
+  delete process.env.RESEND_API_KEY;
 
   Object.assign(db, {
     user: harness.mockDb.user,
@@ -236,6 +246,9 @@ async function runTests() {
   });
 
   try {
+    (rateLimiter as any).check = async () => ({ allowed: true, retryAfterSeconds: 0 });
+    (emailService as any).sendPasswordResetEmail = async () => ({ success: true });
+
     // ----------------------------------------------------------------------
     // TEST 1: Valid, unexpired token succeeds
     // ----------------------------------------------------------------------
@@ -541,6 +554,14 @@ async function runTests() {
       auditLog: originalAuditLog,
       $transaction: originalTx,
     });
+    (rateLimiter as any).check = originalRateCheck;
+    (emailService as any).sendPasswordResetEmail = originalSendResetEmail;
+    if (originalSmtpUser === undefined) delete process.env.SMTP_USER;
+    else process.env.SMTP_USER = originalSmtpUser;
+    if (originalSmtpPass === undefined) delete process.env.SMTP_PASS;
+    else process.env.SMTP_PASS = originalSmtpPass;
+    if (originalResendApiKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalResendApiKey;
   }
 
   // ----------------------------------------------------------------------

@@ -1,58 +1,11 @@
 import { PrismaClient, Role, InvitationStatus } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import readline from "readline";
 import { sendTeamInvitationEmail } from "../src/lib/server/email/email-service";
 import { evaluateStandbySafety } from "../src/lib/server/email/standby-guard";
 
 const prisma = new PrismaClient();
-const SALT_ROUNDS = 12;
 
 export const INTENDED_OWNER_EMAIL = "us7907us@gmail.com";
-
-function askPassword(promptText: string): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    if (process.stdin.isTTY) {
-      process.stdout.write(promptText);
-      let input = "";
-      process.stdin.setRawMode?.(true);
-      process.stdin.resume();
-
-      const onData = (charBuffer: Buffer) => {
-        const char = charBuffer.toString();
-        if (char === "\n" || char === "\r" || char === "\u0004") {
-          process.stdin.setRawMode?.(false);
-          process.stdin.removeListener("data", onData);
-          process.stdout.write("\n");
-          rl.close();
-          resolve(input.trim());
-        } else if (char === "\u0008" || char === "\x7f") {
-          if (input.length > 0) {
-            input = input.slice(0, -1);
-          }
-          process.stdout.write("\b \b");
-        } else if (char === "\u0003") {
-          process.exit(1);
-        } else {
-          input += char;
-          process.stdout.write("*");
-        }
-      };
-
-      process.stdin.on("data", onData);
-    } else {
-      rl.question(promptText, (ans) => {
-        rl.close();
-        resolve(ans.trim());
-      });
-    }
-  });
-}
 
 async function main() {
   console.log("==================================================================");
@@ -237,94 +190,8 @@ async function main() {
     process.exit(0);
   }
 
-  // CLI Direct Password Setup Mode
-  console.log("\nMode: Direct Terminal Password Setup (Zero-Cloud Intermediary)");
-  console.log("------------------------------------------------------------------");
-  console.log("Enter an independent application password for this account.");
-  console.log("NOTE: Never enter the user's Google/Gmail account password.");
-
-  if (!isExecute) {
-    console.log("\n🔒 DRY RUN: Verified prerequisites.");
-    console.log("Options:");
-    console.log("1. To generate a secure web onboarding link: run with `--invite --execute`");
-    console.log("2. To set password directly in terminal: run with `--execute`");
-    console.log(`\nCommand: npx ts-node -r tsconfig-paths/register scripts/bootstrap-owner.ts --execute\n`);
-    process.exit(0);
-  }
-
-  const password = await askPassword("Enter Application Password (min 8 chars): ");
-  if (password.length < 8) {
-    console.error("❌ Error: Password must be at least 8 characters long.");
-    process.exit(1);
-  }
-
-  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-
-  await prisma.$transaction(async (tx) => {
-    let user = await tx.user.findUnique({ where: { email: INTENDED_OWNER_EMAIL } });
-
-    if (user) {
-      user = await tx.user.update({
-        where: { id: user.id },
-        data: {
-          passwordHash,
-          isSuperAdmin: true,
-          active: true,
-        },
-      });
-      // Invalidate existing sessions
-      await tx.session.deleteMany({ where: { userId: user.id } });
-    } else {
-      user = await tx.user.create({
-        data: {
-          email: INTENDED_OWNER_EMAIL,
-          name: "Umang Sharma (Owner)",
-          passwordHash,
-          isSuperAdmin: true,
-          active: true,
-        },
-      });
-    }
-
-    // Upsert membership as FIRM_OWNER
-    await tx.membership.upsert({
-      where: {
-        tenantId_userId: {
-          tenantId: tenant.id,
-          userId: user.id,
-        },
-      },
-      update: {
-        role: Role.FIRM_OWNER,
-        status: "ACTIVE",
-      },
-      create: {
-        tenantId: tenant.id,
-        userId: user.id,
-        role: Role.FIRM_OWNER,
-        status: "ACTIVE",
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        userId: user.id,
-        tenantId: tenant.id,
-        action: "OWNER_BOOTSTRAP_CLI",
-        entityType: "USER",
-        entityId: user.id,
-      },
-    }).catch(() => null);
-  });
-
-  console.log("\n==================================================================");
-  console.log("✅ OWNER ACCOUNT CONFIGURED & VERIFIED SUCCESSFULLY");
-  console.log("==================================================================");
-  console.log(`Email: ${INTENDED_OWNER_EMAIL}`);
-  console.log(`Role: FIRM_OWNER & Superadmin`);
-  console.log(`Firm Organization: ${tenant.name}`);
-  console.log("Sign in at: /login");
-  console.log("==================================================================\n");
+  console.error("Direct superadmin password setup is retired. Use the reviewed one-time `auth:bootstrap` command.");
+  process.exitCode = 1;
 }
 
 main()

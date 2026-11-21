@@ -107,25 +107,25 @@ export class DistributedRateLimiter {
         enableOfflineQueue: false,
       });
 
-      client.on("error", (err: any) => {
+      client.on("error", () => {
         if (!this.connectionErrorLogged) {
-          console.error("[REDIS_RATE_LIMITER_ERROR] Redis connection error:", err.message);
+          console.error("[REDIS_RATE_LIMITER_ERROR] Redis connection error.");
           this.connectionErrorLogged = true;
         }
       });
 
       const connPromise = client.connect();
       this.connectionPromise = connPromise;
-      await connPromise.catch((connErr: any) => {
+      await connPromise.catch(() => {
         if (!this.connectionErrorLogged) {
-          console.error("[REDIS_RATE_LIMITER_CONNECT_ERROR] Failed to establish TCP connection:", connErr?.message || connErr);
+          console.error("[REDIS_RATE_LIMITER_CONNECT_ERROR] Failed to establish TCP connection.");
           this.connectionErrorLogged = true;
         }
       });
 
       this.redisClient = client;
-    } catch (err: any) {
-      console.error("[REDIS_RATE_LIMITER_INIT_ERROR]", err?.message || err);
+    } catch {
+      console.error("[REDIS_RATE_LIMITER_INIT_ERROR] Redis rate limiter initialization failed.");
       this.redisClient = null;
     } finally {
       this.isConnecting = false;
@@ -220,8 +220,8 @@ export class DistributedRateLimiter {
           retryAfterSeconds: 0,
           backend: "edge-redis",
         };
-      } catch (restErr: any) {
-        console.error(`[RATE_LIMIT_REST_ERROR] Key: ${key}, Error: ${restErr.message}`);
+      } catch {
+        console.error("[RATE_LIMIT_REST_ERROR] Distributed rate limiter request failed.");
         const failClosed = config.failClosed ?? (config === RATE_LIMIT_TIERS.AUTH);
         if (failClosed || process.env.NODE_ENV === "production") {
           console.error("[AUTH_SECURITY_ALERT] Distributed REST rate limiter unavailable. Fail-closed defense engaged.");
@@ -254,11 +254,18 @@ export class DistributedRateLimiter {
           lockoutSec.toString()
         ) as Promise<[number, number, number]>;
 
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Redis command timed out")), this.commandTimeoutMs)
-        );
+        let timeoutHandle: ReturnType<typeof setTimeout>;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error("Redis command timed out")), this.commandTimeoutMs);
+        });
 
-        const [allowedRaw, currentCount, ttl] = await Promise.race([resultPromise, timeoutPromise]);
+        let result: [number, number, number];
+        try {
+          result = await Promise.race([resultPromise, timeoutPromise]);
+        } finally {
+          clearTimeout(timeoutHandle!);
+        }
+        const [allowedRaw, currentCount, ttl] = result;
         const allowed = allowedRaw === 1;
         const retryAfterSeconds = allowed ? 0 : Math.max(1, ttl);
         const resetTime = Math.ceil(Date.now() / 1000) + ttl;
@@ -271,8 +278,8 @@ export class DistributedRateLimiter {
           retryAfterSeconds,
           backend: "redis",
         };
-      } catch (err: any) {
-        console.error(`[RATE_LIMIT_REDIS_ERROR] Key: ${key}, Error: ${err.message}`);
+      } catch {
+        console.error("[RATE_LIMIT_REDIS_ERROR] Distributed rate limiter command failed.");
 
         // Fail-Closed policy on sensitive endpoints in production
         const isTest = process.env.NODE_ENV === "test";

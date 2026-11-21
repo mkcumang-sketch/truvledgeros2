@@ -22,7 +22,12 @@
     "db:readiness:staging": "ts-node -r tsconfig-paths/register scripts/db-readiness.ts --enforce-staging",
     "db:inspect:readonly": "ts-node -r tsconfig-paths/register scripts/inspect-db-readonly.ts",
     "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts",
-    "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed.ts"
+    "seed:admin": "ts-node -r tsconfig-paths/register scripts/auth-bootstrap.ts",
+    "auth:bootstrap": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/auth-bootstrap.ts",
+    "auth:cleanup": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/auth-cleanup.ts",
+    "setup-admin": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/setup-admin.ts",
+    "bootstrap-owner": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/bootstrap-owner.ts",
+    "clean-production-db": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/clean-production-db.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

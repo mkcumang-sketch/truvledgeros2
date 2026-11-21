@@ -9,6 +9,7 @@
  *   npx ts-node -r tsconfig-paths/register scripts/test-sarvam-cloud-trigger.ts --mode=A
  *   npx ts-node -r tsconfig-paths/register scripts/test-sarvam-cloud-trigger.ts --mode=B
  *   $env:TEST_CALL_PHONE="+919555572070"; npx ts-node -r tsconfig-paths/register scripts/test-sarvam-cloud-trigger.ts
+ * Mode B requires TRUV_SESSION_TOKEN for an authenticated calling-manager session.
  */
 
 import * as dotenv from "dotenv";
@@ -107,7 +108,7 @@ async function runTest() {
   console.log(`  ${DIM}Invoice Number:${RESET}   ${config.invoiceNumber}`);
   console.log(`  ${DIM}Amount:${RESET}           ${config.amount}`);
   console.log(`  ${DIM}Sarvam Agent ID:${RESET}  ${sarvamAgentId || `${RED}Missing${RESET}`}`);
-  console.log(`  ${DIM}Sarvam API Key:${RESET}   ${sarvamApiKey ? `${sarvamApiKey.slice(0, 10)}...` : `${RED}Missing${RESET}`}`);
+  console.log(`  ${DIM}Sarvam API Key:${RESET}   ${sarvamApiKey ? `${GREEN}Configured${RESET}` : `${RED}Missing${RESET}`}`);
   if (config.mode === "B") {
     console.log(`  ${DIM}Target Endpoint:${RESET}  ${config.baseUrl}/api/voice/trigger`);
   }
@@ -195,6 +196,13 @@ async function runTest() {
     // -------------------------------------------------------------
     // MODE B: TRIGGER VIA CLOUD-SAFE API ROUTE
     // -------------------------------------------------------------
+    const sessionToken = process.env.TRUV_SESSION_TOKEN?.trim();
+    if (!sessionToken) {
+      console.error(`${RED}[ERROR] Set TRUV_SESSION_TOKEN to an authenticated calling-manager session.${RESET}`);
+      process.exitCode = 1;
+      return;
+    }
+
     const targetUrl = `${config.baseUrl}/api/voice/trigger`;
     console.log(`${YELLOW}>>> Launching Mode B: Calling Cloud Route ${targetUrl}...${RESET}`);
 
@@ -210,21 +218,13 @@ async function runTest() {
       caFirmName: variables.ca_firm_name,
     };
 
-    const secretKey =
-      process.env.INTERNAL_API_SECRET ||
-      process.env.CRON_SECRET ||
-      sarvamApiKey ||
-      process.env.ENCRYPTION_KEY ||
-      "";
-
     try {
       const startTime = Date.now();
       const res = await fetch(targetUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": secretKey,
-          ...(sarvamApiKey ? { "api-subscription-key": sarvamApiKey } : {}),
+          Cookie: `truv_session=${sessionToken}`,
         },
         body: JSON.stringify(payload),
       });

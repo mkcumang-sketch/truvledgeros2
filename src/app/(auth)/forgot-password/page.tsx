@@ -20,13 +20,17 @@ export default function ForgotPasswordPage() {
 
     const formData = new FormData(e.currentTarget);
 
-    const res = await requestPasswordResetAction(formData);
-
-    setLoading(false);
-    if ("error" in res && res.error) {
-      setError(res.error);
-    } else if ("message" in res && res.message) {
-      setMessage(res.message);
+    try {
+      const res = await requestPasswordResetAction(formData);
+      if ("error" in res && res.error) {
+        setError(res.error);
+      } else if ("message" in res && res.message) {
+        setMessage(res.message);
+      }
+    } catch {
+      setError("Password reset is temporarily unavailable. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 

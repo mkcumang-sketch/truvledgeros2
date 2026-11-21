@@ -15,7 +15,9 @@ export type Resource =
   | "settings"
   | "automations"
   | "audit_logs"
-  | "subscription";
+  | "subscription"
+  | "calling"
+  | "security";
 
 export type Action =
   | "view"
@@ -53,6 +55,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
     "automations:*",
     "audit_logs:view",
     "subscription:view",
+    "calling:*",
+    "security:*",
   ],
   PARTNER: [
     "dashboard:view",
@@ -75,6 +79,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
     "reports:*",
     "team:view",
     "audit_logs:view",
+    "calling:view",
+    "calling:create",
+    "calling:edit",
+    "security:view",
   ],
   MANAGER: [
     "dashboard:view",
@@ -95,6 +103,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
     "documents:edit",
     "reports:view",
     "team:view",
+    "calling:view",
+    "calling:create",
   ],
   EXECUTIVE: [
     "dashboard:view",
@@ -107,6 +117,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, string[]> = {
     "tasks:edit",
     "documents:view",
     "documents:create",
+    "calling:view",
   ],
   CLIENT: [
     "invoices:view",
@@ -207,6 +218,14 @@ export function canManageMemberRole(
   targetCurrentRole: Role,
   targetNewRole?: Role
 ): { allowed: boolean; reason?: string } {
+  // Only GODMODE_ADMIN can modify or assign GODMODE_ADMIN
+  if (targetCurrentRole === Role.GODMODE_ADMIN && actorRole !== Role.GODMODE_ADMIN) {
+    return { allowed: false, reason: "Only Platform Super Administrator can alter Godmode accounts." };
+  }
+  if (targetNewRole === Role.GODMODE_ADMIN && actorRole !== Role.GODMODE_ADMIN) {
+    return { allowed: false, reason: "Only Platform Super Administrator can grant Godmode privileges." };
+  }
+
   if (actorRole === Role.GODMODE_ADMIN || actorRole === Role.FIRM_OWNER) {
     return { allowed: true };
   }

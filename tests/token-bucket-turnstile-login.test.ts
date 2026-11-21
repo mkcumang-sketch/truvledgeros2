@@ -1,16 +1,6 @@
 import fs from "fs";
 import path from "path";
-import bcrypt from "bcryptjs";
-import { db } from "../src/lib/db";
-import { verifyTurnstileToken } from "../src/lib/server/security/turnstile";
-import {
-  upstashLoginLimiter,
-  create429RateLimitResponse,
-  LoginRateLimitResult,
-} from "../src/lib/server/security/upstash-rate-limiter";
-import { POST as loginRoutePost } from "../src/app/api/auth/login/route";
-import { seedAdmin, DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD } from "../scripts/seed";
-import { NextRequest } from "next/server";
+import type { LoginRateLimitResult } from "@/lib/server/security/upstash-rate-limiter";
 
 let passed = 0;
 let failed = 0;
@@ -30,10 +20,44 @@ async function runTestSuite() {
   console.log("TRUV LedgerOS — Token Bucket Rate Limiting & Turnstile Verification");
   console.log("==================================================================\n");
 
+  const envNames = [
+    "NODE_ENV",
+    "REDIS_URL",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "KV_REST_API_URL",
+    "KV_REST_API_TOKEN",
+    "TURNSTILE_SECRET_KEY",
+    "CLOUDFLARE_TURNSTILE_SECRET_KEY",
+    "ENFORCE_TURNSTILE",
+    "NEXT_PUBLIC_REQUIRE_TURNSTILE",
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+    "NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY",
+  ];
+  const originalEnv = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
+  const originalFetch = globalThis.fetch;
+  process.env.NODE_ENV = "test";
+  for (const name of envNames.slice(1)) delete process.env[name];
+
+  const [{ db }, { verifyTurnstileToken }, rateLimitModule, loginRouteModule] =
+    await Promise.all([
+      import("@/lib/db"),
+      import("@/lib/server/security/turnstile"),
+      import("@/lib/server/security/upstash-rate-limiter"),
+      import("@/app/api/auth/login/route"),
+    ]);
+  const { upstashLoginLimiter, create429RateLimitResponse } = rateLimitModule;
+  const loginRoutePost = loginRouteModule.POST;
+  const originalUser = db.user;
+  const originalAuditCreate = db.auditLog.create;
+  for (const name of envNames.slice(1)) process.env[name] = "";
+  (db as any).user = { findUnique: async () => null };
+  (db.auditLog as any).create = async () => ({});
+
   // -----------------------------------------------------------------------------
   // SECTION 1: Fix Authentication & Timeout Guardrails
   // -----------------------------------------------------------------------------
-  console.log(">>> [Section 1] Authentication & 10s Timeout Guardrails <<<");
+  console.log(">>> [Section 1] Authentication & 5s Timeout Guardrails <<<");
 
   // 1.1 Verify Login API Route exists
   const routePath = path.join(__dirname, "../src/app/api/auth/login/route.ts");
@@ -41,12 +65,12 @@ async function runTestSuite() {
 
   const routeSource = fs.readFileSync(routePath, "utf-8");
   assert(
-    routeSource.includes("AUTH_TIMEOUT_MS = 10000") || routeSource.includes("10000"),
-    "1.2 Explicit 10s timeout handler configured in login route"
+    routeSource.includes("AUTH_TIMEOUT_MS = 5000"),
+    "1.2 Explicit 5s authentication timeout configured in login route"
   );
   assert(
-    routeSource.includes('"Invalid credentials"'),
-    "1.3 Generic error responses return 'Invalid credentials' on timeout/invalid login"
+    routeSource.includes("Authentication is temporarily unavailable"),
+    "1.3 Authentication timeout returns a temporary service error"
   );
 
   // 1.4 Test Login API Route with invalid credentials returns 401 JSON
@@ -61,8 +85,16 @@ async function runTestSuite() {
   const invalidRes = await loginRoutePost(invalidReq);
   const invalidData = await invalidRes.json();
 
-  assert(invalidRes.status === 401, "1.4 Invalid credentials return HTTP 401 status");
-  assert(invalidData.error === "Invalid credentials", "1.5 Error message is exactly 'Invalid credentials'");
+  assert(
+    invalidRes.status === 401,
+    "1.4 Invalid credentials return HTTP 401 status",
+    `received ${invalidRes.status}`
+  );
+  assert(
+    invalidData.error === "Invalid credentials",
+    "1.5 Error message is exactly 'Invalid credentials'",
+    `received ${String(invalidData.error)}`
+  );
 
   // -----------------------------------------------------------------------------
   // SECTION 2: Upstash Redis Token-Bucket Limiting
@@ -72,16 +104,16 @@ async function runTestSuite() {
   const testIp = `192.0.2.${Math.floor(Math.random() * 200 + 10)}`;
   await upstashLoginLimiter.reset(testIp);
 
-  // 2.1 First 5 attempts within window
+  // 2.1 First 8 attempts within the 5-minute window
   let lastResult: LoginRateLimitResult | null = null;
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 8; i++) {
     lastResult = await upstashLoginLimiter.check(testIp);
-    assert(lastResult.allowed, `2.1.${i} Attempt ${i}/5 is allowed (remaining: ${lastResult.remaining})`);
+    assert(lastResult.allowed, `2.1.${i} Attempt ${i}/8 is allowed (remaining: ${lastResult.remaining})`);
   }
 
-  // 2.2 6th attempt blocked under 5 attempts / 15m window
+  // 2.2 9th attempt blocked under 8 attempts / 5-minute window
   const blockedResult = await upstashLoginLimiter.check(testIp);
-  assert(!blockedResult.allowed, "2.2 6th attempt is blocked by rate limiter");
+  assert(!blockedResult.allowed, "2.2 9th attempt is blocked by rate limiter");
   assert(blockedResult.retryAfterSeconds > 0, `2.3 Retry-after seconds reported (${blockedResult.retryAfterSeconds}s)`);
   assert(
     blockedResult.errorMessage.includes("Too many attempts. Please try again in"),
@@ -160,6 +192,10 @@ async function runTestSuite() {
   // Temporarily set a dummy secret key to test enforcement rejection
   const prevSecret = process.env.TURNSTILE_SECRET_KEY;
   process.env.TURNSTILE_SECRET_KEY = "0x4AAAAAAAK_dummy_secret_key";
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ success: false, "error-codes": ["invalid-input-response"] }), {
+      status: 200,
+    });
   try {
     const fakeTokenRes = await loginRoutePost(fakeTokenReq);
     assert(
@@ -167,43 +203,22 @@ async function runTestSuite() {
       "3.5 Invalid Turnstile token is rejected with HTTP 400 before DB credentials check"
     );
   } finally {
-    process.env.TURNSTILE_SECRET_KEY = prevSecret;
+    if (prevSecret === undefined) delete process.env.TURNSTILE_SECRET_KEY;
+    else process.env.TURNSTILE_SECRET_KEY = prevSecret;
+    globalThis.fetch = originalFetch;
   }
-
-  // -----------------------------------------------------------------------------
-  // SECTION 4: Self-Healing Admin Seed Check
-  // -----------------------------------------------------------------------------
-  console.log("\n>>> [Section 4] Self-Healing Admin Seed Check <<<");
-
-  // 4.1 Run seedAdmin
-  const seedResult = await seedAdmin();
-  assert(seedResult.admin !== null, "4.1 Fallback admin record generated/verified");
-  assert(seedResult.admin.email === DEFAULT_ADMIN_EMAIL, `4.2 Fallback admin email matches (${DEFAULT_ADMIN_EMAIL})`);
-  assert(seedResult.admin.active === true, "4.3 Fallback admin account is active");
-  assert(seedResult.admin.isSuperAdmin === true, "4.4 Fallback admin has isSuperAdmin flag set");
-
-  // 4.5 Verify password hash validity
-  const dbUser = await db.user.findUnique({
-    where: { email: DEFAULT_ADMIN_EMAIL },
-  });
-  assert(dbUser !== null && Boolean(dbUser.passwordHash), "4.5 Admin exists in DB with hashed password");
-
-  const passwordValid = await bcrypt.compare(DEFAULT_ADMIN_PASSWORD, dbUser?.passwordHash || "");
-  assert(passwordValid, `4.6 Default admin password '${DEFAULT_ADMIN_PASSWORD}' verifies successfully against hash`);
-
-  // 4.7 Verify membership in canonical tenant
-  const adminMembership = await db.membership.findFirst({
-    where: {
-      userId: dbUser?.id,
-      tenantId: seedResult.defaultTenant.id,
-      status: "ACTIVE",
-    },
-  });
-  assert(adminMembership !== null, "4.7 Fallback admin linked with ACTIVE membership to practice tenant");
 
   console.log("\n==================================================================");
   console.log(`Token Bucket & Turnstile Suite Results: ${passed} PASSED, ${failed} FAILED`);
   console.log("==================================================================\n");
+
+  (db as any).user = originalUser;
+  (db.auditLog as any).create = originalAuditCreate;
+  for (const name of envNames) {
+    const value = originalEnv[name];
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
 
   if (failed > 0) {
     process.exit(1);

@@ -4,7 +4,6 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { verifyPassword } from "./password";
 import { createSession, destroySession } from "./session";
-import { resetRateLimit } from "./rate-limit";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
@@ -36,38 +35,64 @@ import {
 } from "@/lib/server/security/upstash-rate-limiter";
 import { verifyTurnstileToken } from "@/lib/server/security/turnstile";
 
-const AUTH_TIMEOUT_MS = 10000;
+const AUTH_TIMEOUT_MS = 5000;
+const LOGIN_TEMPORARY_ERROR = "Authentication is temporarily unavailable. Please try again shortly.";
 
 export async function loginAction(formData: FormData) {
-  const email = (formData.get("email") as string)?.trim().toLowerCase();
-  const password = formData.get("password") as string;
-  const captchaToken = (formData.get("turnstileToken") || formData.get("cf-turnstile-response")) as string | null;
+  const email = formData.get("email");
+  const password = formData.get("password");
+  const captchaValue = formData.get("turnstileToken") || formData.get("cf-turnstile-response");
 
   const parsed = LoginSchema.safeParse({ email, password });
   if (!parsed.success) {
     return { error: "Invalid credentials" };
   }
+  const { email: normalizedEmail, password: validatedPassword } = parsed.data;
+  const turnstileToken = typeof captchaValue === "string" ? captchaValue : null;
 
-  // 1. Upstash Redis Token-Bucket Limiting (5 attempts / 15 mins)
-  const loginRateLimitKey = getPasswordResetRequestIp() + ":" + email;
-  const rateLimitResult = await upstashLoginLimiter.check(loginRateLimitKey);
+  // 1. Enforce independent IP and account limits before checking credentials.
+  const loginIp = getPasswordResetRequestIp();
+  let rateLimitResult;
+  try {
+    rateLimitResult = await upstashLoginLimiter.check(loginIp, normalizedEmail);
+  } catch {
+    return { error: LOGIN_TEMPORARY_ERROR };
+  }
   if (!rateLimitResult.allowed) {
+    if (rateLimitResult.serviceUnavailable) {
+      return { error: rateLimitResult.errorMessage || LOGIN_TEMPORARY_ERROR };
+    }
     return {
-      error: rateLimitResult.errorMessage,
+      error: rateLimitResult.errorMessage || LOGIN_TEMPORARY_ERROR,
       retryAfter: rateLimitResult.retryAfterSeconds,
       retryAfterMinutes: rateLimitResult.retryAfterMinutes,
     };
   }
 
   // 2. Cloudflare Turnstile Captcha: Verify before DB credentials check
-  // Development-safe bypass: only enforce verification if captcha token is provided and in production or test/staging with secret
-  const isProduction = process.env.NODE_ENV === "production";
   const hasTurnstileSecret = Boolean(
-    process.env.TURNSTILE_SECRET_KEY || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY
+    process.env.TURNSTILE_SECRET_KEY?.trim() || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY?.trim()
   );
+  const hasTurnstileSiteKey = Boolean(
+    process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY?.trim() ||
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()
+  );
+  const turnstileRequired =
+    hasTurnstileSecret ||
+    process.env.ENFORCE_TURNSTILE === "true" ||
+    process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true" ||
+    (process.env.NODE_ENV === "production" && hasTurnstileSiteKey);
 
-  if (captchaToken && (isProduction || hasTurnstileSecret)) {
-    const captchaResult = await verifyTurnstileToken(captchaToken);
+  if (turnstileRequired) {
+    if (!hasTurnstileSecret) {
+      return { error: "Captcha service temporarily unavailable. Please retry." };
+    }
+    let captchaResult;
+    try {
+      captchaResult = await verifyTurnstileToken(turnstileToken, getPasswordResetRequestIp());
+    } catch {
+      return { error: "Captcha service temporarily unavailable. Please retry." };
+    }
     if (!captchaResult.success) {
       return {
         error: captchaResult.error || "Captcha verification failed. Please try again.",
@@ -75,14 +100,19 @@ export async function loginAction(formData: FormData) {
     }
   }
 
-  // 3. 10s Timeout Guardrail on Database & Password Verification
-  const timeoutPromise = new Promise<{ isTimeout: true }>((resolve) =>
-    setTimeout(() => resolve({ isTimeout: true }), AUTH_TIMEOUT_MS)
-  );
+  // 3. Bound database lookup and password verification time.
+  let authenticationTimedOut = false;
+  let timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<{ isTimeout: true }>((resolve) => {
+    timeoutHandle = setTimeout(() => {
+      authenticationTimedOut = true;
+      resolve({ isTimeout: true });
+    }, AUTH_TIMEOUT_MS);
+  });
 
   const authExecutionPromise = (async () => {
-    const user = await (db.user as any).findUnique({
-      where: { email },
+    const user = await db.user.findUnique({
+      where: { email: normalizedEmail },
       include: {
         memberships: {
           include: { tenant: true },
@@ -90,51 +120,64 @@ export async function loginAction(formData: FormData) {
       },
     });
 
-    // Generic failure response prevents user enumeration
-    if (!user || !user.passwordHash || !user.active) {
+    if (authenticationTimedOut) {
       return { authenticated: false };
     }
 
-    const isValidPassword = await verifyPassword(password, user.passwordHash);
-    if (!isValidPassword) {
-      await db.auditLog.create({
-        data: {
-          userId: user.id,
-          action: "LOGIN_FAILED",
-          entityType: "USER",
-          entityId: user.id,
-        },
-      }).catch(() => null);
+    // Generic failure response prevents user enumeration
+    if (!user || !user.passwordHash || !user.active) {
+      return { authenticated: false, userId: user?.id };
+    }
 
-      return { authenticated: false };
+    const isValidPassword = await verifyPassword(validatedPassword, user.passwordHash);
+    if (!isValidPassword) {
+      return { authenticated: false, userId: user.id };
     }
 
     return { authenticated: true, user };
   })();
 
-  const authRace = await Promise.race([authExecutionPromise, timeoutPromise]);
+  let authRace;
+  try {
+    authRace = await Promise.race([authExecutionPromise, timeoutPromise]);
+  } catch {
+    console.error("[AUTH] Login credential verification failed.");
+    await recordLoginFailure();
+    return { error: LOGIN_TEMPORARY_ERROR };
+  } finally {
+    clearTimeout(timeoutHandle!);
+  }
 
   if ("isTimeout" in authRace) {
-    console.warn(`[AUTH_TIMEOUT_GUARD] loginAction timed out after ${AUTH_TIMEOUT_MS}ms for email: ${email}`);
-    return { error: "Invalid credentials" };
+    console.warn(`[AUTH_TIMEOUT_GUARD] loginAction timed out after ${AUTH_TIMEOUT_MS}ms.`);
+    await recordLoginFailure();
+    return { error: LOGIN_TEMPORARY_ERROR };
   }
 
   if (!authRace.authenticated || !authRace.user) {
+    await recordLoginFailure(authRace.userId);
     return { error: "Invalid credentials" };
   }
 
   const user = authRace.user;
 
-  await upstashLoginLimiter.reset(loginRateLimitKey);
-  resetRateLimit(`login:${email}`);
-
+  try {
+    await upstashLoginLimiter.reset(loginIp, normalizedEmail);
+  } catch {
+    console.warn("[AUTH] Login rate-limit counter could not be reset.");
+  }
   // Resolve primary tenant
   const activeMemberships = (user.memberships || []).filter(
     (m: any) => !m.status || m.status === "ACTIVE"
   );
   const defaultTenantId = activeMemberships[0]?.tenantId;
 
-  await createSession(user.id, defaultTenantId);
+  try {
+    await createSession(user.id, defaultTenantId);
+  } catch {
+    console.error("[AUTH] Login session creation failed.");
+    return { error: LOGIN_TEMPORARY_ERROR };
+  }
 
   await db.auditLog.create({
     data: {
@@ -154,6 +197,21 @@ export async function loginAction(formData: FormData) {
   redirect("/dashboard");
 }
 
+async function recordLoginFailure(userId?: string): Promise<void> {
+  try {
+    await db.auditLog.create({
+      data: {
+        userId: userId ?? null,
+        action: "LOGIN_FAILED",
+        entityType: "USER",
+        entityId: userId ?? null,
+      },
+    });
+  } catch {
+    console.warn("[AUTH] Failed-login audit event could not be recorded.");
+  }
+}
+
 export async function logoutAction() {
   await destroySession();
   redirect("/login");
@@ -168,6 +226,10 @@ function getPasswordResetRequestIp(): string {
   }
 }
 
+function hashRateLimitIdentifier(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
 const PASSWORD_RESET_GENERIC_RESPONSE = {
   success: true,
   message: "If an account matches that email address, password reset instructions will be sent shortly.",
@@ -176,99 +238,126 @@ const PASSWORD_RESET_GENERIC_RESPONSE = {
 export async function requestPasswordResetAction(
   input: FormData | { email: string } | string
 ) {
-  let email = "";
-  if (typeof input === "string") {
-    email = input.trim().toLowerCase();
-  } else if (input instanceof FormData || (input && typeof (input as any).get === "function")) {
-    email = ((input as FormData).get("email") as string)?.trim().toLowerCase() || "";
-  } else if (input && typeof (input as any).email === "string") {
-    email = (input as any).email.trim().toLowerCase();
-  }
-
-  const parsed = ForgotPasswordSchema.safeParse({ email });
-  if (!parsed.success) {
-    return { success: false, error: "Invalid email format" };
-  }
-
-  // Apply IP and email buckets before account lookup to prevent enumeration.
-  const clientIp = getPasswordResetRequestIp();
-  const [ipLimit, emailLimit] = await Promise.all([
-    clientIp === "unknown"
-      ? Promise.resolve({ allowed: true, retryAfterSeconds: 0 })
-      : rateLimiter.check("account:reset-ip:" + clientIp, RATE_LIMIT_TIERS.AUTH),
-    rateLimiter.check("account:reset:" + email, RATE_LIMIT_TIERS.AUTH),
-  ]);
-  if (!ipLimit.allowed || !emailLimit.allowed) {
-    return PASSWORD_RESET_GENERIC_RESPONSE;
-  }
-
-  const user = await db.user.findUnique({
-    where: { email },
-    include: {
-      memberships: {
-        include: { tenant: true },
-        take: 1,
-      },
-    },
-  });
-
-  // Do not disclose whether an account exists or is active.
-  if (!user || !user.active) {
-    return PASSWORD_RESET_GENERIC_RESPONSE;
-  }
-
-  // Generate a 256-bit token; only its SHA-256 digest is persisted.
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-  // Rotate outstanding reset links atomically. A newly issued link invalidates
-  // every older unused ledger token for this account.
   try {
-    await db.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: user.id },
-        data: {
-          resetToken: tokenHash,
-          resetTokenExpires: expiresAt,
+    let submittedEmail: unknown = input;
+    if (typeof input !== "string") {
+      const formLike = input as { get?: (key: string) => unknown; email?: unknown };
+      submittedEmail = typeof formLike.get === "function" ? formLike.get("email") : formLike.email;
+    }
+
+    const parsed = ForgotPasswordSchema.safeParse({ email: submittedEmail });
+    if (!parsed.success) {
+      return { success: false, error: "Invalid email format" };
+    }
+    const { email } = parsed.data;
+
+    // Apply IP and email buckets before account lookup to prevent enumeration.
+    const clientIp = getPasswordResetRequestIp();
+    let limits;
+    try {
+      limits = await Promise.all([
+        clientIp === "unknown"
+          ? Promise.resolve({ allowed: true, retryAfterSeconds: 0 })
+          : rateLimiter.check(`account:reset-ip:${hashRateLimitIdentifier(clientIp)}`, RATE_LIMIT_TIERS.AUTH),
+        rateLimiter.check(`account:reset:${hashRateLimitIdentifier(email)}`, RATE_LIMIT_TIERS.AUTH),
+      ]);
+    } catch {
+      console.error("[AUTH] Password reset rate-limit check failed.");
+      return PASSWORD_RESET_GENERIC_RESPONSE;
+    }
+    if (!limits[0].allowed || !limits[1].allowed) {
+      return PASSWORD_RESET_GENERIC_RESPONSE;
+    }
+
+    let user;
+    try {
+      user = await db.user.findUnique({
+        where: { email },
+        include: {
+          memberships: {
+            include: { tenant: true },
+            take: 1,
+          },
         },
       });
+    } catch {
+      console.error("[AUTH] Password reset account lookup failed.");
+      return PASSWORD_RESET_GENERIC_RESPONSE;
+    }
 
-      if ((tx as any).passwordResetToken) {
-        await (tx as any).passwordResetToken.updateMany({
-          where: { userId: user.id, usedAt: null },
-          data: { usedAt: new Date() },
+    // Do not disclose whether an account exists or is active.
+    if (!user || !user.active) {
+      return PASSWORD_RESET_GENERIC_RESPONSE;
+    }
+
+    // Generate a 256-bit token; only its SHA-256 digest is persisted.
+    let rawToken: string;
+    let tokenHash: string;
+    try {
+      rawToken = crypto.randomBytes(32).toString("hex");
+      tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    } catch {
+      console.error("[AUTH] Password reset token generation failed.");
+      return PASSWORD_RESET_GENERIC_RESPONSE;
+    }
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Rotate outstanding reset links atomically. A newly issued link invalidates
+    // every older unused ledger token for this account.
+    try {
+      await db.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            resetToken: tokenHash,
+            resetTokenExpires: expiresAt,
+          },
         });
-        await (tx as any).passwordResetToken.create({
-          data: { tokenHash, userId: user.id, expiresAt },
-        });
-      }
-    });
+        if ((tx as any).passwordResetToken) {
+          await (tx as any).passwordResetToken.updateMany({
+            where: { userId: user.id, usedAt: null },
+            data: { usedAt: new Date() },
+          });
+          await (tx as any).passwordResetToken.create({
+            data: { tokenHash, userId: user.id, expiresAt },
+          });
+        }
+      });
+    } catch {
+      console.error("[AUTH] Password reset token rotation failed; no reset email was sent.");
+      return PASSWORD_RESET_GENERIC_RESPONSE;
+    }
+
+    try {
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "PASSWORD_RESET_REQUESTED",
+          entityType: "USER",
+          entityId: user.id,
+        },
+      });
+    } catch {
+      console.warn("[AUTH] Password reset audit event could not be recorded.");
+    }
+
+    // The raw URL is delivered only through the configured email provider.
+    // It is never returned to the browser, including in standby mode or errors.
+    try {
+      await sendPasswordResetEmail({
+        to: email,
+        name: user.name || "Practitioner",
+        rawToken,
+      });
+    } catch {
+      console.error("[AUTH] Password reset email dispatch failed; public response remains generic.");
+    }
+
+    return PASSWORD_RESET_GENERIC_RESPONSE;
   } catch {
-    console.error("[AUTH] Password reset token rotation failed; no reset email was sent.");
+    console.error("[AUTH] Password reset request could not be processed.");
     return PASSWORD_RESET_GENERIC_RESPONSE;
   }
-
-  await db.auditLog.create({
-    data: {
-      userId: user.id,
-      action: "PASSWORD_RESET_REQUESTED",
-      entityType: "USER",
-      entityId: user.id,
-    },
-  }).catch(() => null);
-
-  // The raw URL is delivered only through the configured email provider.
-  // It is never returned to the browser, including in standby mode or errors.
-  await sendPasswordResetEmail({
-    to: email,
-    name: user.name || "Practitioner",
-    rawToken,
-  }).catch(() => {
-    console.error("[AUTH] Password reset email dispatch failed; public response remains generic.");
-  });
-
-  return PASSWORD_RESET_GENERIC_RESPONSE;
 }
 
 export async function resetPasswordAction(
@@ -311,10 +400,10 @@ export async function resetPasswordAction(
   // Rate limit both by token digest and trusted request IP.
   const resetAttemptIp = getPasswordResetRequestIp();
   const [rateLimitResult, ipAttemptLimit] = await Promise.all([
-    rateLimiter.check("account:reset-attempt:" + tokenHash, RATE_LIMIT_TIERS.AUTH),
+    rateLimiter.check(`account:reset-attempt:${hashRateLimitIdentifier(tokenHash)}`, RATE_LIMIT_TIERS.AUTH),
     resetAttemptIp === "unknown"
       ? Promise.resolve({ allowed: true, retryAfterSeconds: 0 })
-      : rateLimiter.check("account:reset-attempt-ip:" + resetAttemptIp, RATE_LIMIT_TIERS.AUTH),
+      : rateLimiter.check(`account:reset-attempt-ip:${hashRateLimitIdentifier(resetAttemptIp)}`, RATE_LIMIT_TIERS.AUTH),
   ]);
   if (!rateLimitResult.allowed || !ipAttemptLimit.allowed) {
     const blockedLimit = !rateLimitResult.allowed ? rateLimitResult : ipAttemptLimit;
@@ -353,8 +442,8 @@ export async function resetPasswordAction(
       if (!targetUser && resetRecord?.user) {
         targetUser = resetRecord.user;
       }
-    } catch (dbErr) {
-      console.error("[AUTH] PasswordResetToken table query error:", dbErr);
+    } catch {
+      console.error("[AUTH] Password reset token lookup failed.");
     }
   }
 
@@ -426,7 +515,7 @@ export async function resetPasswordAction(
     if (txErr?.message === "TOKEN_ALREADY_USED_OR_EXPIRED") {
       return { success: false, error: "Invalid or expired password reset link." };
     }
-    console.error("[AUTH] Password reset transaction failed:", txErr);
+    console.error("[AUTH] Password reset transaction failed.");
     return { success: false, error: "Failed to update password. Please try again." };
   }
 

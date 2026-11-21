@@ -11,6 +11,7 @@ import {
   Role,
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { canManageManualDispatch } from "@/lib/server/voice/authorization";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,7 @@ interface ManualDispatchPayload {
   channel: DispatchChannel;
   workflowReason: WorkflowReason;
   customNote?: string;
+  tenantId?: string;
 }
 
 /**
@@ -34,32 +36,13 @@ interface ManualDispatchPayload {
  */
 export async function POST(req: NextRequest) {
   try {
-    // 1. Session Context Authentication
+    // Manual dispatch is a tenant-scoped user operation, not a global machine-secret API.
     const session = await getSessionContext().catch(() => null);
-    const authHeader = req.headers.get("authorization") || "";
-    const apiKeyHeader = req.headers.get("x-api-key") || "";
-
-    const bearerToken = authHeader.startsWith("Bearer ")
-      ? authHeader.substring(7).trim()
-      : "";
-
-    const configuredSecret =
-      process.env.INTERNAL_API_SECRET ||
-      process.env.CRON_SECRET ||
-      process.env.SARVAM_API_KEY ||
-      process.env.ENCRYPTION_KEY;
-
-    const isApiKeyValid =
-      Boolean(configuredSecret) &&
-      (apiKeyHeader === configuredSecret || bearerToken === configuredSecret);
-
-    const isDev = process.env.NODE_ENV !== "production";
-
-    if (!session && !isApiKeyValid && !isDev) {
-      return NextResponse.json(
-        { error: "Unauthorized. Valid partner session required for manual dispatch." },
-        { status: 401 }
-      );
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canManageManualDispatch(session.membership?.role, session.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // 2. Parse & Validate Payload
@@ -78,17 +61,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Resolve Tenant Context & Partner Name
-    let tenantId =
-      session?.tenant?.id ||
-      session?.membership?.tenantId ||
-      (req.headers.get("x-tenant-id") as string);
-
+    const tenantId =
+      session.membership?.tenantId ||
+      session.tenant?.id ||
+      (session.user.isSuperAdmin && typeof body.tenantId === "string"
+        ? body.tenantId
+        : undefined);
     if (!tenantId) {
-      const activeTenant = await db.tenant.findFirst({
-        where: { active: true },
-        select: { id: true, name: true },
-      });
-      tenantId = activeTenant?.id || "default_tenant";
+      return NextResponse.json({ error: "Tenant context is required" }, { status: 400 });
     }
 
     const tenant = await db.tenant.findUnique({
@@ -104,12 +84,13 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+    if (!tenant || !tenant.active || tenant.isSuspended) {
+      return NextResponse.json({ error: "Tenant not found or unavailable" }, { status: 404 });
+    }
 
-    const firmName = tenant?.name || "TRUV Advisory & Tax Partners";
+    const firmName = tenant.name;
     const partnerName =
-      session?.user?.name ||
-      tenant?.memberships?.[0]?.user?.name ||
-      "Designated CA Partner";
+      session.user.name || tenant.memberships[0]?.user?.name || "Designated CA Partner";
 
     const baseUrl = getAppBaseUrl();
     const now = new Date();

@@ -42,6 +42,9 @@ import {
   createAuthorizedSupportNoteAction,
   togglePlatformFeatureFlagAction,
   resetPracticeDataAction,
+  toggleUserStatusAction,
+  revokeUserSessionsAction,
+  updateUserPrivilegeAction,
 } from "@/lib/server/actions/godmode-actions";
 import { FeatureFlagState } from "@/lib/server/feature-flags";
 
@@ -231,8 +234,14 @@ export function GodmodeClient({
   internalStaff,
 }: GodmodeClientProps) {
   const [activeTab, setActiveTab] = useState<
-    "overview" | "tenants" | "services" | "my-team" | "audit" | "config"
+    "overview" | "tenants" | "users" | "services" | "my-team" | "audit" | "config"
   >("overview");
+
+  const [usersList, setUsersList] = useState<PlatformUserSummary[]>(platformUsers);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState<"ALL" | "ACTIVE" | "SUSPENDED" | "SUPERADMIN">("ALL");
+  const [userActionFeedback, setUserActionFeedback] = useState<{ id: string; message: string; isError?: boolean } | null>(null);
+  const [isUserActionPending, startUserTransition] = useTransition();
 
   const [tenants, setTenants] = useState<TenantSummary[]>(initialTenants);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
@@ -318,6 +327,62 @@ export function GodmodeClient({
     dueDate: "",
   });
   const [taskMessage, setTaskMessage] = useState<string | null>(null);
+
+  const handleToggleUserStatus = (userId: string, currentActive: boolean) => {
+    const reason = window.prompt(
+      `Enter operational reason to ${currentActive ? "SUSPEND" : "ACTIVATE"} this user account:`,
+      currentActive ? "Administrative security review" : "Account restored by Super Admin"
+    );
+    if (!reason) return;
+
+    startUserTransition(async () => {
+      try {
+        const res = await toggleUserStatusAction({
+          userId,
+          suspend: currentActive,
+          reason,
+        });
+        if (res.success) {
+          setUsersList((prev) =>
+            prev.map((u) => (u.id === userId ? { ...u, active: !currentActive } : u))
+          );
+          setUserActionFeedback({
+            id: userId,
+            message: `User account ${currentActive ? "suspended (sessions terminated)" : "activated"} successfully.`,
+          });
+        } else {
+          setUserActionFeedback({ id: userId, message: res.error || "Action failed", isError: true });
+        }
+      } catch (err: any) {
+        setUserActionFeedback({ id: userId, message: err.message || "Network error", isError: true });
+      }
+    });
+  };
+
+  const handleRevokeUserSessions = (userId: string) => {
+    if (!window.confirm("Terminate all active sessions for this user across all devices immediately?")) {
+      return;
+    }
+
+    startUserTransition(async () => {
+      try {
+        const res = await revokeUserSessionsAction({
+          userId,
+          reason: "Emergency session revocation by Super Admin",
+        });
+        if (res.success) {
+          setUserActionFeedback({
+            id: userId,
+            message: `Terminated ${(res.data as any)?.sessionsTerminated ?? 0} active session(s).`,
+          });
+        } else {
+          setUserActionFeedback({ id: userId, message: res.error || "Revocation failed", isError: true });
+        }
+      } catch (err: any) {
+        setUserActionFeedback({ id: userId, message: err.message || "Network error", isError: true });
+      }
+    });
+  };
 
   // Support Note Form State
   const [supportNoteModalOpen, setSupportNoteModalOpen] = useState(false);
@@ -518,6 +583,7 @@ export function GodmodeClient({
         {[
           { key: "overview", label: "Platform Overview", icon: Activity, count: null },
           { key: "tenants", label: "Practice Firms", icon: Building2, count: tenants.length },
+          { key: "users", label: "Enterprise Users & Access", icon: Users, count: usersList.length },
           { key: "services", label: "Service Catalogue", icon: Layers, count: TRUVTECH_SERVICE_CATALOGUE.length },
           { key: "my-team", label: "TRUVTECH My Team", icon: Briefcase, count: TRUVTECH_INTERNAL_TEAM.length },
           { key: "audit", label: "Security & Audit Stream", icon: Shield, count: auditLogs.length },
@@ -813,6 +879,214 @@ export function GodmodeClient({
                     <tr>
                       <td colSpan={7} className="px-5 py-8 text-center text-xs text-[#64748B]">
                         No practice firms match the specified filter query.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB: ENTERPRISE USER ACCESS, ROLES & PRIVILEGES
+      ========================================================================== */}
+      {activeTab === "users" && (
+        <div className="space-y-4">
+          {/* Header & Controls */}
+          <div className="bg-white border border-[#E2E8F0] p-4 rounded-xl shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                  <Users className="h-4 w-4 text-[#2563EB]" />
+                  Enterprise User Management & Identity Control
+                </h2>
+                <p className="text-xs text-[#64748B] mt-0.5">
+                  Platform-wide directory of users, practice firm affiliations, role assignments, and active session controls.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-[#2563EB] bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+                  {usersList.length} Registered Accounts
+                </span>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="mt-4 flex flex-col sm:flex-row items-center gap-3">
+              <div className="relative flex-1 w-full">
+                <Search className="h-3.5 w-3.5 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search user by name, email, role, or practice firm..."
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[#0F172A] placeholder:text-[#94A3B8] focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#2563EB]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Filter className="h-3.5 w-3.5 text-[#64748B]" />
+                <select
+                  value={userStatusFilter}
+                  onChange={(e) => setUserStatusFilter(e.target.value as any)}
+                  className="px-2.5 py-1.5 text-xs bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[#0F172A] focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#2563EB]"
+                >
+                  <option value="ALL">All Accounts</option>
+                  <option value="ACTIVE">Active Only</option>
+                  <option value="SUSPENDED">Suspended Only</option>
+                  <option value="SUPERADMIN">Super Admins Only</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Feedback notification if any */}
+            {userActionFeedback && (
+              <div
+                className={`mt-3 p-2.5 rounded-lg text-xs flex items-center justify-between ${
+                  userActionFeedback.isError
+                    ? "bg-rose-50 border border-rose-200 text-rose-800"
+                    : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                }`}
+              >
+                <span>{userActionFeedback.message}</span>
+                <button
+                  onClick={() => setUserActionFeedback(null)}
+                  className="text-xs font-bold opacity-60 hover:opacity-100"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Users Table */}
+          <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-[#334155]">
+                <thead className="bg-[#F1F5F9] text-[11px] uppercase tracking-wider text-[#64748B] border-b border-[#E2E8F0]">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">User Identity</th>
+                    <th className="px-5 py-3 font-semibold">Privilege Tier</th>
+                    <th className="px-5 py-3 font-semibold">Practice Affiliation & Role</th>
+                    <th className="px-5 py-3 font-semibold">Account Status</th>
+                    <th className="px-5 py-3 font-semibold">Created</th>
+                    <th className="px-5 py-3 font-semibold text-right">Security Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2E8F0]">
+                  {usersList
+                    .filter((u) => {
+                      if (userStatusFilter === "ACTIVE" && !u.active) return false;
+                      if (userStatusFilter === "SUSPENDED" && u.active) return false;
+                      if (userStatusFilter === "SUPERADMIN" && !u.isSuperAdmin) return false;
+                      if (!userSearchTerm) return true;
+                      const q = userSearchTerm.toLowerCase();
+                      return (
+                        u.name.toLowerCase().includes(q) ||
+                        u.email.toLowerCase().includes(q) ||
+                        u.memberships.some(
+                          (m) =>
+                            m.tenantName.toLowerCase().includes(q) ||
+                            m.role.toLowerCase().includes(q)
+                        )
+                      );
+                    })
+                    .map((user) => (
+                      <tr key={user.id} className="hover:bg-slate-50/70 transition">
+                        <td className="px-5 py-3.5">
+                          <div className="font-semibold text-[#0F172A]">{user.name}</div>
+                          <div className="text-[11px] text-[#64748B]">{user.email}</div>
+                          {user.phone && (
+                            <div className="text-[10px] text-[#94A3B8]">{user.phone}</div>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {user.isSuperAdmin ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              <ShieldAlert className="h-3 w-3 text-amber-600" />
+                              Platform Super Admin
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700">
+                              Standard Tenant User
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {user.memberships.length > 0 ? (
+                            <div className="space-y-1">
+                              {user.memberships.map((m, idx) => (
+                                <div key={idx} className="flex items-center gap-1.5">
+                                  <span className="font-medium text-[#0F172A]">{m.tenantName}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-100 font-semibold">
+                                    {m.role}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-[#94A3B8] italic">
+                              No practice firm affiliation
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              user.active
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                user.active ? "bg-emerald-500" : "bg-rose-500"
+                              }`}
+                            />
+                            {user.active ? "Active" : "Suspended"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-[11px] text-[#64748B]">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-5 py-3.5 text-right space-x-2">
+                          <button
+                            onClick={() => handleRevokeUserSessions(user.id)}
+                            disabled={isUserActionPending}
+                            title="Terminate active sessions for this user"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition disabled:opacity-50"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Revoke Sessions
+                          </button>
+                          <button
+                            onClick={() => handleToggleUserStatus(user.id, user.active)}
+                            disabled={isUserActionPending}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition disabled:opacity-50 ${
+                              user.active
+                                ? "text-rose-700 hover:bg-rose-50 border border-rose-200"
+                                : "text-emerald-700 hover:bg-emerald-50 border border-emerald-200"
+                            }`}
+                          >
+                            {user.active ? (
+                              <>
+                                <Lock className="h-3 w-3" /> Suspend
+                              </>
+                            ) : (
+                              <>
+                                <Unlock className="h-3 w-3" /> Activate
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  {usersList.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-8 text-center text-xs text-[#64748B]">
+                        No user accounts found.
                       </td>
                     </tr>
                   )}

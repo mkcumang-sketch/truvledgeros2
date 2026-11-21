@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionContext } from "@/lib/auth/session";
+import { getTenantContextForApi } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import {
+  canManageCalling,
+  canViewCalling,
+} from "@/lib/server/voice/authorization";
 
 export const runtime = "nodejs";
 
@@ -9,11 +13,13 @@ export async function GET(
   { params }: { params: { campaignId: string } }
 ) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const tenantId = context.membership.tenantId;
+    if (!canViewCalling(context.membership?.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     try {
@@ -60,11 +66,13 @@ export async function PATCH(
   { params }: { params: { campaignId: string } }
 ) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const tenantId = context.membership.tenantId;
+    if (!canManageCalling(context.membership?.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));

@@ -40,8 +40,11 @@ export async function verifyTurnstileToken(
     };
   }
 
-  // Fast-path test token for local or test environments
-  if (secretKey === TEST_SECRET_KEY || token.startsWith("XXXX.DUMMY.TOKEN")) {
+  // Test fixtures must never act as a CAPTCHA bypass in local or deployed applications.
+  if (
+    process.env.NODE_ENV === "test" &&
+    (secretKey === TEST_SECRET_KEY || token.startsWith("XXXX.DUMMY.TOKEN"))
+  ) {
     return { success: true };
   }
 
@@ -84,8 +87,8 @@ export async function verifyTurnstileToken(
       success: false,
       error: "Captcha verification failed. Please try again.",
     };
-  } catch (err: any) {
-    console.error("[TURNSTILE_NETWORK_ERROR]", err?.message || err);
+  } catch {
+    console.error("[TURNSTILE_NETWORK_ERROR] Cloudflare verification request failed.");
     return {
       success: false,
       error: "Captcha service temporarily unreachable. Please retry.",

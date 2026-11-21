@@ -136,6 +136,14 @@ export function detectEnvironment(customDbUrl?: string, customDirectUrl?: string
       };
     }
 
+    if (host.endsWith(".proxy.rlwy.net")) {
+      return {
+        target: "PRODUCTION",
+        description: "Railway PostgreSQL public proxy",
+        isVerified: true,
+      };
+    }
+
     // 3. Supabase Provider (Strict Staging Identity)
     // A Supabase target is classified as STAGING only when its project reference matches SUPABASE_STAGING_PROJECT_REF.
     // Staging database name alone or STAGING_PROJECT_NAME is NOT a substitute.
@@ -354,6 +362,16 @@ async function main() {
     },
   });
 
+  if (!existingUser && isSuperAdminFlag) {
+    const existingSuperAdmin = await prisma.user.findFirst({
+      where: { isSuperAdmin: true },
+      select: { id: true },
+    });
+    if (existingSuperAdmin) {
+      throw new Error("A superadmin already exists. Use the reviewed recovery flow instead of creating another.");
+    }
+  }
+
   if (existingUser) {
     console.log(`\nℹ️ Account found in database:`);
     console.log(`  - User ID: ${existingUser.id}`);
@@ -370,7 +388,7 @@ async function main() {
     if (!isReset) {
       console.log("\n⚠️ Existing user account will NOT be overwritten without explicit authorization.");
       console.log("If you wish to update this administrator's password, run this command with `--reset`:");
-      console.log(`  npx ts-node -r tsconfig-paths/register scripts/setup-admin.ts --email=${email} --reset --execute`);
+      console.log("  Set ADMIN_EMAIL in your shell and rerun setup-admin.ts --reset --execute.");
       process.exit(0);
     }
 
@@ -428,12 +446,12 @@ async function main() {
   console.log(`Target: [${env.target}] Database`);
   if (existingUser) {
     console.log(`Action: PASSWORD_UPDATE & SESSION_REVOCATION`);
-    console.log(`User Email: ${email}`);
+    console.log("Target account: validated");
     console.log(`Bcrypt Salt Rounds: ${SALT_ROUNDS}`);
     console.log(`Active Sessions to Invalidate: (all current sessions for this user)`);
   } else {
     console.log(`Action: USER_CREATION & TENANT_MEMBERSHIP_LINK`);
-    console.log(`User Email: ${email}`);
+    console.log("Target account: validated");
     console.log(`Display Name: ${name}`);
     console.log(`Superadmin: ${isSuperAdminFlag}`);
     if (tenantIdToLink) {
@@ -446,7 +464,7 @@ async function main() {
   if (!isExecute) {
     console.log("\n🔒 DRY RUN COMPLETE. No database writes were performed.");
     console.log("To execute this change, rerun with the `--execute` flag:");
-    console.log(`  npx ts-node -r tsconfig-paths/register scripts/setup-admin.ts --email=${email} ${isReset ? "--reset " : ""}--execute\n`);
+    console.log(`  Set ADMIN_EMAIL in your shell and rerun setup-admin.ts ${isReset ? "--reset " : ""}--execute.\n`);
     process.exit(0);
   }
 
@@ -454,17 +472,23 @@ async function main() {
 
   if (existingUser) {
     await prisma.$transaction(async (tx) => {
-      // 1. Update password hash
+      // 1. Update password hash & permissions
       await tx.user.update({
         where: { id: existingUser.id },
         data: {
           passwordHash,
           active: true,
+          ...(isSuperAdminFlag ? { isSuperAdmin: true } : {}),
+          resetToken: null,
+          resetTokenExpires: null,
         },
       });
 
       // 2. Invalidate active sessions
       await tx.session.deleteMany({
+        where: { userId: existingUser.id },
+      });
+      await tx.passwordResetToken.deleteMany({
         where: { userId: existingUser.id },
       });
 
@@ -479,7 +503,7 @@ async function main() {
       }).catch(() => null);
     });
 
-    console.log(`\n✅ SUCCESS: Password updated securely for ${email}.`);
+    console.log("\n✅ SUCCESS: Password updated securely for the selected account.");
     console.log(`Existing sessions have been revoked.`);
   } else {
     await prisma.$transaction(async (tx) => {
@@ -515,7 +539,7 @@ async function main() {
       }).catch(() => null);
     });
 
-    console.log(`\n✅ SUCCESS: Created new administrator ${email}.`);
+    console.log("\n✅ SUCCESS: Created the selected administrator account.");
     if (tenantIdToLink) {
       console.log(`Linked to tenant "${selectedTenantName}" with role ${roleArg}.`);
     }
@@ -524,7 +548,7 @@ async function main() {
   console.log("\n==================================================================");
   console.log("LOGIN VERIFICATION PROCEDURE:");
   console.log("1. Open the application login page: /login");
-  console.log(`2. Enter Email: ${email}`);
+  console.log("2. Enter the administrator email selected for this operation.");
   console.log("3. Enter your configured password.");
   console.log("4. Expected Redirect:");
   if (isSuperAdminFlag && !tenantIdToLink && (!existingUser || existingUser.memberships.length === 0)) {

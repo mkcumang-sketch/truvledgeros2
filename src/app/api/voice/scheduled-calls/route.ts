@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionContext } from "@/lib/auth/session";
+import { getTenantContextForApi } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   rescheduleCall,
   updateScheduledCallStatus,
 } from "@/lib/server/voice/campaign-service";
 import { executeScheduledCallsSweep } from "@/lib/server/voice/scheduler";
+import {
+  canManageCalling,
+  canViewCalling,
+} from "@/lib/server/voice/authorization";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const tenantId = context.membership.tenantId;
+    if (!canViewCalling(context.membership?.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -52,11 +58,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const context = await getSessionContext();
-    const tenantId = context.membership?.tenantId || context.tenant?.id;
-
-    if (!tenantId || !context.user) {
+    const context = await getTenantContextForApi();
+    if (!context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const tenantId = context.membership.tenantId;
+    if (!canManageCalling(context.membership?.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -79,12 +87,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "TRIGGER_SWEEP") {
-      // Role check: Only authorized staff can manually trigger calls
-      const role = context.membership?.role;
-      if (role !== "FIRM_OWNER" && role !== "FIRM_ADMIN" && role !== "PARTNER" && role !== "GODMODE_ADMIN" && role !== "MANAGER") {
-        return NextResponse.json({ error: "Forbidden: Insufficient privileges to trigger calling sweep." }, { status: 403 });
-      }
-
       const sweepResult = await executeScheduledCallsSweep({
         tenantId,
         forceIgnoreWindow: body.forceIgnoreWindow ?? true,

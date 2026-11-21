@@ -11,6 +11,10 @@
 
 import * as dotenv from "dotenv";
 dotenv.config();
+process.env.SARVAM_API_KEY = "";
+process.env.VOICE_PROVIDER_API_KEY = "";
+process.env.SARVAM_AGENT_ID = "";
+process.env.VOICE_AGENT_ID = "";
 
 import {
   normalizeIndianPhoneNumber,
@@ -23,7 +27,14 @@ import {
 import { POST as triggerRouteHandler } from "@/app/api/voice/trigger/route";
 import { POST as webhookRouteHandler } from "@/app/api/webhooks/sarvam-voice/route";
 import { db } from "@/lib/db";
-import { CommunicationChannel, CommunicationDirection, TaskType, TaskStatus } from "@prisma/client";
+import { resolveCallingTenantId } from "@/lib/server/voice/authorization";
+import {
+  CommunicationChannel,
+  CommunicationDirection,
+  Role,
+  TaskType,
+  TaskStatus,
+} from "@prisma/client";
 import { NextRequest } from "next/server";
 
 // In-Memory Database Store to guarantee deterministic test execution
@@ -103,6 +114,7 @@ function setupDbMocks() {
     inMemoryStore.tasks.push(record);
     return record;
   };
+  (db.scheduledCall as any).findFirst = async () => null;
 }
 
 async function runTestSuite() {
@@ -265,48 +277,41 @@ async function runTestSuite() {
   // -------------------------------------------------------------
   console.log("\n[TEST GROUP 4] Cloud-Safe API Route Execution");
 
-  const secretKey =
-    process.env.INTERNAL_API_SECRET ||
-    process.env.SARVAM_API_KEY ||
-    process.env.CRON_SECRET ||
-    "";
-
-  const triggerReq = new NextRequest("http://localhost:3000/api/voice/trigger", {
+  const unauthenticatedTrigger = new NextRequest("http://localhost:3000/api/voice/trigger", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": secretKey,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       phone: "+919555572070",
       clientName: "Umang Sharma",
       amount: "18500",
       invoiceNumber: "INV-API-ROUTE-001",
-      tenantId: testTenantId,
     }),
   });
-
-  const triggerResponse = await triggerRouteHandler(triggerReq);
-  const triggerJson = await triggerResponse.json();
-
+  const unauthenticatedResponse = await triggerRouteHandler(unauthenticatedTrigger);
   assert(
-    triggerResponse.status === 200,
-    `Trigger API route returned HTTP 200 (Got ${triggerResponse.status})`
+    unauthenticatedResponse.status === 401,
+    "Trigger API rejects requests without an authenticated session"
   );
 
   assert(
-    typeof triggerJson.callSid === "string" && triggerJson.callSid.length > 0,
-    "Trigger API returned callSid"
-  );
-
-  assert(
-    typeof triggerJson.status === "string",
-    "Trigger API returned telephony status"
-  );
-
-  assert(
-    typeof triggerJson.communicationId === "string",
-    "Trigger API returned audit communicationId"
+    resolveCallingTenantId(
+      {
+        user: {
+          id: "partner-user",
+          email: "partner@example.test",
+          name: "Test Partner",
+          isSuperAdmin: false,
+        },
+        membership: {
+          id: "partner-membership",
+          tenantId: testTenantId,
+          role: Role.PARTNER,
+          status: "ACTIVE",
+        },
+      },
+      "attacker-tenant-override"
+    ) === testTenantId,
+    "Voice dispatch tenant scope is bound to the authenticated session"
   );
 
   // -------------------------------------------------------------

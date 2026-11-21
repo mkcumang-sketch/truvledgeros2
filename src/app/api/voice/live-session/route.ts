@@ -1,5 +1,7 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenant } from "@/lib/auth/session";
+import { getTenantContextForApi } from "@/lib/auth/session";
+import { canManageCalling } from "@/lib/server/voice/authorization";
 import {
   generateInitialCallScript,
   generateTurnResponse,
@@ -39,7 +41,13 @@ const activeSessions: Record<
 
 export async function POST(req: NextRequest) {
   try {
-    const context = await requireTenant();
+    const context = await getTenantContextForApi();
+    if (!context) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!canManageCalling(context.membership.role, context.user.isSuperAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const tenantId = context.membership.tenantId;
     const body = await req.json();
     const action = body.action || "start";
@@ -48,7 +56,40 @@ export async function POST(req: NextRequest) {
     // ACTION: START SESSION
     // -------------------------------------------------------------
     if (action === "start") {
-      const sessionId = `live_call_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      if (
+        (body.clientId !== undefined && typeof body.clientId !== "string") ||
+        (body.invoiceId !== undefined && typeof body.invoiceId !== "string")
+      ) {
+        return NextResponse.json(
+          { error: "clientId and invoiceId must be strings" },
+          { status: 400 }
+        );
+      }
+
+      if (body.clientId) {
+        const client = await db.client.findFirst({
+          where: { id: body.clientId, tenantId },
+          select: { id: true },
+        });
+        if (!client) {
+          return NextResponse.json({ error: "Client not found in tenant" }, { status: 404 });
+        }
+      }
+      if (body.invoiceId) {
+        const invoice = await db.invoice.findFirst({
+          where: {
+            id: body.invoiceId,
+            tenantId,
+            ...(body.clientId ? { clientId: body.clientId } : {}),
+          },
+          select: { id: true },
+        });
+        if (!invoice) {
+          return NextResponse.json({ error: "Invoice not found in tenant" }, { status: 404 });
+        }
+      }
+
+      const sessionId = `live_call_${randomUUID()}`;
       const persona = getAgentPersona(body.personaId);
       const clientName = body.clientName?.trim() || "Valued Client";
       const direction = body.direction === "INBOUND" ? "INBOUND" : "OUTBOUND";
@@ -107,6 +148,9 @@ export async function POST(req: NextRequest) {
       const sessionId = body.sessionId;
       const clientUtterance = body.clientUtterance?.trim();
 
+      if (typeof sessionId !== "string" || !sessionId) {
+        return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+      }
       if (!clientUtterance) {
         return NextResponse.json(
           { error: "Client utterance is required for turn generation." },
@@ -115,6 +159,9 @@ export async function POST(req: NextRequest) {
       }
 
       const session = activeSessions[sessionId];
+      if (!session || session.tenantId !== tenantId) {
+        return NextResponse.json({ error: "Live session not found" }, { status: 404 });
+      }
       const persona = getAgentPersona(body.personaId || session?.personaId);
       const clientName = body.clientName || session?.clientName || "Client";
 
@@ -136,7 +183,7 @@ export async function POST(req: NextRequest) {
         invoiceNumber: body.invoiceNumber,
         amount: body.amount,
         dueDate: body.dueDate,
-        history: (body.history || session?.history || []).slice(-6),
+        history: session.history.slice(-6),
         clientUtterance,
         ollamaModel: body.ollamaModel || session?.ollamaModel,
         customOllamaHost: body.customOllamaHost || session?.customOllamaHost,
@@ -165,12 +212,18 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------
     if (action === "end") {
       const sessionId = body.sessionId;
+      if (typeof sessionId !== "string" || !sessionId) {
+        return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+      }
       const session = activeSessions[sessionId];
-      const clientName = body.clientName || session?.clientName || "Client";
+      if (!session || session.tenantId !== tenantId) {
+        return NextResponse.json({ error: "Live session not found" }, { status: 404 });
+      }
+      const clientName = session.clientName;
       const durationSeconds = typeof body.durationSeconds === "number" ? body.durationSeconds : 30;
 
       // Compile full transcript
-      const history = body.history || session?.history || [];
+      const history = session.history;
       const fullTranscript = history
         .map((h: any) => `${h.speaker === "agent" ? "Agent" : clientName}: ${h.text}`)
         .join("\n");
@@ -180,12 +233,12 @@ export async function POST(req: NextRequest) {
         clientName,
         transcript: fullTranscript,
         durationSeconds,
-        reason: body.reason || session?.reason || "PAYMENT_RECOVERY",
+        reason: session.reason,
       });
 
       const auditContent = `[BROWSER AI LIVE VOICE SESSION]
-Direction: ${session?.direction || body.direction || "OUTBOUND"}
-Agent Persona: ${session?.personaId || body.personaId || "PRIYA"}
+Direction: ${session.direction}
+Agent Persona: ${session.personaId}
 Duration: ${durationSeconds} seconds
 [CLIENT SENTIMENT]: ${analysis.sentiment}
 [DISPOSITION]: ${analysis.disposition}
@@ -201,12 +254,12 @@ ${fullTranscript || "Live interactive audio session completed via Web Audio Stud
         const commRecord = await db.communication.create({
           data: {
             tenantId,
-            clientId: body.clientId || session?.clientId,
-            invoiceId: body.invoiceId || session?.invoiceId,
+            clientId: session.clientId,
+            invoiceId: session.invoiceId,
             channel: CommunicationChannel.VOICE,
-            direction: session?.direction === "INBOUND" ? CommunicationDirection.INBOUND : CommunicationDirection.OUTBOUND,
+            direction: session.direction === "INBOUND" ? CommunicationDirection.INBOUND : CommunicationDirection.OUTBOUND,
             status: CommunicationStatus.ANSWERED,
-            purpose: body.reason || session?.reason || "PAYMENT_RECOVERY",
+            purpose: session.reason,
             recipient: body.recipientPhone || "BROWSER_LIVE_STUDIO",
             subject: `AI Voice Call: ${clientName} (${analysis.disposition})`,
             content: auditContent,
@@ -222,7 +275,7 @@ ${fullTranscript || "Live interactive audio session completed via Web Audio Stud
           await db.task.create({
             data: {
               tenantId,
-              clientId: body.clientId || session?.clientId,
+              clientId: session.clientId,
               title: `[CALL ESCALATION] ${analysis.disposition} — ${clientName}`,
               detail: `${analysis.summary}\n\nCall Duration: ${durationSeconds}s\nAudit Reference: ${communicationId}`,
               type: TaskType.PAYMENT_ESCALATION,
