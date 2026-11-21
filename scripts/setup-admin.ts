@@ -329,7 +329,8 @@ async function main() {
   const tenantSlugArg = args.find((a) => a.startsWith("--tenant="))?.split("=")[1] || process.env.TENANT_SLUG;
   const roleArg = (args.find((a) => a.startsWith("--role="))?.split("=")[1]?.toUpperCase() as Role) || Role.FIRM_ADMIN;
 
-  if (env.target === "PRODUCTION" && isExecute) {
+  const isConfirmedProd = args.includes("--confirm-production") || process.env.CONFIRM_PRODUCTION === "CONFIRM_PRODUCTION";
+  if (env.target === "PRODUCTION" && isExecute && !isConfirmedProd) {
     console.warn("\n⚠️ CAUTION: TARGETING PRODUCTION DATABASE ENVIRONMENT.");
     const confirm = await askQuestion("Type 'CONFIRM_PRODUCTION' to proceed with production admin setup: ");
     if (confirm !== "CONFIRM_PRODUCTION") {

@@ -56,20 +56,24 @@ export async function createSession(
     },
   });
 
-  const cookieStore = cookies();
-  const existingToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (existingToken) {
-    // Session rotation on login: invalidate previous session
-    await (db as any).session.deleteMany({ where: { sessionToken: existingToken } }).catch(() => null);
-  }
+  try {
+    const cookieStore = cookies();
+    const existingToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (existingToken) {
+      // Session rotation on login: invalidate previous session
+      await (db as any).session.deleteMany({ where: { sessionToken: existingToken } }).catch(() => null);
+    }
 
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true",
-    sameSite: "lax",
-    path: "/",
-    expires: expiresAt,
-  });
+    cookieStore.set(SESSION_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true",
+      sameSite: "lax",
+      path: "/",
+      expires: expiresAt,
+    });
+  } catch {
+    // Non-HTTP / CLI / Background test execution context
+  }
 
   return token;
 }
@@ -110,11 +114,13 @@ export async function destroySession(): Promise<void> {
 
 export async function getSessionContext(explicitToken?: string): Promise<SessionContext | null> {
   let token: string | undefined = explicitToken;
-  try {
-    const cookieStore = cookies();
-    token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  } catch {
-    return null;
+  if (!token) {
+    try {
+      const cookieStore = cookies();
+      token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    } catch {
+      return null;
+    }
   }
 
   if (!token) return null;

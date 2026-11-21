@@ -26,12 +26,12 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
 
   const configuredSiteKey =
     process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY ||
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const hasValidTurnstileKey =
-    Boolean(configuredSiteKey) && configuredSiteKey !== "1x00000000000000000000AA";
+  const hasValidTurnstileKey = Boolean(configuredSiteKey);
 
   const requireTurnstile =
     hasValidTurnstileKey || process.env.NEXT_PUBLIC_REQUIRE_TURNSTILE === "true";
@@ -218,13 +218,29 @@ function LoginForm() {
 
         {/* Cloudflare Turnstile Captcha Widget */}
         {requireTurnstile && Boolean(TURNSTILE_SITE_KEY) && (
-          <div className="pt-2 pb-1 flex justify-center">
-            <Turnstile
-              siteKey={TURNSTILE_SITE_KEY}
-              onSuccess={(token) => setTurnstileToken(token)}
-              onError={() => setTurnstileToken(null)}
-              onExpire={() => setTurnstileToken(null)}
-            />
+          <div className="pt-2 pb-1 space-y-2">
+            <div className="flex justify-center">
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={(token) => {
+                  setTurnstileToken(token);
+                  setTurnstileError(null);
+                }}
+                onError={(errCode) => {
+                  setTurnstileToken(null);
+                  setTurnstileError(
+                    `Security challenge could not connect (${errCode || "unreachable"}). Ensure this hostname is added to Cloudflare Turnstile's Allowed Domains.`
+                  );
+                }}
+                onExpire={() => setTurnstileToken(null)}
+              />
+            </div>
+            {turnstileError && (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs text-left">
+                <span className="font-semibold block">Captcha Challenge Connection Notice:</span>
+                {turnstileError}
+              </div>
+            )}
           </div>
         )}
 

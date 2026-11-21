@@ -121,10 +121,14 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
         host: smtpHost,
         port: smtpPort,
         secure: isSecure,
+        ...(smtpPort === 587 ? { requireTLS: true } : {}),
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
       });
 
       // Verify transporter credentials before dispatching if verify method exists
@@ -216,8 +220,9 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
       }
 
       if (!response.ok) {
-        console.error(`[RESEND-API-ERROR] Resend returned HTTP ${response.status}.`);
-        throw new Error(`Resend API Error (HTTP ${response.status}).`);
+        const errorDetail = data?.message || data?.error || `HTTP ${response.status}`;
+        console.error(`[RESEND-API-ERROR] Resend returned HTTP ${response.status}: ${errorDetail}`);
+        throw new Error(`Resend API Error (HTTP ${response.status}): ${errorDetail}`);
       }
 
       const messageId = data.id || `resend_${Date.now()}`;
