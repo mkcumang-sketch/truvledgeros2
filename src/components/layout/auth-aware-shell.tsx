@@ -9,7 +9,6 @@ export function AuthAwareShell({ children }: { children: React.ReactNode }) {
 
   const isAuthRoute =
     pathname?.startsWith("/login") ||
-    pathname?.startsWith("/register") ||
     pathname?.startsWith("/forgot-password") ||
     pathname?.startsWith("/reset-password") ||
     pathname?.startsWith("/accept-invite");

@@ -48,12 +48,6 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
           >
             Sign In
           </Link>
-          <Link
-            href="/register"
-            className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-orange-600 tracking-wider uppercase transition-colors border border-slate-300 rounded-lg bg-white hover:bg-slate-50"
-          >
-            Register
-          </Link>
           {onOpenEnquiry ? (
             <button
               onClick={onOpenEnquiry}
@@ -114,13 +108,6 @@ export function PublicNavbar({ onOpenEnquiry }: PublicNavbarProps) {
               className="w-full text-center py-2.5 rounded-lg border border-slate-300 text-xs font-bold uppercase tracking-wider text-slate-700 bg-white"
             >
               Sign In to Workspace
-            </Link>
-            <Link
-              href="/register"
-              onClick={() => setIsMobileOpen(false)}
-              className="w-full text-center py-2.5 rounded-lg border border-orange-500 text-xs font-bold uppercase tracking-wider text-orange-700 bg-orange-50"
-            >
-              Register New Practice
             </Link>
             <button
               onClick={() => {

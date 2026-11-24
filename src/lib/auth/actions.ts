@@ -189,12 +189,19 @@ export async function loginAction(formData: FormData) {
     },
   }).catch(() => null);
 
-  // If superadmin has no specific practice tenant membership, route to Godmode console
-  if (user.isSuperAdmin && !defaultTenantId) {
-    redirect("/godmode");
-  }
+  // Resolve destination route: Super Admin without specific practice tenant membership routes to Godmode console
+  const redirectUrl = user.isSuperAdmin && !defaultTenantId ? "/godmode" : "/dashboard";
 
-  redirect("/dashboard");
+  return {
+    success: true,
+    redirectUrl,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isSuperAdmin: user.isSuperAdmin,
+    },
+  };
 }
 
 async function recordLoginFailure(userId?: string): Promise<void> {

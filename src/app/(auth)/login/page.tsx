@@ -93,8 +93,17 @@ function LoginForm() {
         if (res.retryAfter && typeof res.retryAfter === "number") {
           setLockoutSeconds(res.retryAfter);
         }
+      } else if (res?.success && res.redirectUrl) {
+        window.location.href = res.redirectUrl;
+        return;
       }
-    } catch {
+    } catch (err: any) {
+      if (err?.message === "NEXT_REDIRECT" || err?.digest?.startsWith("NEXT_REDIRECT")) {
+        const dest = err?.digest?.split(";")[2] || "/dashboard";
+        window.location.href = dest;
+        return;
+      }
+      console.error("[LOGIN_ACTION_ERROR]", err);
       setError("Authentication is temporarily unavailable. Please try again shortly.");
       setTurnstileToken(null);
     } finally {

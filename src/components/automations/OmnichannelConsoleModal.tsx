@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useTransition } from "react";
 import {
   X,
+  Phone,
   PhoneCall,
   MessageSquare,
   Mail,
@@ -366,10 +367,12 @@ export function OmnichannelConsoleModal({
                   </div>
                   <div className="flex items-center gap-3 text-slate-500 text-[11px]">
                     <span className="flex items-center gap-1 font-mono text-[#263238]">
-                      📞 {selectedClient.phone || "No phone"}
+                      <Phone className="w-3 h-3 text-slate-400" />
+                      <span>{selectedClient.phone || "No phone"}</span>
                     </span>
                     <span className="flex items-center gap-1 text-slate-500">
-                      ✉️ {selectedClient.email || "No email"}
+                      <Mail className="w-3 h-3 text-slate-400" />
+                      <span>{selectedClient.email || "No email"}</span>
                     </span>
                   </div>
                 </div>

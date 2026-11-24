@@ -139,7 +139,7 @@ export async function middleware(request: NextRequest) {
 
   // 1.5. Permanent Public Registration Block (redirect immediately to login)
   if (pathname === "/register" || pathname.startsWith("/register/")) {
-    const redirectUrl = new URL("/login?error=REGISTRATION_DISABLED", request.url);
+    const redirectUrl = new URL("/login", request.url);
     const redirectRes = NextResponse.redirect(redirectUrl);
     applySecurityHeaders(redirectRes);
     return redirectRes;

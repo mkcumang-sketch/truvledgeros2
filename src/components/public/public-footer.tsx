@@ -103,8 +103,8 @@ export function PublicFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/register" className="hover:text-white transition-colors">
-                  Register Practice Firm
+                <Link href="/contact" className="hover:text-white transition-colors">
+                  Request Firm Access
                 </Link>
               </li>
               <li>
