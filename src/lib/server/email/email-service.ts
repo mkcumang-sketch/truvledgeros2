@@ -39,7 +39,7 @@ export interface EmailDeliveryResult {
   messageId?: string;
   detail?: string;
   error?: string;
-  provider?: "smtp" | "resend" | "standby";
+  provider?: "smtp" | "standby";
 }
 
 /**
@@ -103,14 +103,13 @@ export function wrapEmailTemplate(contentHtml: string, title: string): string {
 }
 
 /**
- * Direct Gmail SMTP / Resend / Standby Email Dispatcher
+ * Direct Nodemailer SMTP Email Dispatcher (SMTP Mail System Only)
  */
 export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryResult> {
   const smtpUser = process.env.SMTP_USER?.trim();
   const smtpPass = (process.env.SMTP_PASS || "").replace(/\s+/g, "");
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
 
-  // 1. Primary: Direct Gmail SMTP via Nodemailer
+  // 1. Primary: Direct SMTP via Nodemailer
   if (smtpUser && smtpPass) {
     try {
       const smtpHost = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
@@ -157,94 +156,24 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
         deliveryOutcome: "DELIVERED_TO_RECIPIENT",
         messageId,
         provider: "smtp",
-        detail: "Confirmed dispatched via direct Gmail SMTP.",
+        detail: "Confirmed dispatched via direct SMTP.",
       };
     } catch {
       console.error("[SMTP-DELIVERY-ERROR] SMTP delivery failed.");
-      // If Resend is not configured, fall through to standby or throw
-      if (!resendApiKey) {
-        console.log("[EMAIL-STANDBY] SMTP delivery failed and no fallback provider is configured.");
-        return {
-          success: true,
-          delivered: false,
-          status: "STANDBY_MODE",
-          deliveryOutcome: "SIMULATED_STANDBY",
-          messageId: `standby_${Date.now()}`,
-          provider: "standby",
-          detail: "SMTP delivery failed; no active fallback provider is configured.",
-        };
-      }
-      console.log("[EMAIL-SERVICE] Falling back from SMTP to Resend API gateway...");
-    }
-  }
-
-  // 2. Fallback: Resend API Gateway
-  if (resendApiKey) {
-    try {
-      // Enforce fallback sender: If no verified custom domain is configured, default to "TRUV Advisory <onboarding@resend.dev>"
-      let resendFrom = "TRUV Advisory <onboarding@resend.dev>";
-      const configuredFrom = process.env.EMAIL_FROM?.trim();
-
-      // If user configured a custom domain sender that is NOT a freemail domain (@gmail, @yahoo, etc.), use it
-      if (
-        configuredFrom &&
-        !configuredFrom.includes("@gmail.com") &&
-        !configuredFrom.includes("@yahoo.com") &&
-        !configuredFrom.includes("@outlook.com") &&
-        !configuredFrom.includes("@hotmail.com")
-      ) {
-        resendFrom = configuredFrom;
-      }
-
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: resendFrom,
-          to: [params.to],
-          subject: params.subject,
-          html: params.html,
-          text: params.text,
-        }),
-      });
-
-      const rawResponseText = await response.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(rawResponseText);
-      } catch {
-        data = { raw: rawResponseText };
-      }
-
-      if (!response.ok) {
-        const errorDetail = data?.message || data?.error || `HTTP ${response.status}`;
-        console.error(`[RESEND-API-ERROR] Resend returned HTTP ${response.status}: ${errorDetail}`);
-        throw new Error(`Resend API Error (HTTP ${response.status}): ${errorDetail}`);
-      }
-
-      const messageId = data.id || `resend_${Date.now()}`;
-      console.log(`[EMAIL-SERVICE] Transactional email dispatched via Resend (Message ID: ${messageId}).`);
-
       return {
         success: true,
-        delivered: true,
-        status: "SENT",
-        deliveryOutcome: "DELIVERED_TO_RECIPIENT",
-        messageId,
-        provider: "resend",
-        detail: "Confirmed dispatched to Resend mail gateway.",
+        delivered: false,
+        status: "STANDBY_MODE",
+        deliveryOutcome: "SIMULATED_STANDBY",
+        messageId: `standby_${Date.now()}`,
+        provider: "standby",
+        detail: "SMTP delivery failed; delivery logged in standby.",
       };
-    } catch {
-      console.error("[RESEND-SEND-EXCEPTION] Resend delivery failed.");
-      throw new Error("Email provider delivery failed.");
     }
   }
 
-  // 3. Fallback: Standby Mode (Neither SMTP nor Resend configured)
-  console.log("[EMAIL-STANDBY] No live email provider is configured; delivery was not attempted.");
+  // 2. Fallback: Standby Mode (SMTP credentials not configured)
+  console.log("[EMAIL-STANDBY] SMTP email provider is not configured; delivery was not attempted.");
   return {
     success: true,
     delivered: false,
@@ -252,7 +181,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailDeliveryR
     deliveryOutcome: "SIMULATED_STANDBY",
     messageId: `standby_${Date.now()}`,
     provider: "standby",
-    detail: "No active email provider configured; delivery intent simulated and logged to standby audit without live network transmission.",
+    detail: "SMTP credentials (SMTP_USER/SMTP_PASS) not configured; delivery simulated and logged to standby audit.",
   };
 }
 

@@ -166,21 +166,18 @@ export function validateEnvironment(customEnv?: Record<string, string | undefine
     missingRequired.push("CRON_SECRET (at least 32 characters for authenticated scheduled outbox dispatch)");
   }
 
-  // Check Email Provider Status (Direct Gmail SMTP / Resend)
+  // Check Email Provider Status (Direct SMTP Mail System)
   const smtpConfigured = !!(envToValidate.SMTP_USER?.trim() && envToValidate.SMTP_PASS?.trim());
-  const resendConfigured = !!envToValidate.RESEND_API_KEY?.trim();
-  if (isDeployedEnvironment && !smtpConfigured && !resendConfigured) {
-    missingRequired.push("SMTP_USER + SMTP_PASS or RESEND_API_KEY (password-reset and transactional email delivery)");
+  if (isDeployedEnvironment && !smtpConfigured) {
+    missingRequired.push("SMTP_USER + SMTP_PASS (password-reset and transactional email delivery via SMTP)");
   }
   providers.push({
-    name: "Transactional Email (SMTP / Resend)",
-    configured: smtpConfigured || resendConfigured,
-    mode: smtpConfigured ? "ACTIVE" : resendConfigured ? "ACTIVE" : "STANDBY",
+    name: "Transactional Email (SMTP)",
+    configured: smtpConfigured,
+    mode: smtpConfigured ? "ACTIVE" : "STANDBY",
     detail: smtpConfigured
       ? "Direct SMTP provider configured"
-      : resendConfigured
-      ? "Live Resend API key configured"
-      : "Standby only; no reset or invitation email is transmitted until a provider is configured.",
+      : "Standby only; no reset or invitation email is transmitted until SMTP is configured.",
   });
 
   // Check S3 Storage

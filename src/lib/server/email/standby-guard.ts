@@ -41,7 +41,7 @@ export function evaluateStandbySafety(options: {
   if (!isConfirmedSent) {
     const isStandby = options.emailResult?.status === "STANDBY_MODE";
     const errorMessage = isStandby
-      ? "Email provider is unconfigured (RESEND_API_KEY missing, service in STANDBY_MODE). No network transmission occurred."
+      ? "Email provider is unconfigured (SMTP_USER/SMTP_PASS missing, service in STANDBY_MODE). No network transmission occurred."
       : (options.emailResult?.error || "Provider transmission failed.");
 
     return {

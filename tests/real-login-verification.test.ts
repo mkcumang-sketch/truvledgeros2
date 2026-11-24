@@ -25,23 +25,47 @@ async function runRealLoginVerification() {
   console.log("==================================================================\n");
 
   const prisma = new PrismaClient();
-  const testAdminEmail = "us7081569@gmail.com";
+  const testAdminEmail = "audit-fixture-login@truvledgeros.test";
   const knownTestPass = "SuperSecureAuditPass2026!#Verified";
 
   try {
-    // -------------------------------------------------------------------------
-    // Set a known test password hash for this automated test cycle
-    // -------------------------------------------------------------------------
-    const testHash = await hashPassword(knownTestPass);
-    await prisma.user.update({
-      where: { email: testAdminEmail },
-      data: { passwordHash: testHash, active: true },
-    });
+    let fixtureTenant = await prisma.tenant.findFirst({ where: { slug: "audit-test-tenant" } });
+    if (!fixtureTenant) {
+      fixtureTenant = await prisma.tenant.create({
+        data: { name: "Audit Test Firm", slug: "audit-test-tenant", active: true },
+      });
+    }
 
-    const user = await prisma.user.findUnique({
+    const testHash = await hashPassword(knownTestPass);
+    let user = await prisma.user.findUnique({
       where: { email: testAdminEmail },
       include: { memberships: { include: { tenant: true } } },
     });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: testAdminEmail,
+          name: "Audit Fixture Admin",
+          passwordHash: testHash,
+          active: true,
+          isSuperAdmin: true,
+          memberships: {
+            create: {
+              tenantId: fixtureTenant.id,
+              role: Role.FIRM_OWNER,
+              status: "ACTIVE",
+            },
+          },
+        },
+        include: { memberships: { include: { tenant: true } } },
+      });
+    } else {
+      await prisma.user.update({
+        where: { email: testAdminEmail },
+        data: { passwordHash: testHash, active: true },
+      });
+    }
     const tenantId = user!.memberships[0]?.tenantId;
 
     // -------------------------------------------------------------------------

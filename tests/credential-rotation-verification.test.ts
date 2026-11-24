@@ -24,18 +24,43 @@ async function runRotationVerification() {
   console.log("==================================================================\n");
 
   const prisma = new PrismaClient();
-  const superAdminEmail = "us7081569@gmail.com";
-  const oldExposedPassword = "Truv-SuperAdmin-2026-D4xYFspK0j2b!";
+  const superAdminEmail = "audit-fixture-rotation@truvledgeros.test";
+  const oldExposedPassword = "Truv-OldTestPass-2026-D4xYFspK0j2b!";
 
   try {
-    // -------------------------------------------------------------------------
-    // STEP 1: Verify Initial Account State & Old Password Hash
-    // -------------------------------------------------------------------------
-    console.log(">>> [Step 1] Initial Account State & Active Sessions <<<");
-    const initialUser = await prisma.user.findUnique({
+    // Ensure isolated test fixture exists
+    let fixtureTenant = await prisma.tenant.findFirst({ where: { slug: "audit-test-tenant" } });
+    if (!fixtureTenant) {
+      fixtureTenant = await prisma.tenant.create({
+        data: { name: "Audit Test Firm", slug: "audit-test-tenant", active: true },
+      });
+    }
+
+    let initialUser = await prisma.user.findUnique({
       where: { email: superAdminEmail },
       include: { memberships: { include: { tenant: true } } },
     });
+
+    if (!initialUser) {
+      const oldHash = await bcrypt.hash(oldExposedPassword, 12);
+      initialUser = await prisma.user.create({
+        data: {
+          email: superAdminEmail,
+          name: "Audit Test Super Admin",
+          passwordHash: oldHash,
+          active: true,
+          isSuperAdmin: true,
+          memberships: {
+            create: {
+              tenantId: fixtureTenant.id,
+              role: Role.FIRM_OWNER,
+              status: "ACTIVE",
+            },
+          },
+        },
+        include: { memberships: { include: { tenant: true } } },
+      });
+    }
 
     assert(Boolean(initialUser), "1.1 Super Admin account exists in database");
     assert(initialUser?.isSuperAdmin === true, "1.2 Platform isSuperAdmin flag is true");

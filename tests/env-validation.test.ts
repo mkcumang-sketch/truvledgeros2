@@ -81,7 +81,8 @@ async function runEnvValidationTests() {
     DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/truv_staging",
     CRON_SECRET: "ci-staging-cron-secret-0123456789abcdef",
     REDIS_URL: "redis://localhost:6379",
-    RESEND_API_KEY: "re_mock_test_key_123",
+    SMTP_USER: "test.ca@firm.in",
+    SMTP_PASS: "abcd efgh ijkl mnop",
     AWS_ACCESS_KEY_ID: "AKIA_MOCK_KEY_ID_123",
     AWS_SECRET_ACCESS_KEY: "mock_secret_key_abc_456",
   });
@@ -102,7 +103,8 @@ async function runEnvValidationTests() {
     DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/truv_prod",
     CRON_SECRET: "prod-cron-secret-0123456789abcdef0123456789",
     REDIS_URL: "redis://localhost:6379",
-    RESEND_API_KEY: "re_mock_test_key_123",
+    SMTP_USER: "test.ca@firm.in",
+    SMTP_PASS: "abcd efgh ijkl mnop",
     AWS_ACCESS_KEY_ID: "AKIA_MOCK_KEY_ID_123",
     AWS_SECRET_ACCESS_KEY: "mock_secret_key_abc_456",
   });
@@ -121,7 +123,7 @@ async function runEnvValidationTests() {
   assert(!test6Missing.valid, "6.2 Production without Redis, S3 and email fails validation");
   assert(test6Missing.missingRequired.some((m) => m.includes("REDIS_URL")), "6.3 Production requires Redis for distributed auth rate limits");
   assert(test6Missing.missingRequired.some((m) => m.includes("AWS_ACCESS_KEY_ID")), "6.4 Production requires private persistent document storage");
-  assert(test6Missing.missingRequired.some((m) => m.includes("RESEND_API_KEY")), "6.5 Production requires a live transactional email provider");
+  assert(test6Missing.missingRequired.some((m) => m.includes("SMTP_USER")), "6.5 Production requires a live transactional email provider");
 
   // TEST 7: Zero secret leakage in sanitized summary
   const summary = getSanitizedConfigSummary();
